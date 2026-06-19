@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discord Tracker - Dashboard</title>
+  <style>
+    :root {
+      --bg: #1a1b26;
+      --surface: #24283b;
+      --text: #c0caf5;
+      --muted: #565f89;
+      --accent: #7aa2f7;
+      --green: #9ece6a;
+      --yellow: #e0af68;
+      --red: #f7768e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 1.5rem;
+    }
+    h1 { color: var(--accent); margin-bottom: 0.25rem; }
+    .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.9rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .card {
+      background: var(--surface);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      border: 1px solid #292e42;
+    }
+    .card h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+    .metric { font-size: 1.75rem; font-weight: 700; color: var(--green); }
+    .metric-label { font-size: 0.8rem; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid #292e42; }
+    th { color: var(--muted); font-weight: 600; }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-online { background: #1a2e1a; color: var(--green); }
+    .badge-idle { background: #2e2a1a; color: var(--yellow); }
+    .badge-dnd { background: #2e1a1a; color: var(--red); }
+    .badge-voice { background: #1a1a2e; color: var(--accent); }
+    .stats-row { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+    .stat-item { text-align: center; }
+    .stat-value { font-size: 1.25rem; font-weight: 700; }
+    .empty { color: var(--muted); font-style: italic; padding: 0.5rem 0; }
+    .header-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
+    .logout-btn { background: transparent; border: 1px solid #292e42; color: var(--muted); padding: 0.4rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+    .logout-btn:hover { color: var(--text); border-color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="header-row">
+    <div>
+      <h1>Discord Tracker</h1>
+      <p class="subtitle">Atualizado em <%= timestamp %> (<%= timezone %>)</p>
+    </div>
+    <form method="POST" action="/logout">
+      <button type="submit" class="logout-btn">Sair</button>
+    </form>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Tempo produtivo hoje</h2>
+      <div class="metric"><%= dailyReport.productiveHours %>h</div>
+      <div class="stats-row">
+        <div class="stat-item">
+          <div class="stat-value"><%= dailyReport.voiceHours %>h</div>
+          <div class="metric-label">Voz total</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value"><%= dailyReport.idleHours %>h</div>
+          <div class="metric-label">Idle</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value"><%= dailyReport.afkHours %>h</div>
+          <div class="metric-label">AFK</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value"><%= dailyReport.lunchHours %>h</div>
+          <div class="metric-label">Almoço</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Online agora (<%= onlineUsers.length %>)</h2>
+      <% if (onlineUsers.length === 0) { %>
+        <p class="empty">Nenhum usuário online</p>
+      <% } else { %>
+        <table>
+          <thead><tr><th>Usuário</th><th>Status</th></tr></thead>
+          <tbody>
+            <% onlineUsers.forEach(function(u) { %>
+              <tr>
+                <td><%= u.displayName %></td>
+                <td><span class="badge badge-<%= u.status === 'online' ? 'online' : u.status === 'idle' ? 'idle' : 'dnd' %>"><%= u.status %></span></td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+
+    <div class="card">
+      <h2>Em voz agora (<%= voiceUsers.length %>)</h2>
+      <% if (voiceUsers.length === 0) { %>
+        <p class="empty">Ninguém em canal de voz</p>
+      <% } else { %>
+        <table>
+          <thead><tr><th>Usuário</th><th>Canal</th></tr></thead>
+          <tbody>
+            <% voiceUsers.forEach(function(u) { %>
+              <tr>
+                <td><%= u.displayName %></td>
+                <td><span class="badge badge-voice"><%= u.channelName %></span></td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Ranking do dia</h2>
+      <% if (dailyRanking.length === 0) { %>
+        <p class="empty">Sem dados</p>
+      <% } else { %>
+        <table>
+          <thead><tr><th>#</th><th>Usuário</th><th>Produtivo</th></tr></thead>
+          <tbody>
+            <% dailyRanking.forEach(function(u, i) { %>
+              <tr>
+                <td><%= i + 1 %></td>
+                <td><%= u.displayName || u.username %></td>
+                <td><%= u.productiveHours %>h</td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+
+    <div class="card">
+      <h2>Ranking do mês</h2>
+      <% if (monthlyRanking.length === 0) { %>
+        <p class="empty">Sem dados</p>
+      <% } else { %>
+        <table>
+          <thead><tr><th>#</th><th>Usuário</th><th>Produtivo</th></tr></thead>
+          <tbody>
+            <% monthlyRanking.forEach(function(u, i) { %>
+              <tr>
+                <td><%= i + 1 %></td>
+                <td><%= u.displayName || u.username %></td>
+                <td><%= u.productiveHours %>h</td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Sessões de voz abertas (<%= openVoiceSessions.length %>)</h2>
+      <% if (openVoiceSessions.length === 0) { %>
+        <p class="empty">Nenhuma sessão aberta</p>
+      <% } else { %>
+        <table>
+          <thead><tr><th>Usuário</th><th>Canal</th><th>Tipo</th><th>Início</th></tr></thead>
+          <tbody>
+            <% openVoiceSessions.forEach(function(s) { %>
+              <tr>
+                <td><%= s.username %></td>
+                <td><%= s.channelName %></td>
+                <td><%= s.sessionType %></td>
+                <td><%= s.startedAt %></td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+
+    <div class="card">
+      <h2>Sessões de presença abertas (<%= openPresenceSessions.length %>)</h2>
+      <% if (openPresenceSessions.length === 0) { %>
+        <p class="empty">Nenhuma sessão aberta</p>
+      <% } else { %>
+        <table>
+          <thead><tr><th>Usuário</th><th>Status</th><th>Início</th></tr></thead>
+          <tbody>
+            <% openPresenceSessions.forEach(function(s) { %>
+              <tr>
+                <td><%= s.username %></td>
+                <td><%= s.status %></td>
+                <td><%= s.startedAt %></td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+  </div>
+</body>
+</html>
