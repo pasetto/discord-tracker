@@ -8,6 +8,7 @@ import { mapDiscordPresenceStatus } from './channelClassifier';
 import { PresenceStatus } from '../config/env';
 import { setActiveSessions } from '../metrics/prometheus';
 import { voiceSessionRepository } from '../repositories/voiceSessionRepository';
+import { guildService } from './guildService';
 
 const log = createLogger('presence');
 
@@ -66,6 +67,10 @@ export const presenceService = {
    * @param newPresence Nova presença
    */
   async handlePresenceUpdate(_oldPresence: Presence | null, newPresence: Presence): Promise<void> {
+    if (!guildService.isMonitoredGuild(newPresence.guild?.id)) {
+      return;
+    }
+
     if (!newPresence.user || newPresence.user.bot) {
       return;
     }

@@ -1,9 +1,9 @@
 import Router from '@koa/router';
-import { discordClient, checkDiscordHealth } from '../../bot/client';
+import { checkDiscordHealth } from '../../bot/client';
 import { userRepository } from '../../repositories/userRepository';
 import { voiceSessionRepository } from '../../repositories/voiceSessionRepository';
 import { presenceSessionRepository } from '../../repositories/presenceSessionRepository';
-
+import { guildService } from '../../services/guildService';
 /** Rotas de estatísticas em tempo real. */
 export const statsRouter = new Router();
 
@@ -21,7 +21,8 @@ statsRouter.get('/stats', async (ctx) => {
   let voiceUsers = 0;
 
   if (checkDiscordHealth()) {
-    for (const [, guild] of discordClient.guilds.cache) {
+    const guild = guildService.getTargetGuild();
+    if (guild) {
       onlineUsers += guild.presences.cache.filter(
         (p) => p.status !== 'offline' && p.status !== 'invisible' && !p.user?.bot,
       ).size;

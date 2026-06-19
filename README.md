@@ -62,7 +62,7 @@ npm start
 | Variável | Descrição | Obrigatório |
 |----------|-----------|-------------|
 | `DISCORD_TOKEN` | Token do bot Discord | Sim |
-| `DISCORD_GUILD_ID` | ID do servidor a monitorar | Recomendado |
+| `DISCORD_GUILD_ID` | ID do servidor a monitorar (opcional; pode ser escolhido no dashboard) | Não |
 | `MONGODB_URI` | URI de conexão MongoDB | Sim |
 | `PORT` | Porta HTTP (default: 3000) | Não |
 | `IGNORED_CHANNELS` | Canais ignorados (nomes ou IDs, separados por vírgula) | Não |

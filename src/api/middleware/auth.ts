@@ -9,7 +9,7 @@ const log = createLogger('auth');
 export const AUTH_COOKIE_NAME = 'tracker_api_key';
 
 /** Rotas públicas que não exigem autenticação. */
-export const PUBLIC_PATHS = new Set(['/health', '/health/details', '/login']);
+export const PUBLIC_PATHS = new Set(['/health', '/health/details', '/login', '/favicon.ico']);
 
 /**
  * Faz parse do header Cookie.
@@ -106,7 +106,12 @@ export async function authMiddleware(ctx: Context, next: Next): Promise<void> {
   const apiKey = extractApiKey(ctx);
 
   if (!isValidApiKey(apiKey)) {
-    log.warn({ path, ip: ctx.ip }, 'Tentativa de acesso não autorizado');
+    const isExpectedBrowserAccess =
+      path === '/' || path === '/favicon.ico' || path.endsWith('/favicon.ico');
+
+    if (!isExpectedBrowserAccess) {
+      log.warn({ path, ip: ctx.ip }, 'Tentativa de acesso não autorizado');
+    }
 
     if (path === '/' || ctx.accepts('html') === 'html') {
       ctx.redirect('/login');

@@ -8,6 +8,7 @@ import { classifyChannel } from './channelClassifier';
 import { VoiceEventType } from '../config/env';
 import { setActiveSessions } from '../metrics/prometheus';
 import { presenceSessionRepository } from '../repositories/presenceSessionRepository';
+import { guildService } from './guildService';
 
 const log = createLogger('voice');
 
@@ -117,6 +118,11 @@ export const voiceService = {
    * @param newState Novo estado
    */
   async handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceState): Promise<void> {
+    const guildId = newState.guild?.id ?? oldState.guild?.id;
+    if (!guildService.isMonitoredGuild(guildId)) {
+      return;
+    }
+
     if (newState.member?.user.bot) {
       return;
     }

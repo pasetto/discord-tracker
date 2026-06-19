@@ -28,12 +28,27 @@ export const discordClient = new Client({
 /** Indica se o bot está conectado e pronto. */
 export let isDiscordReady = false;
 
+const readyHandlers: Array<() => void | Promise<void>> = [];
+
+/**
+ * Registra callback executado após o bot ficar pronto.
+ * Se o bot já estiver pronto, executa imediatamente.
+ * @param handler Função de inicialização pós-ready
+ */
+export function registerDiscordReadyHandler(handler: () => void | Promise<void>): void {
+  readyHandlers.push(handler);
+
+  if (isDiscordReady && discordClient.isReady()) {
+    void Promise.resolve(handler());
+  }
+}
+
 /**
  * Conecta o bot ao Discord e aguarda evento ready.
  * @returns Promise resolvida quando o bot estiver pronto
  */
 export async function connectDiscord(): Promise<Client> {
-  discordClient.on('ready', () => {
+  discordClient.on('ready', async () => {
     isDiscordReady = true;
     setDiscordConnected(true);
     setDiscordPing(discordClient.ws.ping);
@@ -48,6 +63,14 @@ export async function connectDiscord(): Promise<Client> {
     }).catch(() => {});
 
     discordClient.user?.setActivity('Monitorando presença', { type: ActivityType.Watching });
+
+    for (const handler of readyHandlers) {
+      try {
+        await handler();
+      } catch (error) {
+        log.error({ err: error }, 'Erro em handler pós-ready');
+      }
+    }
   });
 
   discordClient.on('shardDisconnect', () => {
