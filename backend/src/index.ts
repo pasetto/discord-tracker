@@ -6,9 +6,11 @@ import { createLogger } from './logger';
 import { setDiscordPing } from './metrics/prometheus';
 import { config } from './config/env';
 import { startAbsenceStatusCron } from './workers/absenceStatusCron';
+import { startInactivityCron } from './workers/inactivityCron';
 
 const log = createLogger('main');
 let stopAbsenceStatusCron: (() => void) | undefined;
+let stopInactivityCron: (() => void) | undefined;
 
 /**
  * Inicia todos os subsistemas da aplicação.
@@ -25,6 +27,7 @@ async function bootstrap(): Promise<void> {
   }
   await startServer();
   stopAbsenceStatusCron = startAbsenceStatusCron();
+  stopInactivityCron = startInactivityCron();
 
   // Atualiza ping periodicamente
   setInterval(() => {
@@ -42,6 +45,7 @@ async function shutdown(signal: string): Promise<void> {
 
   try {
     stopAbsenceStatusCron?.();
+    stopInactivityCron?.();
     await disconnectDiscord();
     await disconnectMongo();
     process.exit(0);
