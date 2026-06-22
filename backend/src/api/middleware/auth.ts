@@ -5,11 +5,11 @@ import { createLogger } from '../../logger';
 
 const log = createLogger('auth');
 
-/** Nome do cookie que armazena a API key para o dashboard. */
-export const AUTH_COOKIE_NAME = 'tracker_api_key';
+/** Nome do cookie legado que ainda aceita API key em requisições. */
+const AUTH_COOKIE_NAME = 'tracker_api_key';
 
 /** Rotas públicas que não exigem autenticação. */
-export const PUBLIC_PATHS = new Set(['/health', '/health/details', '/login', '/favicon.ico']);
+export const PUBLIC_PATHS = new Set(['/health', '/health/details']);
 
 /**
  * Faz parse do header Cookie.
@@ -86,7 +86,7 @@ export function extractApiKey(ctx: Context): string | undefined {
 
 /**
  * Middleware de autenticação por API key.
- * Rotas em PUBLIC_PATHS e POST /login são liberadas.
+ * Rotas em PUBLIC_PATHS são liberadas.
  * @param ctx Contexto Koa
  * @param next Próximo middleware
  */
@@ -98,30 +98,15 @@ export async function authMiddleware(ctx: Context, next: Next): Promise<void> {
     return;
   }
 
-  if (path === '/login' && ctx.method === 'POST') {
-    await next();
-    return;
-  }
-
   const apiKey = extractApiKey(ctx);
 
   if (!isValidApiKey(apiKey)) {
-    const isExpectedBrowserAccess =
-      path === '/' || path === '/favicon.ico' || path.endsWith('/favicon.ico');
-
-    if (!isExpectedBrowserAccess) {
-      log.warn({ path, ip: ctx.ip }, 'Tentativa de acesso não autorizado');
-    }
-
-    if (path === '/' || ctx.accepts('html') === 'html') {
-      ctx.redirect('/login');
-      return;
-    }
+    log.warn({ path, ip: ctx.ip }, 'Tentativa de acesso não autorizado');
 
     ctx.status = 401;
     ctx.body = {
       error: 'Não autorizado',
-      message: 'Informe API key via Authorization: Bearer, X-API-Key ou faça login no dashboard',
+      message: 'Informe API key via Authorization: Bearer ou X-API-Key',
     };
     return;
   }
