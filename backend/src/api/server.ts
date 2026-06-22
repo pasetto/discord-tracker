@@ -13,6 +13,13 @@ import { statsRouter } from './routes/stats';
 import { reportsRouter } from './routes/reports';
 import { metricsRouter } from './routes/metrics';
 import { channelsRouter } from './routes/channels';
+import { categoriesRouter } from './routes/categories';
+import { getOpenApiSpec } from './swagger';
+
+const swaggerUi = require('koa-swagger-ui').ui as (
+  document: object,
+  options?: { pathRoot?: string; skipPaths?: string[] },
+) => Koa.Middleware;
 
 const log = createLogger('api');
 
@@ -29,10 +36,16 @@ export function createApp(): Koa {
   const legacyProtectedRouter = new Router();
   const apiV1PublicRouter = new Router({ prefix: '/api/v1' });
   const apiV1ProtectedRouter = new Router({ prefix: '/api/v1' });
+  const openApiSpec = getOpenApiSpec();
 
   publicRouter.use(healthRouter.routes());
   apiV1PublicRouter.use(authRouter.routes());
   apiV1PublicRouter.use(healthRouter.routes());
+  apiV1PublicRouter.get('/docs/openapi.json', (ctx) => {
+    ctx.set('Content-Type', 'application/json');
+    ctx.body = openApiSpec;
+  });
+  app.use(swaggerUi(openApiSpec, { pathRoot: '/api/v1/docs', skipPaths: ['/api/v1/docs/openapi.json'] }));
 
   legacyProtectedRouter.use(authMiddleware);
   legacyProtectedRouter.use(statsRouter.routes());
@@ -45,6 +58,7 @@ export function createApp(): Koa {
     reportsRouter.allowedMethods(),
   );
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, channelsRouter.routes(), channelsRouter.allowedMethods());
+  apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, categoriesRouter.routes(), categoriesRouter.allowedMethods());
 
   app.use(async (ctx, next) => {
     try {
