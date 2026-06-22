@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev, develop]
+
+jobs:
+  backend:
+    name: Backend (Vitest + lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Lint TypeScript
+        run: npm run lint --workspace=backend
+
+      - name: Testes unitários
+        run: npm run test --workspace=backend
+
+      - name: Build
+        run: npm run build --workspace=backend
+
+  frontend:
+    name: Frontend (Karma + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Build produção
+        run: npm run build --workspace=frontend
+
+      - name: Testes unitários (headless)
+        run: npm run test:ci --workspace=frontend

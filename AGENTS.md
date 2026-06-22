@@ -24,7 +24,7 @@ discord-tracker/
 └── package.json      # npm workspaces
 ```
 
-> **Estado atual:** o código backend ainda pode estar na raiz (`src/`). A Fase 0 migra tudo para `backend/`. Respeite o spec ao implementar.
+> **Estado atual:** Fase 0 concluída — monorepo `backend/` + `frontend/` com npm workspaces, Docker Compose e CI GitHub Actions.
 
 ## Comandos principais
 
