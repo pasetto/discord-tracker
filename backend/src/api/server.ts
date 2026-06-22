@@ -18,6 +18,7 @@ import { workCalendarRouter } from './routes/workCalendar';
 import { absencesRouter } from './routes/absences';
 import { inactivityRouter } from './routes/inactivity';
 import { goalsRouter } from './routes/goals';
+import { exportRouter } from './routes/export';
 import { onboardingRouter } from './routes/onboarding';
 import { billingRouter } from './routes/billing';
 import { pushRouter } from './routes/push';
@@ -78,6 +79,7 @@ export function createApp(): Koa {
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, absencesRouter.routes(), absencesRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, inactivityRouter.routes(), inactivityRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, goalsRouter.routes(), goalsRouter.allowedMethods());
+  apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, exportRouter.routes(), exportRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, onboardingRouter.routes(), onboardingRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, billingRouter.routes(), billingRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, pushRouter.routes(), pushRouter.allowedMethods());

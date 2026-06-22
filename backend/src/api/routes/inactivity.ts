@@ -19,7 +19,6 @@ interface JwtUserShape {
 }
 
 const VIEWER_ROLES = new Set(['owner', 'admin', 'manager', 'viewer']);
-const MANAGER_ROLES = new Set(['owner', 'admin', 'manager']);
 
 /** Rotas de relatório core de inatividade ("quem sumiu"). */
 export const inactivityRouter = new Router();
@@ -70,19 +69,6 @@ function assertViewerRole(ctx: Router.RouterContext, organizationId: string): vo
 }
 
 /**
- * Garante que usuário possui permissão de gestão para exportações.
- * @param ctx Contexto Koa da requisição
- * @param organizationId Organização do tenant atual
- * @returns {void} Não retorna valor
- */
-function assertManagerRole(ctx: Router.RouterContext, organizationId: string): void {
-  const role = getMembershipRole(ctx, organizationId);
-  if (!role || !MANAGER_ROLES.has(role)) {
-    ctx.throw(403, 'Permissão insuficiente para exportar relatório de inatividade');
-  }
-}
-
-/**
  * @openapi
  * /org/{orgId}/guilds/{guildId}/reports/inactivity/weekly:
  *   get:
@@ -116,36 +102,6 @@ inactivityRouter.get('/guilds/:guildId/reports/inactivity/weekly', async (ctx) =
 
     const report = await getWeeklyInactivityReport(organizationId, ctx.params.guildId, { categoryId }, new Date());
     ctx.body = { report };
-  } catch (error) {
-    const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
-    ctx.status = status;
-    ctx.body = { error: (error as Error).message };
-  }
-});
-
-/**
- * @openapi
- * /org/{orgId}/guilds/{guildId}/export/inactivity:
- *   post:
- *     tags:
- *       - Inactivity
- *     summary: Stub de exportação CSV do relatório de inatividade
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       501:
- *         description: Exportação CSV ainda não implementada
- */
-inactivityRouter.post('/guilds/:guildId/export/inactivity', async (ctx) => {
-  try {
-    const { organizationId } = getRequestIdentity(ctx);
-    assertManagerRole(ctx, organizationId);
-
-    ctx.status = 501;
-    ctx.body = {
-      error: 'Export CSV de inatividade ainda não implementado',
-      code: 'INACTIVITY_EXPORT_NOT_IMPLEMENTED',
-    };
   } catch (error) {
     const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
     ctx.status = status;
