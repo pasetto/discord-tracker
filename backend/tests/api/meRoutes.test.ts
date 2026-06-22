@@ -226,6 +226,10 @@ describe('me routes', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.exportData).toBeDefined();
+    expect(response.body.exportData.auditTrail).toMatchObject({
+      status: 'stub',
+    });
+    expect(response.body.exportData.auditTrail.entries).toEqual([]);
     expect(response.body.exportData.privacy.messageContentStored).toBe(false);
     expect(response.body.exportData).not.toHaveProperty('messageContent');
   });

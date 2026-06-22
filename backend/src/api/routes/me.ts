@@ -6,6 +6,7 @@ import { VoiceSession } from '../../db/models/VoiceSession';
 import { PresenceSession } from '../../db/models/PresenceSession';
 import { TextActivityEventModel } from '../../db/models/TextActivityEvent';
 import { PlannedAbsenceModel, PlannedAbsenceStatus, PlannedAbsenceType } from '../../db/models/PlannedAbsence';
+import { AuditTrailExportEntry, listAuditTrailExportStub } from '../../services/auditLogService';
 
 const VIEWER_ROLES = new Set(['owner', 'admin', 'manager', 'viewer']);
 
@@ -21,6 +22,7 @@ interface JwtMembership {
  * Shape mínimo do usuário autenticado disponível em `ctx.state.user`.
  */
 interface JwtUserShape {
+  id?: string;
   discordId?: string;
   memberships?: JwtMembership[];
 }
@@ -56,6 +58,15 @@ interface MeAbsenceSummary {
 interface MeRequestIdentity {
   organizationId: string;
   discordId: string;
+}
+
+/**
+ * Estrutura de trilha de auditoria simplificada para export LGPD.
+ */
+interface MeAuditTrailExportStub {
+  status: 'stub';
+  entries: AuditTrailExportEntry[];
+  notes: string[];
 }
 
 /** Rotas do portal colaborador (`/api/v1/me`). */
@@ -248,6 +259,46 @@ async function listOwnPlannedAbsences(
 }
 
 /**
+ * Monta trilha de auditoria simplificada para export de dados do titular.
+ * @param ctx Contexto Koa do request autenticado
+ * @param identity Identidade resolvida do colaborador autenticado
+ * @returns Stub de trilha com entradas resumidas quando actorId for válido
+ */
+async function buildAuditTrailExportStub(
+  ctx: Router.RouterContext,
+  identity: MeRequestIdentity,
+): Promise<MeAuditTrailExportStub> {
+  const user = ctx.state.user as JwtUserShape | undefined;
+  const actorId = user?.id?.trim();
+
+  if (!actorId || !Types.ObjectId.isValid(actorId)) {
+    return {
+      status: 'stub',
+      entries: [],
+      notes: [
+        'Trilha de auditoria habilitada para próximos ciclos de compliance.',
+        'Nenhum actorId válido foi informado no JWT atual para vincular eventos existentes.',
+      ],
+    };
+  }
+
+  const entries = await listAuditTrailExportStub({
+    organizationId: identity.organizationId,
+    actorId,
+    limit: 20,
+  });
+
+  return {
+    status: 'stub',
+    entries,
+    notes: [
+      'Stub LGPD: esta trilha inclui apenas resumo de ações sensíveis já auditadas.',
+      'Metadados completos de auditoria permanecem restritos ao escopo administrativo.',
+    ],
+  };
+}
+
+/**
  * @openapi
  * /me/collaboration:
  *   get:
@@ -355,11 +406,12 @@ meRouter.get('/me/data-export', async (ctx) => {
     const trackedProfiles = await listTrackedProfiles(identity);
     const coreUserId = await findCoreUserIdByDiscordId(identity.discordId);
 
-    const [voiceSeconds, presenceSeconds, textEventCount, absences] = await Promise.all([
+    const [voiceSeconds, presenceSeconds, textEventCount, absences, auditTrail] = await Promise.all([
       getTotalVoiceSeconds(coreUserId),
       getTotalPresenceSeconds(coreUserId),
       countTextMetadataEvents(identity),
       listOwnPlannedAbsences(identity, trackedProfiles),
+      buildAuditTrailExportStub(ctx, identity),
     ]);
 
     ctx.body = {
@@ -385,6 +437,7 @@ meRouter.get('/me/data-export', async (ctx) => {
           },
         },
         absences,
+        auditTrail,
         privacy: {
           messageContentStored: false,
           notes: [
