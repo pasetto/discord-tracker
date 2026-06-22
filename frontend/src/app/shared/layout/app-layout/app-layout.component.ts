@@ -6,6 +6,7 @@ import { BackdropComponent } from '../backdrop/backdrop.component';
 import { RouterModule } from '@angular/router';
 import { AppHeaderComponent } from '../app-header/app-header.component';
 import { OnboardingBannerComponent } from '../../components/onboarding-banner/onboarding-banner.component';
+import { MobileBottomNavComponent } from '../mobile-bottom-nav/mobile-bottom-nav.component';
 
 @Component({
   selector: 'app-layout',
@@ -16,6 +17,7 @@ import { OnboardingBannerComponent } from '../../components/onboarding-banner/on
     AppSidebarComponent,
     BackdropComponent,
     OnboardingBannerComponent,
+    MobileBottomNavComponent,
   ],
   templateUrl: './app-layout.component.html',
 })

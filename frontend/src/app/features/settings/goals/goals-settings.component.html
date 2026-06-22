@@ -26,7 +26,7 @@
     <div class="md:col-span-2">
       <button
         type="button"
-        class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
+        class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60 min-h-11"
         (click)="refreshData()"
         [disabled]="loading"
       >
@@ -46,7 +46,7 @@
     </label>
     <button
       type="button"
-      class="h-fit self-end rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white hover:bg-success-600 disabled:opacity-60"
+      class="h-fit self-end rounded-lg bg-success-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-success-600 disabled:opacity-60 min-h-11 w-full sm:w-auto"
       (click)="applyCategoryTemplate()"
       [disabled]="loading"
     >
@@ -69,7 +69,25 @@
   <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
     <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Meta vs realizado</h3>
     <p *ngIf="entries.length === 0" class="text-sm text-gray-500 dark:text-gray-400">Nenhuma meta aplicada para os membros.</p>
-    <div *ngIf="entries.length > 0" class="overflow-x-auto">
+
+    <!-- Cards mobile -->
+    <div *ngIf="entries.length > 0" class="space-y-3 md:hidden">
+      <article
+        *ngFor="let entry of entries"
+        class="rounded-xl border border-gray-200 p-4 text-sm dark:border-gray-700"
+      >
+        <p class="font-semibold text-gray-800 dark:text-white/90">{{ entry.displayName }}</p>
+        <dl class="mt-3 grid grid-cols-2 gap-2 text-gray-600 dark:text-gray-300">
+          <div><dt class="text-xs uppercase tracking-wide">Meta</dt><dd>{{ entry.weeklyGoalHours ?? '-' }}h</dd></div>
+          <div><dt class="text-xs uppercase tracking-wide">Realizado</dt><dd>{{ entry.realizedHours }}h</dd></div>
+          <div><dt class="text-xs uppercase tracking-wide">Progresso</dt><dd>{{ entry.progressPercent }}%</dd></div>
+          <div><dt class="text-xs uppercase tracking-wide">Alerta quinta</dt><dd>{{ entry.shouldAlertLowProgress ? 'Sim' : 'Não' }}</dd></div>
+        </dl>
+      </article>
+    </div>
+
+    <!-- Tabela desktop -->
+    <div *ngIf="entries.length > 0" class="hidden overflow-x-auto md:block">
       <table class="w-full min-w-[760px] table-auto text-left text-sm">
         <thead>
           <tr class="border-b border-gray-200 dark:border-gray-700">
