@@ -3,6 +3,7 @@ import Router from '@koa/router';
 import bodyParser from 'koa-bodyparser';
 import { config } from '../config/env';
 import { createLogger } from '../logger';
+import { corsMiddleware } from './middleware/cors';
 import { authMiddleware } from './middleware/auth';
 import { healthRouter } from './routes/health';
 import { statsRouter } from './routes/stats';
@@ -39,6 +40,7 @@ export function createApp(): Koa {
     }
   });
 
+  app.use(corsMiddleware);
   app.use(bodyParser());
   app.use(publicRouter.routes());
   app.use(publicRouter.allowedMethods());
