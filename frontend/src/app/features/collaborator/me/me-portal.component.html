@@ -1,0 +1,45 @@
+<section class="space-y-6">
+  <header class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Portal do colaborador</h2>
+    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+      Transparência sobre o que é medido para colaboração no Discord e acesso aos seus próprios dados.
+    </p>
+  </header>
+
+  <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">O que é medido</h3>
+    <ul class="space-y-3">
+      <li
+        *ngFor="let signal of measuredSignals"
+        class="rounded-lg border border-gray-200 p-4 text-sm dark:border-gray-700"
+      >
+        <p class="font-semibold text-gray-800 dark:text-white/90">{{ signal.title }}</p>
+        <p class="mt-1 text-gray-600 dark:text-gray-300">{{ signal.details }}</p>
+      </li>
+    </ul>
+    <p class="mt-4 rounded-lg border border-success-300 bg-success-50 px-3 py-2 text-sm text-success-700">
+      A Syntra rastreia apenas metadados de colaboração. Conteúdo de mensagens, áudio e DMs ficam fora do escopo.
+    </p>
+  </section>
+
+  <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Acessar meus dados</h3>
+    <ul class="space-y-3">
+      <li
+        *ngFor="let link of dataLinks"
+        class="rounded-lg border border-gray-200 p-4 text-sm dark:border-gray-700"
+      >
+        <p class="font-semibold text-gray-800 dark:text-white/90">{{ link.label }}</p>
+        <p class="mt-1 text-gray-600 dark:text-gray-300">{{ link.description }}</p>
+        <a
+          class="mt-3 inline-flex rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-600"
+          [href]="link.href"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Abrir endpoint
+        </a>
+      </li>
+    </ul>
+  </section>
+</section>

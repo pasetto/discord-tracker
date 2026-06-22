@@ -29,6 +29,15 @@ const loadOnboardingWizard = () =>
   );
 
 /**
+ * Carrega de forma lazy o portal colaborador `/me`.
+ * @returns {Promise<unknown>} Componente lazy do portal do colaborador.
+ */
+const loadMePortal = () =>
+  import('./features/collaborator/me/me-portal.component').then(
+    (module) => module.MePortalComponent,
+  );
+
+/**
  * Rotas de features (esqueleto inicial com lazy loading).
  */
 const featureRoutes: Routes = [
@@ -47,6 +56,12 @@ const featureRoutes: Routes = [
     canActivate: [authGuard],
     loadComponent: loadOnboardingWizard,
     title: 'Onboarding | Syntra',
+  },
+  {
+    path: 'me',
+    canActivate: [authGuard],
+    loadComponent: loadMePortal,
+    title: 'Meu portal | Syntra',
   },
   {
     path: 'settings',
@@ -94,6 +109,12 @@ export const routes: Routes = [
     path: 'onboarding',
     canActivate: [authGuard],
     redirectTo: 'app/onboarding',
+    pathMatch: 'full',
+  },
+  {
+    path: 'me',
+    canActivate: [authGuard],
+    redirectTo: 'app/me',
     pathMatch: 'full',
   },
   {
