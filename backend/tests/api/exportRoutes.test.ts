@@ -28,7 +28,7 @@ import { signAccessToken } from '../../src/services/authService';
 function buildAuthHeader(memberships: Array<{ organizationId: string; role: string }>): string {
   const token = signAccessToken({
     id: '665f9312eb6f3a663b6f0099',
-    discordId: 'discord-123',
+    email: 'manager@syntra.test',
     username: 'manager',
     memberships,
   });

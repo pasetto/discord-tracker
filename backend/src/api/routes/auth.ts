@@ -1,96 +1,111 @@
 import Router from '@koa/router';
-import { randomUUID } from 'crypto';
 import {
-  buildDiscordAuthorizeUrl,
-  exchangeDiscordCodeForToken,
-  fetchDiscordOAuthUser,
   REFRESH_COOKIE_NAME,
   REFRESH_TOKEN_TTL_SECONDS,
-  signAccessToken,
-  signRefreshToken,
-  type AuthUserPayload,
 } from '../../services/authService';
+import { loginPlatformUser, registerPlatformUser } from '../../services/platformAuthService';
 import { config } from '../../config/env';
 
-/** Rotas públicas de autenticação OAuth2 com Discord. */
+/** Rotas públicas de autenticação com email e senha. */
 export const authRouter = new Router();
 
 /**
- * Monta URL absoluta de callback OAuth considerando host da requisição.
- * @param protocol Protocolo HTTP da requisição
- * @param host Host HTTP da requisição
- * @returns URL de callback para o Discord redirecionar
+ * Define cookie HttpOnly de refresh token na resposta.
+ * @param ctx Contexto Koa
+ * @param refreshToken Token de renovação
  */
-function buildCallbackUrl(protocol: string, host: string): string {
-  return `${protocol}://${host}/api/v1/auth/discord/callback`;
+function setRefreshCookie(ctx: Router.RouterContext, refreshToken: string): void {
+  ctx.cookies.set(REFRESH_COOKIE_NAME, refreshToken, {
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: REFRESH_TOKEN_TTL_SECONDS * 1000,
+    secure: config.nodeEnv === 'production',
+  });
 }
 
 /**
- * GET /auth/discord - Inicia o fluxo OAuth2 e redireciona para o Discord.
+ * @openapi
+ * /auth/register:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Cadastra usuário e organização
  */
-authRouter.get('/auth/discord', async (ctx) => {
-  const state = randomUUID();
-  const redirectUri = buildCallbackUrl(ctx.protocol, ctx.host);
+authRouter.post('/auth/register', async (ctx) => {
+  const payload = ctx.request.body as {
+    email?: string;
+    password?: string;
+    displayName?: string;
+    organizationName?: string;
+  };
 
   try {
-    const authorizeUrl = await buildDiscordAuthorizeUrl(redirectUri, state);
-    ctx.cookies.set('syntra_oauth_state', state, {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 10 * 60 * 1000,
-      secure: config.nodeEnv === 'production',
+    const result = await registerPlatformUser({
+      email: payload.email ?? '',
+      password: payload.password ?? '',
+      displayName: payload.displayName ?? '',
+      organizationName: payload.organizationName ?? '',
     });
-    ctx.redirect(authorizeUrl);
-  } catch (error) {
-    ctx.status = 503;
+
+    setRefreshCookie(ctx, result.refreshToken);
+    ctx.status = 201;
     ctx.body = {
-      error: 'OAuth Discord indisponível',
-      message: (error as Error).message,
+      accessToken: result.accessToken,
+      user: result.user,
+      organization: result.organization,
     };
+  } catch (error) {
+    ctx.status = 400;
+    ctx.body = { error: (error as Error).message };
   }
 });
 
 /**
- * GET /auth/discord/callback - Processa callback OAuth2, gera JWT e cookie refresh.
+ * @openapi
+ * /auth/login:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Autentica usuário com email e senha
  */
-authRouter.get('/auth/discord/callback', async (ctx) => {
-  const code = ctx.query.code;
-  const state = ctx.query.state;
-  const expectedState = ctx.cookies.get('syntra_oauth_state');
-
-  if (typeof code !== 'string' || typeof state !== 'string' || !expectedState || state !== expectedState) {
-    ctx.status = 400;
-    ctx.body = { error: 'Parâmetros OAuth inválidos' };
-    return;
-  }
+authRouter.post('/auth/login', async (ctx) => {
+  const payload = ctx.request.body as {
+    email?: string;
+    password?: string;
+  };
 
   try {
-    const redirectUri = buildCallbackUrl(ctx.protocol, ctx.host);
-    const discordAccessToken = await exchangeDiscordCodeForToken(code, redirectUri);
-    const discordUser = await fetchDiscordOAuthUser(discordAccessToken);
-
-    const authUser: AuthUserPayload = {
-      id: discordUser.id,
-      discordId: discordUser.id,
-      username: discordUser.username,
-      memberships: [],
-    };
-
-    const accessToken = signAccessToken(authUser);
-    const refreshToken = signRefreshToken(authUser);
-
-    ctx.cookies.set(REFRESH_COOKIE_NAME, refreshToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: REFRESH_TOKEN_TTL_SECONDS * 1000,
-      secure: config.nodeEnv === 'production',
+    const result = await loginPlatformUser({
+      email: payload.email ?? '',
+      password: payload.password ?? '',
     });
 
-    const frontendTarget = new URL('/auth/callback', config.frontendUrl);
-    frontendTarget.searchParams.set('accessToken', accessToken);
-    ctx.redirect(frontendTarget.toString());
-  } catch {
-    ctx.status = 502;
-    ctx.body = { error: 'Falha ao autenticar com Discord' };
+    setRefreshCookie(ctx, result.refreshToken);
+    ctx.body = {
+      accessToken: result.accessToken,
+      user: result.user,
+      organization: result.organization,
+    };
+  } catch (error) {
+    ctx.status = 401;
+    ctx.body = { error: (error as Error).message };
   }
+});
+
+/**
+ * @openapi
+ * /auth/logout:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Encerra sessão removendo refresh token
+ */
+authRouter.post('/auth/logout', async (ctx) => {
+  ctx.cookies.set(REFRESH_COOKIE_NAME, '', {
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 0,
+    secure: config.nodeEnv === 'production',
+  });
+  ctx.status = 204;
 });

@@ -8,6 +8,7 @@ import {
   listDiscordApplications,
   validateDiscordApplication,
 } from '../../services/discordApplicationService';
+import { hashPassword } from '../../services/platformAuthService';
 import { reloadDiscordFromDatabase } from '../../bot/client';
 import { getPlatformUserId } from '../middleware/superAdmin';
 
@@ -47,10 +48,13 @@ adminDiscordBootstrapRouter.post('/admin/discord-applications/bootstrap', async 
     return;
   }
 
+  const bootstrapPasswordHash = await hashPassword('bootstrap-syntra-dev');
+
   const bootstrapUser = await PlatformUserModel.findOneAndUpdate(
-    { discordId: 'syntra-bootstrap' },
+    { email: 'bootstrap@syntra.local' },
     {
-      discordId: 'syntra-bootstrap',
+      email: 'bootstrap@syntra.local',
+      passwordHash: bootstrapPasswordHash,
       displayName: 'Bootstrap Syntra',
       isSuperAdmin: true,
       memberships: [],
@@ -62,6 +66,8 @@ adminDiscordBootstrapRouter.post('/admin/discord-applications/bootstrap', async 
     await PlatformUserModel.findOneAndUpdate(
       { discordId: payload.superAdminDiscordId.trim() },
       {
+        email: `discord-${payload.superAdminDiscordId.trim()}@syntra.local`,
+        passwordHash: bootstrapPasswordHash,
         discordId: payload.superAdminDiscordId.trim(),
         displayName: 'Super Admin',
         isSuperAdmin: true,

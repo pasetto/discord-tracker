@@ -1,6 +1,5 @@
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { config } from '../config/env';
-import { resolveDiscordOAuthCredentials } from './discordApplicationService';
 
 /** Tempo de expiração do access token em segundos (15 minutos). */
 export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
@@ -24,30 +23,10 @@ export interface AuthMembership {
  */
 export interface AuthUserPayload {
   id: string;
-  discordId: string;
+  email: string;
   username: string;
+  discordId?: string;
   memberships: AuthMembership[];
-}
-
-/**
- * Resposta da troca de código OAuth por token no Discord.
- */
-interface DiscordTokenExchangeResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  refresh_token: string;
-  scope: string;
-}
-
-/**
- * Perfil básico retornado pelo endpoint /users/@me do Discord.
- */
-export interface DiscordOAuthUser {
-  id: string;
-  username: string;
-  global_name: string | null;
-  avatar: string | null;
 }
 
 /**
@@ -95,91 +74,6 @@ export function verifyRefreshToken(token: string): AuthUserPayload {
 }
 
 /**
- * Troca o authorization code OAuth2 por access token do Discord.
- * @param code Authorization code recebido no callback
- * @param redirectUri URL de callback usada na autorização
- * @returns Access token OAuth retornado pelo Discord
- * @throws {Error} Quando o Discord retorna erro na troca
- */
-export async function exchangeDiscordCodeForToken(
-  code: string,
-  redirectUri: string,
-): Promise<string> {
-  const oauth = await resolveDiscordOAuthCredentials();
-  const body = new URLSearchParams({
-    client_id: oauth.clientId,
-    client_secret: oauth.clientSecret,
-    grant_type: 'authorization_code',
-    code,
-    redirect_uri: redirectUri,
-  });
-
-  const response = await fetch('https://discord.com/api/oauth2/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Discord OAuth token exchange falhou com status ${response.status}`);
-  }
-
-  const payload = (await response.json()) as DiscordTokenExchangeResponse;
-  if (!payload.access_token) {
-    throw new Error('Discord OAuth token exchange retornou access_token vazio');
-  }
-
-  return payload.access_token;
-}
-
-/**
- * Obtém o usuário autenticado no Discord usando access token OAuth.
- * @param discordAccessToken Access token obtido no OAuth2
- * @returns Perfil básico do usuário no Discord
- * @throws {Error} Quando o Discord retorna erro ao buscar usuário
- */
-export async function fetchDiscordOAuthUser(discordAccessToken: string): Promise<DiscordOAuthUser> {
-  const response = await fetch('https://discord.com/api/users/@me', {
-    headers: {
-      Authorization: `Bearer ${discordAccessToken}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Discord OAuth user fetch falhou com status ${response.status}`);
-  }
-
-  const payload = (await response.json()) as DiscordOAuthUser;
-  if (!payload.id || !payload.username) {
-    throw new Error('Discord OAuth user payload inválido');
-  }
-
-  return payload;
-}
-
-/**
- * Gera URL de autorização OAuth2 do Discord para login.
- * @param redirectUri URL absoluta de callback no backend
- * @param state Valor opaco de proteção de fluxo OAuth (CSRF)
- * @returns URL completa para redirecionamento ao Discord
- */
-export async function buildDiscordAuthorizeUrl(redirectUri: string, state: string): Promise<string> {
-  const oauth = await resolveDiscordOAuthCredentials();
-  const query = new URLSearchParams({
-    client_id: oauth.clientId,
-    response_type: 'code',
-    scope: 'identify',
-    redirect_uri: redirectUri,
-    state,
-    prompt: 'consent',
-  });
-
-  return `https://discord.com/oauth2/authorize?${query.toString()}`;
-}
-
-/**
  * Verifica e converte payload JWT para shape AuthUserPayload.
  * @param token JWT assinado pela aplicação
  * @returns Payload validado para autenticação
@@ -193,14 +87,15 @@ function verifyTokenPayload(token: string): AuthUserPayload {
   }
 
   const payload = decoded as Partial<AuthUserPayload>;
-  if (!payload.id || !payload.discordId || !payload.username || !Array.isArray(payload.memberships)) {
+  if (!payload.id || !payload.email || !payload.username || !Array.isArray(payload.memberships)) {
     throw new Error('JWT inválido: payload incompleto');
   }
 
   return {
     id: payload.id,
-    discordId: payload.discordId,
+    email: payload.email,
     username: payload.username,
+    discordId: payload.discordId,
     memberships: payload.memberships,
   };
 }

@@ -19,8 +19,9 @@ export interface IPlatformMembership {
  * Usuário autenticado da plataforma Syntra (gestor/admin).
  */
 export interface IPlatformUser extends Document {
-  discordId: string;
-  email?: string;
+  email: string;
+  passwordHash: string;
+  discordId?: string;
   displayName: string;
   avatarUrl?: string;
   isSuperAdmin: boolean;
@@ -41,8 +42,9 @@ const platformMembershipSchema = new Schema<IPlatformMembership>(
 
 const platformUserSchema = new Schema<IPlatformUser>(
   {
-    discordId: { type: String, required: true, unique: true, index: true },
-    email: { type: String, required: false, trim: true, lowercase: true },
+    email: { type: String, required: true, trim: true, lowercase: true, unique: true, index: true },
+    passwordHash: { type: String, required: true, select: false },
+    discordId: { type: String, required: false, trim: true, unique: true, sparse: true, index: true },
     displayName: { type: String, required: true, trim: true },
     avatarUrl: { type: String, required: false, trim: true },
     isSuperAdmin: { type: Boolean, required: true, default: false },

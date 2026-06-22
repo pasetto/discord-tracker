@@ -33,7 +33,7 @@ import { signAccessToken } from '../../src/services/authService';
 function buildAuthHeader(memberships: Array<{ organizationId: string; role: string }>): string {
   const token = signAccessToken({
     id: 'user-1',
-    discordId: 'discord-1',
+    email: 'tester@syntra.test',
     username: 'tester',
     memberships,
   });

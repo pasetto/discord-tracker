@@ -10,18 +10,13 @@ import { PlatformUserModel } from '../../db/models/PlatformUser';
  */
 async function resolvePlatformUser(ctx: Context) {
   const authUser = ctx.state.user as AuthUserPayload | undefined;
-  if (!authUser?.discordId) {
+  if (!authUser?.id || !Types.ObjectId.isValid(authUser.id)) {
     ctx.throw(401, 'Usuário autenticado inválido');
   }
 
-  let platformUser = await PlatformUserModel.findOne({ discordId: authUser.discordId }).exec();
+  const platformUser = await PlatformUserModel.findById(authUser.id).exec();
   if (!platformUser) {
-    platformUser = await PlatformUserModel.create({
-      discordId: authUser.discordId,
-      displayName: authUser.username,
-      isSuperAdmin: false,
-      memberships: [],
-    });
+    ctx.throw(401, 'Usuário da plataforma não encontrado');
   }
 
   return platformUser;
