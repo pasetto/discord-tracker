@@ -1,4 +1,5 @@
-import { config, VoiceSessionType } from '../config/env';
+import { VoiceSessionType } from '../config/env';
+import type { ChannelRuleSet, ChannelSelection } from '../db/models/ChannelRule';
 
 /**
  * Resultado da classificação de um canal de voz.
@@ -9,52 +10,69 @@ export interface ChannelClassification {
 }
 
 /**
- * Verifica se um valor corresponde a um nome ou ID configurado (case-insensitive para nomes).
- * @param value Nome ou ID do canal
- * @param patterns Lista de nomes ou IDs configurados
+ * Verifica se canal corresponde a uma lista de seleções.
+ * @param channelId ID do canal Discord
+ * @param channelName Nome do canal Discord
+ * @param selections Lista de canais selecionados na UI
  * @returns true se houver correspondência
  */
-function matchesPattern(value: string, patterns: string[]): boolean {
-  const normalized = value.toLowerCase();
-  return patterns.some(
-    (pattern) => pattern === value || pattern.toLowerCase() === normalized,
+function matchesSelection(
+  channelId: string,
+  channelName: string,
+  selections: ChannelSelection[],
+): boolean {
+  const normalizedName = channelName.toLowerCase();
+  return selections.some(
+    (selection) =>
+      selection.channelId === channelId || selection.channelName.toLowerCase() === normalizedName,
   );
 }
 
 /**
- * Classifica um canal de voz quanto a produtividade e tipo de sessão.
+ * Classifica um canal de voz usando regras persistidas no banco.
  * @param channelId ID do canal Discord
  * @param channelName Nome do canal Discord
+ * @param rules Regras do guild carregadas da collection ChannelRule
  * @returns Classificação com flag ignored e sessionType
  * @example
- * classifyChannel('123', 'Almoço') // { isIgnored: true, sessionType: 'LUNCH' }
+ * classifyVoiceChannel('123', 'Almoço', rules) // { isIgnored: true, sessionType: 'LUNCH' }
  */
-export function classifyChannel(channelId: string, channelName: string): ChannelClassification {
-  const allIgnored = [...config.ignoredChannels, ...config.afkChannelNames, ...config.lunchChannelNames];
-
-  if (matchesPattern(channelId, config.ignoredChannels) || matchesPattern(channelName, config.ignoredChannels)) {
-    if (matchesPattern(channelId, config.lunchChannelNames) || matchesPattern(channelName, config.lunchChannelNames)) {
-      return { isIgnored: true, sessionType: 'LUNCH' };
-    }
-    if (matchesPattern(channelId, config.afkChannelNames) || matchesPattern(channelName, config.afkChannelNames)) {
-      return { isIgnored: true, sessionType: 'AFK' };
-    }
-    return { isIgnored: true, sessionType: 'AFK' };
-  }
-
-  if (matchesPattern(channelId, config.lunchChannelNames) || matchesPattern(channelName, config.lunchChannelNames)) {
+export function classifyVoiceChannel(
+  channelId: string,
+  channelName: string,
+  rules: ChannelRuleSet,
+): ChannelClassification {
+  if (matchesSelection(channelId, channelName, rules.lunch)) {
     return { isIgnored: true, sessionType: 'LUNCH' };
   }
 
-  if (matchesPattern(channelId, config.afkChannelNames) || matchesPattern(channelName, config.afkChannelNames)) {
+  if (
+    matchesSelection(channelId, channelName, rules.afk) ||
+    matchesSelection(channelId, channelName, rules.ignored)
+  ) {
     return { isIgnored: true, sessionType: 'AFK' };
   }
 
-  if (matchesPattern(channelId, allIgnored) || matchesPattern(channelName, allIgnored)) {
+  if (rules.productiveVoice.length > 0 && !matchesSelection(channelId, channelName, rules.productiveVoice)) {
     return { isIgnored: true, sessionType: 'AFK' };
   }
 
   return { isIgnored: false, sessionType: 'VOICE' };
+}
+
+/**
+ * Indica se um canal de texto é colaborativo para sinais de atividade.
+ * @param channelId ID do canal de texto
+ * @param rules Regras do guild carregadas da collection ChannelRule
+ * @returns true quando o canal deve contar como atividade colaborativa
+ */
+export function classifyTextChannel(channelId: string, rules: ChannelRuleSet): boolean {
+  const isIgnoredText = rules.ignoredText.some((selection) => selection.channelId === channelId);
+  if (isIgnoredText) {
+    return false;
+  }
+
+  return rules.productiveText.some((selection) => selection.channelId === channelId);
 }
 
 /**

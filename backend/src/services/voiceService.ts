@@ -4,11 +4,12 @@ import { createLogger } from '../logger';
 import { userRepository } from '../repositories/userRepository';
 import { voiceSessionRepository } from '../repositories/voiceSessionRepository';
 import { systemLogRepository } from '../repositories/systemLogRepository';
-import { classifyChannel } from './channelClassifier';
+import { classifyVoiceChannel } from './channelClassifier';
 import { VoiceEventType } from '../config/env';
 import { setActiveSessions } from '../metrics/prometheus';
 import { presenceSessionRepository } from '../repositories/presenceSessionRepository';
 import { guildService } from './guildService';
+import { channelRuleRepository } from '../repositories/channelRuleRepository';
 
 const log = createLogger('voice');
 
@@ -78,14 +79,17 @@ export const voiceService = {
    * @param channelId ID do canal
    * @param channelName Nome do canal
    * @param startedAt Início da sessão
+   * @param guildId ID do servidor Discord de origem
    */
   async startVoiceSession(
     userId: Types.ObjectId,
     channelId: string,
     channelName: string,
     startedAt: Date,
+    guildId: string,
   ): Promise<void> {
-    const classification = classifyChannel(channelId, channelName);
+    const rules = await channelRuleRepository.getByGuildId(guildId);
+    const classification = classifyVoiceChannel(channelId, channelName, rules);
 
     await voiceSessionRepository.create({
       userId,
@@ -143,7 +147,7 @@ export const voiceService = {
       case 'RECONNECT':
         await this.endOpenSession(userId, now);
         if (toChannel) {
-          await this.startVoiceSession(userId, toChannel.id, toChannel.name, now);
+          await this.startVoiceSession(userId, toChannel.id, toChannel.name, now, guildId!);
         }
         log.info(
           {
@@ -177,7 +181,7 @@ export const voiceService = {
       case 'AFK_AUTO':
         await this.endOpenSession(userId, now);
         if (toChannel) {
-          await this.startVoiceSession(userId, toChannel.id, toChannel.name, now);
+          await this.startVoiceSession(userId, toChannel.id, toChannel.name, now, guildId!);
         }
         log.info(
           {

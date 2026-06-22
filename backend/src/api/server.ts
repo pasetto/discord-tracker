@@ -6,11 +6,13 @@ import { createLogger } from '../logger';
 import { corsMiddleware } from './middleware/cors';
 import { authMiddleware } from './middleware/auth';
 import { jwtAuth } from './middleware/jwtAuth';
+import { tenantMiddleware } from './middleware/tenant';
 import { authRouter } from './routes/auth';
 import { healthRouter } from './routes/health';
 import { statsRouter } from './routes/stats';
 import { reportsRouter } from './routes/reports';
 import { metricsRouter } from './routes/metrics';
+import { channelsRouter } from './routes/channels';
 
 const log = createLogger('api');
 
@@ -32,10 +34,17 @@ export function createApp(): Koa {
   apiV1PublicRouter.use(authRouter.routes());
   apiV1PublicRouter.use(healthRouter.routes());
 
+  legacyProtectedRouter.use(authMiddleware);
   legacyProtectedRouter.use(statsRouter.routes());
   legacyProtectedRouter.use(reportsRouter.routes());
   legacyProtectedRouter.use(metricsRouter.routes());
-  apiV1ProtectedRouter.use('/org/:organizationId', reportsRouter.routes(), reportsRouter.allowedMethods());
+  apiV1ProtectedRouter.use(
+    '/org/:organizationId',
+    tenantMiddleware,
+    reportsRouter.routes(),
+    reportsRouter.allowedMethods(),
+  );
+  apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, channelsRouter.routes(), channelsRouter.allowedMethods());
 
   app.use(async (ctx, next) => {
     try {
@@ -54,7 +63,6 @@ export function createApp(): Koa {
   app.use(apiV1PublicRouter.routes());
   app.use(apiV1PublicRouter.allowedMethods());
 
-  app.use(authMiddleware);
   app.use(legacyProtectedRouter.routes());
   app.use(legacyProtectedRouter.allowedMethods());
 

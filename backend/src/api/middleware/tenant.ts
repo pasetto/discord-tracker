@@ -31,7 +31,7 @@ function createHttpError(status: number, message: string): Error {
  * @returns organizationId encontrado ou undefined
  */
 function extractOrganizationId(ctx: Context): string | undefined {
-  const fromParams = ctx.params?.organizationId;
+  const fromParams = ctx.params?.organizationId ?? ctx.params?.orgId;
   if (typeof fromParams === 'string' && fromParams.trim()) {
     return fromParams.trim();
   }

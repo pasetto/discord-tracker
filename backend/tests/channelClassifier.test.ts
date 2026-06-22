@@ -1,34 +1,54 @@
 import { describe, it, expect } from 'vitest';
 import {
-  classifyChannel,
+  classifyTextChannel,
+  classifyVoiceChannel,
   mapDiscordPresenceStatus,
   secondsToHours,
   getDayBounds,
   getMonthBounds,
 } from '../src/services/channelClassifier';
 
-describe('classifyChannel', () => {
+const rules = {
+  ignored: [{ channelId: '1', channelName: 'lobby', channelType: 'voice' as const }],
+  afk: [],
+  lunch: [{ channelId: '2', channelName: 'Almoço', channelType: 'voice' as const }],
+  productiveVoice: [],
+  productiveText: [{ channelId: '10', channelName: 'dev-chat', channelType: 'text' as const }],
+  ignoredText: [],
+};
+
+describe('classifyVoiceChannel', () => {
   it('classifica canal produtivo', () => {
-    const result = classifyChannel('111', 'Reunião Geral');
+    const result = classifyVoiceChannel('111', 'Reunião Geral', rules);
     expect(result.isIgnored).toBe(false);
     expect(result.sessionType).toBe('VOICE');
   });
 
-  it('classifica canal AFK como ignorado', () => {
-    const result = classifyChannel('222', 'AFK');
-    expect(result.isIgnored).toBe(true);
-    expect(result.sessionType).toBe('AFK');
-  });
-
   it('classifica canal Almoço como LUNCH', () => {
-    const result = classifyChannel('333', 'Almoço');
+    const result = classifyVoiceChannel('2', 'Almoço', rules);
     expect(result.isIgnored).toBe(true);
     expect(result.sessionType).toBe('LUNCH');
   });
 
   it('classifica por ID ignorado', () => {
-    const result = classifyChannel('AFK', 'Qualquer Nome');
+    const result = classifyVoiceChannel('1', 'Qualquer Nome', rules);
     expect(result.isIgnored).toBe(true);
+    expect(result.sessionType).toBe('AFK');
+  });
+
+  it('canal não listado é VOICE colaborativo', () => {
+    const result = classifyVoiceChannel('99', 'sync', rules);
+    expect(result.sessionType).toBe('VOICE');
+  });
+});
+
+describe('classifyTextChannel', () => {
+  it('canal produtivo retorna true', () => {
+    expect(classifyTextChannel('10', rules)).toBe(true);
+  });
+
+  it('canal fora da lista retorna false', () => {
+    expect(classifyTextChannel('99', rules)).toBe(false);
   });
 });
 
