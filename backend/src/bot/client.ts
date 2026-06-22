@@ -4,13 +4,13 @@ import {
   Partials,
   ActivityType,
 } from 'discord.js';
-import { config } from '../config/env';
 import { createLogger } from '../logger';
 import {
   setDiscordConnected,
   setDiscordPing,
 } from '../metrics/prometheus';
 import { systemLogRepository } from '../repositories/systemLogRepository';
+import { BotManager } from '../services/botManager';
 
 const log = createLogger('discord');
 
@@ -29,6 +29,29 @@ export const discordClient = new Client({
 export let isDiscordReady = false;
 
 const readyHandlers: Array<() => void | Promise<void>> = [];
+let eventHandlersRegistered = false;
+
+/**
+ * Conecta o cliente Discord com o token recebido.
+ * @param token Token OAuth do bot
+ * @returns Promise resolvida após autenticação no gateway
+ */
+async function loginWithToken(token: string): Promise<void> {
+  if (discordClient.token === token && discordClient.isReady()) {
+    return;
+  }
+
+  if (discordClient.token && discordClient.token !== token) {
+    discordClient.destroy();
+  }
+
+  await discordClient.login(token);
+}
+
+/** Gerencia carregamento e recarga de token via banco de dados. */
+const botManager = new BotManager({
+  onTokenLoaded: loginWithToken,
+});
 
 /**
  * Registra callback executado após o bot ficar pronto.
@@ -44,12 +67,11 @@ export function registerDiscordReadyHandler(handler: () => void | Promise<void>)
 }
 
 /**
- * Conecta o bot ao Discord e aguarda evento ready.
- * @returns Promise resolvida quando o bot estiver pronto
+ * Registra handlers de lifecycle do cliente Discord uma única vez.
  */
-export async function connectDiscord(): Promise<Client> {
-  if (!config.discordToken) {
-    throw new Error('DISCORD_TOKEN ausente: não foi possível conectar o bot Discord');
+function ensureDiscordEventHandlers(): void {
+  if (eventHandlersRegistered) {
+    return;
   }
 
   discordClient.on('ready', async () => {
@@ -101,8 +123,26 @@ export async function connectDiscord(): Promise<Client> {
     systemLogRepository.create('error', 'Erro Discord', 'discord', { error: error.message }).catch(() => {});
   });
 
-  await discordClient.login(config.discordToken);
+  eventHandlersRegistered = true;
+}
+
+/**
+ * Conecta o bot ao Discord e aguarda evento ready.
+ * @returns Promise resolvida quando o bot estiver pronto
+ */
+export async function connectDiscord(): Promise<Client> {
+  ensureDiscordEventHandlers();
+  await botManager.initialize();
   return discordClient;
+}
+
+/**
+ * Recarrega credenciais do Discord a partir do banco e reaplica conexão.
+ * @returns Promise resolvida após recarga do token
+ */
+export async function reloadDiscordFromDatabase(): Promise<void> {
+  ensureDiscordEventHandlers();
+  await botManager.reloadFromDatabase();
 }
 
 /**
