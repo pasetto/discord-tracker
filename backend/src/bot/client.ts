@@ -48,6 +48,10 @@ export function registerDiscordReadyHandler(handler: () => void | Promise<void>)
  * @returns Promise resolvida quando o bot estiver pronto
  */
 export async function connectDiscord(): Promise<Client> {
+  if (!config.discordToken) {
+    throw new Error('DISCORD_TOKEN ausente: não foi possível conectar o bot Discord');
+  }
+
   discordClient.on('ready', async () => {
     isDiscordReady = true;
     setDiscordConnected(true);

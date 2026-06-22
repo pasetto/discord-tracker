@@ -1,6 +1,10 @@
 process.env.DISCORD_TOKEN = 'test-token';
 process.env.MONGODB_URI = 'mongodb://localhost:27017/test';
 process.env.API_KEYS = 'test-api-key,another-key';
+process.env.JWT_SECRET = 'test-jwt-secret';
+process.env.DISCORD_OAUTH_CLIENT_ID = 'discord-client-id-test';
+process.env.DISCORD_OAUTH_CLIENT_SECRET = 'discord-client-secret-test';
+process.env.FRONTEND_URL = 'http://localhost:4200';
 process.env.IGNORED_CHANNELS = 'AFK,Almoço';
 process.env.AFK_CHANNEL_NAMES = 'AFK,afk';
 process.env.LUNCH_CHANNEL_NAMES = 'Almoço,Almoco,Lunch';

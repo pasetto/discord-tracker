@@ -28,7 +28,7 @@ export type VoiceEventType =
  * Configuração centralizada da aplicação carregada das variáveis de ambiente.
  */
 export interface AppConfig {
-  discordToken: string;
+  discordToken?: string;
   discordGuildId: string;
   mongodbUri: string;
   port: number;
@@ -40,6 +40,10 @@ export interface AppConfig {
   nodeEnv: string;
   timezone: string;
   apiKeys: string[];
+  jwtSecret: string;
+  discordOauthClientId: string;
+  discordOauthClientSecret: string;
+  frontendUrl: string;
 }
 
 /**
@@ -61,14 +65,32 @@ function parseList(value: string | undefined, fallback: string[]): string[] {
  * @throws {Error} Quando variáveis obrigatórias estão ausentes
  */
 export function loadConfig(): AppConfig {
+  const nodeEnv = process.env.NODE_ENV ?? 'development';
   const discordToken = process.env.DISCORD_TOKEN;
   const mongodbUri = process.env.MONGODB_URI;
+  const jwtSecret = process.env.JWT_SECRET;
+  const discordOauthClientId = process.env.DISCORD_OAUTH_CLIENT_ID;
+  const discordOauthClientSecret = process.env.DISCORD_OAUTH_CLIENT_SECRET;
+  const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:4200';
 
-  if (!discordToken) {
+  if (!discordToken && nodeEnv !== 'development') {
     throw new Error('DISCORD_TOKEN é obrigatório');
+  }
+  if (!discordToken && nodeEnv === 'development') {
+    // Mantém o backend iniciável em desenvolvimento sem bot conectado.
+    console.warn('[env] DISCORD_TOKEN ausente: inicializando sem conexão Discord.');
   }
   if (!mongodbUri) {
     throw new Error('MONGODB_URI é obrigatório');
+  }
+  if (!jwtSecret) {
+    throw new Error('JWT_SECRET é obrigatório');
+  }
+  if (!discordOauthClientId) {
+    throw new Error('DISCORD_OAUTH_CLIENT_ID é obrigatório');
+  }
+  if (!discordOauthClientSecret) {
+    throw new Error('DISCORD_OAUTH_CLIENT_SECRET é obrigatório');
   }
 
   const apiKeys = parseList(process.env.API_KEYS, []);
@@ -86,9 +108,13 @@ export function loadConfig(): AppConfig {
     afkChannelNames: parseList(process.env.AFK_CHANNEL_NAMES, ['AFK', 'afk']),
     lunchChannelNames: parseList(process.env.LUNCH_CHANNEL_NAMES, ['Almoço', 'Almoco', 'Lunch']),
     logLevel: process.env.LOG_LEVEL ?? 'info',
-    nodeEnv: process.env.NODE_ENV ?? 'development',
+    nodeEnv,
     timezone: process.env.TIMEZONE ?? 'America/Sao_Paulo',
     apiKeys,
+    jwtSecret,
+    discordOauthClientId,
+    discordOauthClientSecret,
+    frontendUrl,
   };
 }
 

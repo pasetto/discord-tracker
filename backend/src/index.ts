@@ -4,6 +4,7 @@ import { registerReadyHandler } from './bot/events/ready';
 import { startServer } from './api/server';
 import { createLogger } from './logger';
 import { setDiscordPing } from './metrics/prometheus';
+import { config } from './config/env';
 
 const log = createLogger('main');
 
@@ -14,8 +15,12 @@ async function bootstrap(): Promise<void> {
   log.info('Iniciando Discord Tracker...');
 
   await connectMongo();
-  registerReadyHandler();
-  await connectDiscord();
+  if (config.discordToken) {
+    registerReadyHandler();
+    await connectDiscord();
+  } else {
+    log.warn('DISCORD_TOKEN ausente em desenvolvimento: inicializando API sem bot Discord');
+  }
   await startServer();
 
   // Atualiza ping periodicamente
