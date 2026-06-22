@@ -20,6 +20,15 @@ const loadGoalsSettings = () =>
   );
 
 /**
+ * Carrega de forma lazy o wizard de onboarding de 8 passos.
+ * @returns {Promise<unknown>} Componente lazy de onboarding.
+ */
+const loadOnboardingWizard = () =>
+  import('./features/onboarding/onboarding-wizard.component').then(
+    (module) => module.OnboardingWizardComponent,
+  );
+
+/**
  * Rotas de features (esqueleto inicial com lazy loading).
  */
 const featureRoutes: Routes = [
@@ -32,6 +41,12 @@ const featureRoutes: Routes = [
     path: 'reports',
     loadComponent: loadDashboardPlaceholder,
     title: 'Relatórios | Syntra',
+  },
+  {
+    path: 'onboarding',
+    canActivate: [authGuard],
+    loadComponent: loadOnboardingWizard,
+    title: 'Onboarding | Syntra',
   },
   {
     path: 'settings',
@@ -57,6 +72,14 @@ const featureRoutes: Routes = [
 export const routes: Routes = [
   {
     path: '',
+    loadComponent: () =>
+      import('./features/landing/landing-page.component').then(
+        (module) => module.LandingPageComponent,
+      ),
+    title: 'Syntra | Colaboração no Discord',
+  },
+  {
+    path: 'app',
     canActivate: [authGuard],
     loadComponent: () =>
       import('./shared/layout/app-layout/app-layout.component').then(
@@ -66,6 +89,12 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       ...featureRoutes,
     ],
+  },
+  {
+    path: 'onboarding',
+    canActivate: [authGuard],
+    redirectTo: 'app/onboarding',
+    pathMatch: 'full',
   },
   {
     path: 'signin',
@@ -85,10 +114,6 @@ export const routes: Routes = [
   },
   {
     path: '**',
-    loadComponent: () =>
-      import('./pages/other-page/not-found/not-found.component').then(
-        (module) => module.NotFoundComponent,
-      ),
-    title: 'Página não encontrada | Syntra',
+    redirectTo: '',
   },
 ];

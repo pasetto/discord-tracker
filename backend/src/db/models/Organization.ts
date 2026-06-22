@@ -35,6 +35,21 @@ export interface IOrganizationSettings {
 }
 
 /**
+ * Progresso do onboarding em 8 etapas da organização.
+ */
+export interface IOnboardingProgress {
+  currentStep: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+  completedSteps: number[];
+  botConnected: boolean;
+  guildSelected: boolean;
+  channelsConfigured: boolean;
+  calendarConfigured: boolean;
+  categoriesConfigured: boolean;
+  membersAssigned: boolean;
+  completedAt?: Date;
+}
+
+/**
  * Documento de organização (tenant) da plataforma.
  */
 export interface IOrganization extends Document {
@@ -42,9 +57,25 @@ export interface IOrganization extends Document {
   slug: string;
   subscription: IOrganizationSubscription;
   settings: IOrganizationSettings;
+  onboarding: IOnboardingProgress;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const onboardingProgressSchema = new Schema<IOnboardingProgress>(
+  {
+    currentStep: { type: Number, required: true, min: 1, max: 8, default: 1 },
+    completedSteps: { type: [Number], required: true, default: [1] },
+    botConnected: { type: Boolean, required: true, default: false },
+    guildSelected: { type: Boolean, required: true, default: false },
+    channelsConfigured: { type: Boolean, required: true, default: false },
+    calendarConfigured: { type: Boolean, required: true, default: false },
+    categoriesConfigured: { type: Boolean, required: true, default: false },
+    membersAssigned: { type: Boolean, required: true, default: false },
+    completedAt: { type: Date, required: false },
+  },
+  { _id: false },
+);
 
 const planSnapshotSchema = new Schema<IPlanSnapshot>(
   {
@@ -80,6 +111,7 @@ const organizationSchema = new Schema<IOrganization>(
       privacyPolicyAcceptedAt: { type: Date, required: false },
       memberConsentBannerEnabled: { type: Boolean, required: true, default: true },
     },
+    onboarding: { type: onboardingProgressSchema, required: true, default: () => ({}) },
   },
   { timestamps: true },
 );
