@@ -1,0 +1,86 @@
+<section class="space-y-6">
+  <header class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Gamificação e ranking</h2>
+    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+      Configure gamificação por guild respeitando os recursos disponíveis no plano da organização.
+    </p>
+  </header>
+
+  <div class="grid gap-4 rounded-2xl border border-gray-200 bg-white p-5 md:grid-cols-2 dark:border-gray-800 dark:bg-white/[0.03]">
+    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+      organizationId
+      <input
+        class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+        [(ngModel)]="orgId"
+        placeholder="orgId"
+      />
+    </label>
+    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+      guildId
+      <input
+        class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+        [(ngModel)]="guildId"
+        placeholder="guildId"
+      />
+    </label>
+    <div class="md:col-span-2">
+      <button
+        type="button"
+        class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60 min-h-11"
+        (click)="loadSettings()"
+        [disabled]="loading"
+      >
+        Carregar configuração
+      </button>
+    </div>
+  </div>
+
+  <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Toggles de configuração</h3>
+
+    <div class="space-y-4">
+      <label class="flex min-h-11 items-center justify-between gap-4 rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-700">
+        <span class="text-sm text-gray-700 dark:text-gray-200">Gamificação habilitada</span>
+        <input type="checkbox" [(ngModel)]="toggles.enabled" [disabled]="loading || saving" />
+      </label>
+
+      <label class="flex min-h-11 items-center justify-between gap-4 rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-700">
+        <span class="text-sm text-gray-700 dark:text-gray-200">Ranking habilitado</span>
+        <input type="checkbox" [(ngModel)]="toggles.rankingEnabled" [disabled]="loading || saving || isRankingLockedByPlan()" />
+      </label>
+
+      <p *ngIf="isRankingLockedByPlan()" class="text-sm text-warning-600">
+        Ranking indisponível para o plano atual.
+      </p>
+
+      <label class="flex min-h-11 items-center justify-between gap-4 rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-700">
+        <span class="text-sm text-gray-700 dark:text-gray-200">Badges habilitados</span>
+        <input type="checkbox" [(ngModel)]="toggles.badgesEnabled" [disabled]="loading || saving" />
+      </label>
+
+      <label class="flex min-h-11 items-center justify-between gap-4 rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-700">
+        <span class="text-sm text-gray-700 dark:text-gray-200">Streaks habilitadas</span>
+        <input type="checkbox" [(ngModel)]="toggles.streaksEnabled" [disabled]="loading || saving" />
+      </label>
+    </div>
+
+    <div class="mt-5">
+      <button
+        type="button"
+        class="rounded-lg bg-success-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-success-600 disabled:opacity-60 min-h-11"
+        (click)="saveSettings()"
+        [disabled]="loading || saving"
+      >
+        Salvar gamificação
+      </button>
+    </div>
+  </section>
+
+  <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">
+    {{ errorMessage }}
+  </p>
+
+  <p *ngIf="successMessage" class="rounded-lg border border-success-300 bg-success-50 px-3 py-2 text-sm text-success-700">
+    {{ successMessage }}
+  </p>
+</section>
