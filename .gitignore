@@ -4,5 +4,8 @@ dist/
 *.log
 logs/
 coverage/
+.playwright/
+playwright-report/
+test-results/
 .DS_Store
 .pm2/

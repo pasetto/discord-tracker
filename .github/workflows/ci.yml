@@ -48,3 +48,24 @@ jobs:
 
       - name: Testes unitários (headless)
         run: npm run test:ci --workspace=frontend
+
+  frontend-e2e:
+    name: Frontend E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Instalar Chromium do Playwright
+        run: npx playwright install chromium
+
+      - name: Smoke e2e onboarding + landing
+        run: npm run test:e2e --workspace=frontend
