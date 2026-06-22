@@ -11,6 +11,8 @@ import {
 } from '../metrics/prometheus';
 import { systemLogRepository } from '../repositories/systemLogRepository';
 import { BotManager } from '../services/botManager';
+import { registerMessageCreateHandler } from './events/messageCreate';
+import { registerMessageReactionAddHandler } from './events/messageReactionAdd';
 
 const log = createLogger('discord');
 
@@ -21,8 +23,10 @@ export const discordClient = new Client({
     GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.GuildPresences,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessageReactions,
   ],
-  partials: [Partials.GuildMember, Partials.User, Partials.Channel],
+  partials: [Partials.GuildMember, Partials.User, Partials.Channel, Partials.Message, Partials.Reaction],
 });
 
 /** Indica se o bot está conectado e pronto. */
@@ -73,6 +77,9 @@ function ensureDiscordEventHandlers(): void {
   if (eventHandlersRegistered) {
     return;
   }
+
+  registerMessageCreateHandler();
+  registerMessageReactionAddHandler();
 
   discordClient.on('ready', async () => {
     isDiscordReady = true;
