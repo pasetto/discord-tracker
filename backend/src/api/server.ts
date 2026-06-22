@@ -20,6 +20,8 @@ import { inactivityRouter } from './routes/inactivity';
 import { goalsRouter } from './routes/goals';
 import { onboardingRouter } from './routes/onboarding';
 import { billingRouter } from './routes/billing';
+import { pushRouter } from './routes/push';
+import { meRouter } from './routes/me';
 import { stripeWebhookRouter } from './routes/webhooks/stripe';
 import { getOpenApiSpec } from './swagger';
 
@@ -78,6 +80,8 @@ export function createApp(): Koa {
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, goalsRouter.routes(), goalsRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, onboardingRouter.routes(), onboardingRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, billingRouter.routes(), billingRouter.allowedMethods());
+  apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, pushRouter.routes(), pushRouter.allowedMethods());
+  apiV1ProtectedRouter.use(meRouter.routes(), meRouter.allowedMethods());
 
   app.use(async (ctx, next) => {
     try {

@@ -3,6 +3,7 @@ import { OrganizationModel } from '../db/models/Organization';
 import { WorkCalendarModel, createDefaultWorkWeek } from '../db/models/WorkCalendar';
 import { isBusinessDay } from '../services/workCalendarService';
 import { generateWeeklyInactivitySnapshot, listTrackedGuildIdsByOrganization } from '../services/inactivityService';
+import { notifyManagersAboutMissingMembers } from '../services/pushService';
 import { getZonedParts } from '../utils/timezone';
 
 const ONE_MINUTE_MS = 60_000;
@@ -91,7 +92,21 @@ export async function runInactivityCronTick(now: Date = new Date()): Promise<num
         continue;
       }
 
-      await generateWeeklyInactivitySnapshot(organizationId, guildId, now);
+      const snapshot = await generateWeeklyInactivitySnapshot(organizationId, guildId, now);
+      const missingMembers = snapshot.entries
+        .filter((entry) => entry.status === 'missing')
+        .map((entry) => ({
+          discordId: entry.discordId,
+          displayName: entry.displayName,
+          inactiveBusinessDays: entry.inactiveBusinessDays,
+        }));
+      if (missingMembers.length > 0) {
+        await notifyManagersAboutMissingMembers({
+          organizationId,
+          guildId,
+          missingMembers,
+        });
+      }
       lastExecutionByOrgAndGuild.set(executionKey, localDateKey);
       snapshotsGenerated += 1;
     }

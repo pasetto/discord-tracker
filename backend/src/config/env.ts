@@ -44,6 +44,9 @@ export interface AppConfig {
   discordOauthClientId: string;
   discordOauthClientSecret: string;
   frontendUrl: string;
+  vapidPublicKey?: string;
+  vapidPrivateKey?: string;
+  vapidSubject?: string;
 }
 
 /**
@@ -72,6 +75,9 @@ export function loadConfig(): AppConfig {
   const discordOauthClientId = process.env.DISCORD_OAUTH_CLIENT_ID;
   const discordOauthClientSecret = process.env.DISCORD_OAUTH_CLIENT_SECRET;
   const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:4200';
+  const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+  const vapidSubject = process.env.VAPID_SUBJECT;
 
   if (!discordToken && nodeEnv !== 'development') {
     throw new Error('DISCORD_TOKEN é obrigatório');
@@ -115,6 +121,9 @@ export function loadConfig(): AppConfig {
     discordOauthClientId,
     discordOauthClientSecret,
     frontendUrl,
+    vapidPublicKey,
+    vapidPrivateKey,
+    vapidSubject,
   };
 }
 
