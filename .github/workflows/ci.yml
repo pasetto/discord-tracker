@@ -46,8 +46,8 @@ jobs:
       - name: Build produção
         run: npm run build --workspace=frontend
 
-      - name: Testes unitários (headless)
-        run: npm run test:ci --workspace=frontend
+      - name: Testes unitários com cobertura (headless)
+        run: npm run test:coverage --workspace=frontend
 
   frontend-e2e:
     name: Frontend E2E (Playwright)

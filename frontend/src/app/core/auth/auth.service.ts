@@ -45,11 +45,18 @@ export class AuthService {
   }
 
   /**
+   * Resolve o caminho/URL de início do fluxo OAuth com Discord.
+   * @returns {string} Caminho relativo ou URL absoluta do OAuth.
+   */
+  resolveDiscordAuthPath(): string {
+    return this.publicConfigService.getDiscordAuthPath();
+  }
+
+  /**
    * Inicia o fluxo OAuth redirecionando para o endpoint do Discord.
    * @returns {void} Não retorna valor.
    */
   redirectToDiscordOAuth(): void {
-    const oauthPath = this.publicConfigService.getDiscordAuthPath();
-    window.location.assign(oauthPath);
+    window.location.assign(this.resolveDiscordAuthPath());
   }
 }

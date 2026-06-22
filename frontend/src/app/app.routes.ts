@@ -82,8 +82,13 @@ const loadGamificationSettings = () =>
     (module) => module.GamificationSettingsComponent,
   );
 
+const loadChannelsSettings = () =>
+  import('./features/settings/channels/channels-settings.component').then(
+    (module) => module.ChannelsSettingsComponent,
+  );
+
 /**
- * Rotas de features (esqueleto inicial com lazy loading).
+ * Rotas de features da aplicação autenticada.
  */
 const featureRoutes: Routes = [
   {
@@ -132,6 +137,11 @@ const featureRoutes: Routes = [
         path: '',
         pathMatch: 'full',
         loadComponent: loadDashboardPlaceholder,
+      },
+      {
+        path: 'channels',
+        loadComponent: loadChannelsSettings,
+        title: 'Canais colaborativos | Syntra',
       },
       {
         path: 'goals',

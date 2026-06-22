@@ -27,6 +27,7 @@ export default defineConfig({
         'src/repositories/dailyReportRepository.ts',
         'src/repositories/presenceSessionRepository.ts',
         'src/repositories/voiceSessionRepository.ts',
+        'src/services/webhookService.ts',
       ],
       thresholds: {
         lines: 80,

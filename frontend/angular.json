@@ -91,7 +91,10 @@
               "src/app/app.config.ts",
               "src/app/app.routes.ts",
               "src/app/app.component.ts",
-              "src/app/shared/**/*.ts"
+              "src/app/shared/**/*.ts",
+              "src/app/pages/**/*.ts",
+              "src/app/features/**/*.component.ts",
+              "src/app/core/push/**/*.ts"
             ],
             "include": [
               "src/app/core/**/*.spec.ts",

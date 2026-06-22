@@ -40,4 +40,9 @@ describe('AuthService', () => {
     expect(service.hasToken()).toBeFalse();
   });
 
+  it('resolve caminho OAuth a partir da config pública', () => {
+    const service = TestBed.inject(AuthService);
+    expect(service.resolveDiscordAuthPath()).toBe('/api/v1/auth/discord');
+    expect(getDiscordAuthPath).toHaveBeenCalled();
+  });
 });
