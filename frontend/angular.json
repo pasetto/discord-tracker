@@ -85,6 +85,18 @@
               "zone.js/testing"
             ],
             "tsConfig": "tsconfig.spec.json",
+            "codeCoverageExclude": [
+              "src/**/*.spec.ts",
+              "src/main.ts",
+              "src/app/app.config.ts",
+              "src/app/app.routes.ts",
+              "src/app/app.component.ts",
+              "src/app/shared/**/*.ts"
+            ],
+            "include": [
+              "src/app/core/**/*.spec.ts",
+              "src/app/features/**/*.spec.ts"
+            ],
             "assets": [
               {
                 "glob": "**/*",
@@ -94,7 +106,8 @@
             "styles": [
               "src/styles.css"
             ],
-            "scripts": []
+            "scripts": [],
+            "karmaConfig": "karma.conf.js"
           }
         }
       }
