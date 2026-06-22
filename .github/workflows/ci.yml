@@ -23,8 +23,8 @@ jobs:
       - name: Lint TypeScript
         run: npm run lint --workspace=backend
 
-      - name: Testes unitários
-        run: npm run test --workspace=backend
+      - name: Testes unitários com cobertura
+        run: npm run test:coverage --workspace=backend
 
       - name: Build
         run: npm run build --workspace=backend
