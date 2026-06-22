@@ -1,7 +1,7 @@
 services:
   mongodb:
     image: mongo:7
-    container_name: discord-tracker-mongo
+    container_name: syntra-mongo
     restart: unless-stopped
     ports:
       - "27017:27017"
@@ -14,16 +14,18 @@ services:
       retries: 5
       start_period: 20s
 
-  bot:
-    build: .
-    container_name: discord-tracker-bot
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: syntra-backend
     restart: unless-stopped
     ports:
       - "3000:3000"
     env_file:
       - .env
     environment:
-      MONGODB_URI: mongodb://mongodb:27017/discord-tracker
+      MONGODB_URI: mongodb://mongodb:27017/syntra
       NODE_ENV: production
     depends_on:
       mongodb:
@@ -34,6 +36,18 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: syntra-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
 
 volumes:
   mongo_data:

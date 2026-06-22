@@ -2,13 +2,14 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci
+COPY package.json package-lock.json ./
+COPY backend/package.json ./backend/
+RUN npm ci --workspace=backend
 
-COPY tsconfig.json vitest.config.ts ./
-COPY src ./src
+COPY backend/tsconfig.json backend/vitest.config.ts ./backend/
+COPY backend/src ./backend/src
 
-RUN npm run build
+RUN npm run build --workspace=backend
 
 FROM node:22-alpine AS production
 
@@ -16,10 +17,13 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY package*.json ./
-RUN npm ci --omit=dev
+COPY package.json package-lock.json ./
+COPY backend/package.json ./backend/
+RUN npm ci --workspace=backend --omit=dev
 
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/backend/dist ./backend/dist
+
+WORKDIR /app/backend
 
 RUN mkdir -p logs
 
