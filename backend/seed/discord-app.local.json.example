@@ -1,0 +1,7 @@
+{
+  "name": "Syntra Dev",
+  "clientId": "COLE_SEU_CLIENT_ID",
+  "clientSecret": "COLE_SEU_CLIENT_SECRET",
+  "botToken": "COLE_SEU_BOT_TOKEN",
+  "superAdminDiscordId": "COLE_SEU_DISCORD_USER_ID"
+}

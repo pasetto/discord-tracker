@@ -31,7 +31,7 @@ export class OnboardingWizardComponent implements OnInit {
    */
   readonly steps: OnboardingStepMeta[] = [
     { step: 1, title: 'Conta criada', description: 'Sua organização foi criada e já pode iniciar o setup.' },
-    { step: 2, title: 'Conectar bot Discord', description: 'Conecte o bot ao aplicativo Discord da organização.', actionLabel: 'Configurar bot', actionRoute: '/app/settings' },
+    { step: 2, title: 'Conectar bot Discord', description: 'Conecte o bot ao aplicativo Discord da organização.', actionLabel: 'Configurar bot', actionRoute: '/app/settings/discord' },
     { step: 3, title: 'Escolher servidor', description: 'Selecione o servidor (guild) que será monitorado.', actionLabel: 'Configurações', actionRoute: '/app/settings' },
     { step: 4, title: 'Configurar canais', description: 'Defina canais de voz/texto colaborativos e exceções.', actionLabel: 'Abrir canais', actionRoute: '/app/settings/channels' },
     { step: 5, title: 'Calendário de trabalho', description: 'Aplique jornada padrão BR e revise os feriados.', actionLabel: 'Abrir calendário', actionRoute: '/app/settings/calendar' },

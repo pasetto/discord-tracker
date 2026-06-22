@@ -1,5 +1,6 @@
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { config } from '../config/env';
+import { resolveDiscordOAuthCredentials } from './discordApplicationService';
 
 /** Tempo de expiração do access token em segundos (15 minutos). */
 export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
@@ -104,9 +105,10 @@ export async function exchangeDiscordCodeForToken(
   code: string,
   redirectUri: string,
 ): Promise<string> {
+  const oauth = await resolveDiscordOAuthCredentials();
   const body = new URLSearchParams({
-    client_id: config.discordOauthClientId,
-    client_secret: config.discordOauthClientSecret,
+    client_id: oauth.clientId,
+    client_secret: oauth.clientSecret,
     grant_type: 'authorization_code',
     code,
     redirect_uri: redirectUri,
@@ -163,9 +165,10 @@ export async function fetchDiscordOAuthUser(discordAccessToken: string): Promise
  * @param state Valor opaco de proteção de fluxo OAuth (CSRF)
  * @returns URL completa para redirecionamento ao Discord
  */
-export function buildDiscordAuthorizeUrl(redirectUri: string, state: string): string {
+export async function buildDiscordAuthorizeUrl(redirectUri: string, state: string): Promise<string> {
+  const oauth = await resolveDiscordOAuthCredentials();
   const query = new URLSearchParams({
-    client_id: config.discordOauthClientId,
+    client_id: oauth.clientId,
     response_type: 'code',
     scope: 'identify',
     redirect_uri: redirectUri,

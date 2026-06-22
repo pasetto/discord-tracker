@@ -1,10 +1,10 @@
 import { connectMongo, disconnectMongo } from './db/connection';
-import { connectDiscord, disconnectDiscord, getDiscordPing } from './bot/client';
+import { BotTokenInvalidError, connectDiscord, disconnectDiscord, getDiscordPing } from './bot/client';
 import { registerReadyHandler } from './bot/events/ready';
 import { startServer } from './api/server';
 import { createLogger } from './logger';
 import { setDiscordPing } from './metrics/prometheus';
-import { config } from './config/env';
+import { PlatformNotConfiguredError } from './services/botManager';
 import { startAbsenceStatusCron } from './workers/absenceStatusCron';
 import { startInactivityCron } from './workers/inactivityCron';
 import { startWebhookWorker } from './workers/webhookWorker';
@@ -18,15 +18,29 @@ let stopWebhookWorker: (() => void) | undefined;
  * Inicia todos os subsistemas da aplicação.
  */
 async function bootstrap(): Promise<void> {
-  log.info('Iniciando Discord Tracker...');
+  log.info('Iniciando Syntra...');
 
   await connectMongo();
-  if (config.discordToken) {
-    registerReadyHandler();
+  registerReadyHandler();
+
+  try {
     await connectDiscord();
-  } else {
-    log.warn('DISCORD_TOKEN ausente em desenvolvimento: inicializando API sem bot Discord');
+    log.info('Bot Discord conectado a partir do banco de dados');
+  } catch (error) {
+    if (error instanceof PlatformNotConfiguredError) {
+      log.warn(
+        'Bot Discord não configurado. Cadastre o aplicativo em /admin/discord ou execute npm run seed:discord-app',
+      );
+    } else if (error instanceof BotTokenInvalidError) {
+      log.error(
+        { err: error },
+        'Token do bot inválido no banco. Atualize em /admin/discord e remova DISCORD_TOKEN do .env',
+      );
+    } else {
+      log.error({ err: error }, 'Falha ao conectar bot Discord; API continuará sem bot');
+    }
   }
+
   await startServer();
   stopAbsenceStatusCron = startAbsenceStatusCron();
   stopInactivityCron = startInactivityCron();
@@ -37,7 +51,7 @@ async function bootstrap(): Promise<void> {
     setDiscordPing(getDiscordPing());
   }, 30_000);
 
-  log.info('Discord Tracker em execução');
+  log.info('Syntra em execução');
 }
 
 /**

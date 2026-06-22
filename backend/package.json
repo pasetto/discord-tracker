@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "seed:plans": "tsx src/scripts/seedPlans.ts",
+    "seed:discord-app": "tsx src/scripts/seedDiscordApp.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

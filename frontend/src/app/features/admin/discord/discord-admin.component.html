@@ -1,0 +1,62 @@
+<section class="space-y-6">
+  <header class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Bot Discord da plataforma</h2>
+    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+      Cadastre o aplicativo Discord aqui. O token <strong>não</strong> deve ficar no <code>.env</code>.
+    </p>
+  </header>
+
+  <form class="grid gap-4 rounded-2xl border border-gray-200 bg-white p-5 md:grid-cols-2 dark:border-gray-800 dark:bg-white/[0.03]" (ngSubmit)="submit()">
+    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 md:col-span-2">
+      Nome
+      <input class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="form.name" name="name" required />
+    </label>
+    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+      Client ID
+      <input class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="form.clientId" name="clientId" required />
+    </label>
+    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+      Client Secret
+      <input type="password" class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="form.clientSecret" name="clientSecret" required />
+    </label>
+    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 md:col-span-2">
+      Bot Token
+      <input type="password" class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="form.botToken" name="botToken" required />
+    </label>
+    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 md:col-span-2" *ngIf="applications.length === 0">
+      Seu Discord User ID (super admin opcional no bootstrap)
+      <input class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="form.superAdminDiscordId" name="superAdminDiscordId" />
+    </label>
+    <div class="md:col-span-2">
+      <button type="submit" class="min-h-11 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white" [disabled]="saving">
+        {{ applications.length === 0 ? 'Cadastrar primeiro bot' : 'Adicionar aplicativo' }}
+      </button>
+    </div>
+  </form>
+
+  <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Aplicativos cadastrados</h3>
+    <p *ngIf="loading" class="mt-2 text-sm text-gray-500">Carregando...</p>
+    <ul class="mt-4 space-y-3" *ngIf="!loading">
+      <li *ngFor="let app of applications" class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p class="font-medium text-gray-800 dark:text-white/90">{{ app.name }}</p>
+            <p class="text-xs text-gray-500">Client ID: {{ app.clientId }} · Bot: {{ app.botUsername || 'n/d' }}</p>
+            <p class="text-xs text-gray-500">Token: {{ app.botTokenMasked }}</p>
+            <p *ngIf="app.validationError" class="mt-1 text-xs text-error-500">{{ app.validationError }}</p>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" class="min-h-10 rounded-lg border px-3 text-sm" (click)="validate(app.id)">Validar</button>
+            <button type="button" class="min-h-10 rounded-lg bg-brand-500 px-3 text-sm text-white" (click)="activate(app.id)" [disabled]="app.isPlatformDefault">
+              {{ app.isPlatformDefault ? 'Ativo' : 'Ativar' }}
+            </button>
+          </div>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">{{ errorMessage }}</p>
+  <p *ngIf="successMessage" class="rounded-lg border border-success-300 bg-success-50 px-3 py-2 text-sm text-success-700">{{ successMessage }}</p>
+</section>

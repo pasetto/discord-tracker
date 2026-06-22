@@ -36,9 +36,24 @@ const readyHandlers: Array<() => void | Promise<void>> = [];
 let eventHandlersRegistered = false;
 
 /**
+ * Erro lançado quando o token do bot é rejeitado pelo Discord.
+ */
+export class BotTokenInvalidError extends Error {
+  /**
+   * Cria erro de token inválido retornado pelo gateway Discord.
+   * @param message Mensagem detalhada
+   */
+  constructor(message = 'Token do bot Discord inválido. Atualize em /admin/discord') {
+    super(message);
+    this.name = 'BotTokenInvalidError';
+  }
+}
+
+/**
  * Conecta o cliente Discord com o token recebido.
  * @param token Token OAuth do bot
  * @returns Promise resolvida após autenticação no gateway
+ * @throws {BotTokenInvalidError} Quando o Discord rejeita o token
  */
 async function loginWithToken(token: string): Promise<void> {
   if (discordClient.token === token && discordClient.isReady()) {
@@ -49,7 +64,15 @@ async function loginWithToken(token: string): Promise<void> {
     discordClient.destroy();
   }
 
-  await discordClient.login(token);
+  try {
+    await discordClient.login(token);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Falha ao autenticar bot Discord';
+    if (message.toLowerCase().includes('invalid token')) {
+      throw new BotTokenInvalidError();
+    }
+    throw error;
+  }
 }
 
 /** Gerencia carregamento e recarga de token via banco de dados. */

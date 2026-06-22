@@ -28,21 +28,14 @@ export type VoiceEventType =
  * Configuração centralizada da aplicação carregada das variáveis de ambiente.
  */
 export interface AppConfig {
-  discordToken?: string;
-  discordGuildId: string;
   mongodbUri: string;
   port: number;
   host: string;
-  ignoredChannels: string[];
-  afkChannelNames: string[];
-  lunchChannelNames: string[];
   logLevel: string;
   nodeEnv: string;
   timezone: string;
   apiKeys: string[];
   jwtSecret: string;
-  discordOauthClientId: string;
-  discordOauthClientSecret: string;
   frontendUrl: string;
   vapidPublicKey?: string;
   vapidPrivateKey?: string;
@@ -69,57 +62,40 @@ function parseList(value: string | undefined, fallback: string[]): string[] {
  */
 export function loadConfig(): AppConfig {
   const nodeEnv = process.env.NODE_ENV ?? 'development';
-  const discordToken = process.env.DISCORD_TOKEN;
   const mongodbUri = process.env.MONGODB_URI;
   const jwtSecret = process.env.JWT_SECRET;
-  const discordOauthClientId = process.env.DISCORD_OAUTH_CLIENT_ID;
-  const discordOauthClientSecret = process.env.DISCORD_OAUTH_CLIENT_SECRET;
   const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:4200';
   const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
   const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
   const vapidSubject = process.env.VAPID_SUBJECT;
 
-  if (!discordToken && nodeEnv !== 'development') {
-    throw new Error('DISCORD_TOKEN é obrigatório');
-  }
-  if (!discordToken && nodeEnv === 'development') {
-    // Mantém o backend iniciável em desenvolvimento sem bot conectado.
-    console.warn('[env] DISCORD_TOKEN ausente: inicializando sem conexão Discord.');
-  }
   if (!mongodbUri) {
     throw new Error('MONGODB_URI é obrigatório');
   }
   if (!jwtSecret) {
     throw new Error('JWT_SECRET é obrigatório');
   }
-  if (!discordOauthClientId) {
-    throw new Error('DISCORD_OAUTH_CLIENT_ID é obrigatório');
-  }
-  if (!discordOauthClientSecret) {
-    throw new Error('DISCORD_OAUTH_CLIENT_SECRET é obrigatório');
-  }
 
   const apiKeys = parseList(process.env.API_KEYS, []);
-  if (apiKeys.length === 0) {
+  if (apiKeys.length === 0 && nodeEnv !== 'development') {
     throw new Error('API_KEYS é obrigatório (uma ou mais chaves separadas por vírgula)');
   }
 
+  if (process.env.DISCORD_TOKEN?.trim()) {
+    console.warn(
+      '[env] DISCORD_TOKEN está definido mas será ignorado. Cadastre o bot via /admin/discord ou seed:discord-app.',
+    );
+  }
+
   return {
-    discordToken,
-    discordGuildId: process.env.DISCORD_GUILD_ID ?? '',
     mongodbUri,
     port: Number(process.env.PORT ?? 3000),
     host: process.env.HOST ?? '0.0.0.0',
-    ignoredChannels: parseList(process.env.IGNORED_CHANNELS, ['AFK', 'Almoço']),
-    afkChannelNames: parseList(process.env.AFK_CHANNEL_NAMES, ['AFK', 'afk']),
-    lunchChannelNames: parseList(process.env.LUNCH_CHANNEL_NAMES, ['Almoço', 'Almoco', 'Lunch']),
     logLevel: process.env.LOG_LEVEL ?? 'info',
     nodeEnv,
     timezone: process.env.TIMEZONE ?? 'America/Sao_Paulo',
     apiKeys,
     jwtSecret,
-    discordOauthClientId,
-    discordOauthClientSecret,
     frontendUrl,
     vapidPublicKey,
     vapidPrivateKey,

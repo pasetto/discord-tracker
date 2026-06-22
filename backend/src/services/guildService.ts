@@ -1,5 +1,4 @@
 import { Guild } from 'discord.js';
-import { config } from '../config/env';
 import { discordClient } from '../bot/client';
 import { appSettingRepository } from '../repositories/appSettingRepository';
 import { createLogger } from '../logger';
@@ -23,10 +22,6 @@ let initialized = false;
  * @returns ID do guild selecionado ou null quando indisponível
  */
 function resolveEffectiveGuildId(storedId: string | null): string | null {
-  if (config.discordGuildId && discordClient.guilds.cache.has(config.discordGuildId)) {
-    return config.discordGuildId;
-  }
-
   if (storedId && discordClient.guilds.cache.has(storedId)) {
     return storedId;
   }
@@ -64,7 +59,7 @@ export const guildService = {
 
     const guild = discordClient.guilds.cache.get(effectiveId);
     log.info(
-      { guildId: effectiveId, guildName: guild?.name, source: config.discordGuildId ? 'env' : 'dashboard' },
+      { guildId: effectiveId, guildName: guild?.name, source: 'dashboard' },
       'Servidor monitorado definido',
     );
 

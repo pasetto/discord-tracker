@@ -26,6 +26,9 @@ import { billingRouter } from './routes/billing';
 import { pushRouter } from './routes/push';
 import { webhooksRouter } from './routes/webhooks';
 import { meRouter } from './routes/me';
+import { adminDiscordBootstrapRouter, adminDiscordRouter } from './routes/adminDiscord';
+import { discordSettingsRouter } from './routes/discordSettings';
+import { superAdminMiddleware } from './middleware/superAdmin';
 import { stripeWebhookRouter } from './routes/webhooks/stripe';
 import { getOpenApiSpec } from './swagger';
 
@@ -54,6 +57,7 @@ export function createApp(): Koa {
   publicRouter.use(healthRouter.routes());
   apiV1PublicRouter.use(authRouter.routes());
   apiV1PublicRouter.use(publicRoutesRouter.routes());
+  apiV1PublicRouter.use(adminDiscordBootstrapRouter.routes());
   apiV1PublicRouter.use(healthRouter.routes());
   apiV1PublicRouter.use(stripeWebhookRouter.routes());
   apiV1PublicRouter.get('/docs/openapi.json', (ctx) => {
@@ -89,7 +93,9 @@ export function createApp(): Koa {
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, billingRouter.routes(), billingRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, pushRouter.routes(), pushRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, webhooksRouter.routes(), webhooksRouter.allowedMethods());
+  apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, discordSettingsRouter.routes(), discordSettingsRouter.allowedMethods());
   apiV1ProtectedRouter.use(meRouter.routes(), meRouter.allowedMethods());
+  apiV1ProtectedRouter.use(superAdminMiddleware, adminDiscordRouter.routes(), adminDiscordRouter.allowedMethods());
 
   app.use(async (ctx, next) => {
     try {

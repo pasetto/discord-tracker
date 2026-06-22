@@ -1,7 +1,14 @@
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../src/api/server';
-import { config } from '../../src/config/env';
+
+vi.mock('../../src/services/discordApplicationService', () => ({
+  getPublicDiscordClientId: vi.fn(async () => 'discord-client-id-test'),
+  resolveDiscordOAuthCredentials: vi.fn(async () => ({
+    clientId: 'discord-client-id-test',
+    clientSecret: 'discord-client-secret-test',
+  })),
+}));
 
 describe('public routes', () => {
   it('retorna configuração pública em /api/v1/public/config', async () => {
@@ -10,10 +17,9 @@ describe('public routes', () => {
     const response = await request(app.callback()).get('/api/v1/public/config');
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({
-      appName: 'Syntra',
-      discordClientId: config.discordOauthClientId,
-      pricingEnabled: true,
-    });
+    expect(response.body.appName).toBe('Syntra');
+    expect(response.body.discordAuthPath).toBe('/api/v1/auth/discord');
+    expect(response.body.pricingEnabled).toBe(true);
+    expect(response.body.discordClientId).toBe('discord-client-id-test');
   });
 });

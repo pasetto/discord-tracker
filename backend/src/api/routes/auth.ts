@@ -31,16 +31,23 @@ function buildCallbackUrl(protocol: string, host: string): string {
 authRouter.get('/auth/discord', async (ctx) => {
   const state = randomUUID();
   const redirectUri = buildCallbackUrl(ctx.protocol, ctx.host);
-  const authorizeUrl = buildDiscordAuthorizeUrl(redirectUri, state);
 
-  ctx.cookies.set('syntra_oauth_state', state, {
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 10 * 60 * 1000,
-    secure: config.nodeEnv === 'production',
-  });
-
-  ctx.redirect(authorizeUrl);
+  try {
+    const authorizeUrl = await buildDiscordAuthorizeUrl(redirectUri, state);
+    ctx.cookies.set('syntra_oauth_state', state, {
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: 10 * 60 * 1000,
+      secure: config.nodeEnv === 'production',
+    });
+    ctx.redirect(authorizeUrl);
+  } catch (error) {
+    ctx.status = 503;
+    ctx.body = {
+      error: 'OAuth Discord indisponível',
+      message: (error as Error).message,
+    };
+  }
 });
 
 /**

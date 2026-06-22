@@ -1,6 +1,13 @@
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../src/api/server';
+
+vi.mock('../../src/services/discordApplicationService', () => ({
+  resolveDiscordOAuthCredentials: vi.fn(async () => ({
+    clientId: 'discord-client-id-test',
+    clientSecret: 'discord-client-secret-test',
+  })),
+}));
 
 describe('auth routes', () => {
   it('redireciona para OAuth2 do Discord em /api/v1/auth/discord', async () => {

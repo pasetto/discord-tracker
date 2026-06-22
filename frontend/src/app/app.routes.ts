@@ -87,6 +87,14 @@ const loadChannelsSettings = () =>
     (module) => module.ChannelsSettingsComponent,
   );
 
+const loadDiscordSettings = () =>
+  import('./features/settings/discord/discord-settings.component').then(
+    (module) => module.DiscordSettingsComponent,
+  );
+
+const loadDiscordAdmin = () =>
+  import('./features/admin/discord/discord-admin.component').then((module) => module.DiscordAdminComponent);
+
 /**
  * Rotas de features da aplicação autenticada.
  */
@@ -142,6 +150,11 @@ const featureRoutes: Routes = [
         path: 'channels',
         loadComponent: loadChannelsSettings,
         title: 'Canais colaborativos | Syntra',
+      },
+      {
+        path: 'discord',
+        loadComponent: loadDiscordSettings,
+        title: 'Conexão Discord | Syntra',
       },
       {
         path: 'goals',
@@ -202,6 +215,17 @@ export const routes: Routes = [
     canActivate: [authGuard],
     redirectTo: 'app/me',
     pathMatch: 'full',
+  },
+  {
+    path: 'admin',
+    canActivate: [authGuard],
+    children: [
+      {
+        path: 'discord',
+        loadComponent: loadDiscordAdmin,
+        title: 'Admin Discord | Syntra',
+      },
+    ],
   },
   {
     path: 'signin',

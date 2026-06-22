@@ -9,3 +9,4 @@ playwright-report/
 test-results/
 .DS_Store
 .pm2/
+backend/seed/discord-app.local.json

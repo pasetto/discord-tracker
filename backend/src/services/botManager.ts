@@ -30,7 +30,6 @@ export interface BotManagerDependencies {
   decrypt?: (encryptedValue: string) => string;
   onTokenLoaded?: (token: string) => Promise<void>;
   nodeEnv?: string;
-  fallbackToken?: string;
 }
 
 /**
@@ -42,10 +41,6 @@ export class BotManager {
   private readonly decrypt: (encryptedValue: string) => string;
 
   private readonly onTokenLoaded: (token: string) => Promise<void>;
-
-  private readonly nodeEnv: string;
-
-  private readonly fallbackToken?: string;
 
   /**
    * Cria uma instância de gerenciamento do token do bot Discord.
@@ -64,8 +59,6 @@ export class BotManager {
 
     this.decrypt = dependencies.decrypt ?? decryptSecret;
     this.onTokenLoaded = dependencies.onTokenLoaded ?? (async () => {});
-    this.nodeEnv = dependencies.nodeEnv ?? process.env.NODE_ENV ?? 'development';
-    this.fallbackToken = dependencies.fallbackToken ?? process.env.DISCORD_TOKEN;
   }
 
   /**
@@ -94,29 +87,10 @@ export class BotManager {
     const app = await this.findPlatformDefault();
 
     if (!app) {
-      const fallbackToken = this.resolveNonProductionFallbackToken();
-      if (!fallbackToken) {
-        throw new PlatformNotConfiguredError();
-      }
-
-      await this.onTokenLoaded(fallbackToken);
-      return;
+      throw new PlatformNotConfiguredError();
     }
 
     const decryptedToken = this.decrypt(app.botTokenEncrypted);
     await this.onTokenLoaded(decryptedToken);
-  }
-
-  /**
-   * Retorna token fallback apenas fora de produção.
-   * @returns Token legado de ambiente quando permitido
-   */
-  private resolveNonProductionFallbackToken(): string | null {
-    if (this.nodeEnv === 'production') {
-      return null;
-    }
-
-    const token = this.fallbackToken?.trim();
-    return token ? token : null;
   }
 }
