@@ -82,6 +82,7 @@ async function reopenVoiceSession(member: GuildMember, startedAt: Date): Promise
     voiceState.channel.id,
     voiceState.channel.name,
     startedAt,
+    voiceState.guild.id,
   );
 
   log.info(
