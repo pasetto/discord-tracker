@@ -4,7 +4,7 @@ import { authGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 
 describe('authGuard', () => {
-  it('deve redirecionar para /signin quando nao houver token', () => {
+  it('deve redirecionar para /login quando nao houver token', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
@@ -21,6 +21,6 @@ describe('authGuard', () => {
     const result = TestBed.runInInjectionContext(() => authGuard({} as never, {} as never));
 
     expect(result instanceof UrlTree).toBeTrue();
-    expect(router.serializeUrl(result as UrlTree)).toBe('/signin');
+    expect(router.serializeUrl(result as UrlTree)).toBe('/login');
   });
 });

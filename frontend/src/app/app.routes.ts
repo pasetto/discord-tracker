@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './core/auth/auth.guard';
+import { authGuard, guestGuard } from './core/auth/auth.guard';
 
 /**
  * Carrega o dashboard com widget de ausências.
@@ -95,6 +95,9 @@ const loadDiscordSettings = () =>
 const loadDiscordAdmin = () =>
   import('./features/admin/discord/discord-admin.component').then((module) => module.DiscordAdminComponent);
 
+const loadSignIn = () =>
+  import('./pages/auth-pages/sign-in/sign-in.component').then((module) => module.SignInComponent);
+
 /**
  * Rotas de features da aplicação autenticada.
  */
@@ -127,13 +130,11 @@ const featureRoutes: Routes = [
   },
   {
     path: 'onboarding',
-    canActivate: [authGuard],
     loadComponent: loadOnboardingWizard,
     title: 'Onboarding | Syntra',
   },
   {
     path: 'me',
-    canActivate: [authGuard],
     loadComponent: loadMePortal,
     title: 'Meu portal | Syntra',
   },
@@ -186,6 +187,11 @@ const featureRoutes: Routes = [
 export const routes: Routes = [
   {
     path: '',
+    pathMatch: 'full',
+    redirectTo: 'login',
+  },
+  {
+    path: 'landing',
     loadComponent: () =>
       import('./features/landing/landing-page.component').then(
         (module) => module.LandingPageComponent,
@@ -206,15 +212,13 @@ export const routes: Routes = [
   },
   {
     path: 'onboarding',
-    canActivate: [authGuard],
-    redirectTo: 'app/onboarding',
     pathMatch: 'full',
+    redirectTo: 'app/onboarding',
   },
   {
     path: 'me',
-    canActivate: [authGuard],
-    redirectTo: 'app/me',
     pathMatch: 'full',
+    redirectTo: 'app/me',
   },
   {
     path: 'admin',
@@ -228,15 +232,19 @@ export const routes: Routes = [
     ],
   },
   {
-    path: 'signin',
-    loadComponent: () =>
-      import('./pages/auth-pages/sign-in/sign-in.component').then(
-        (module) => module.SignInComponent,
-      ),
+    path: 'login',
+    canActivate: [guestGuard],
+    loadComponent: loadSignIn,
     title: 'Entrar | Syntra',
   },
   {
+    path: 'signin',
+    pathMatch: 'full',
+    redirectTo: 'login',
+  },
+  {
     path: 'signup',
+    canActivate: [guestGuard],
     loadComponent: () =>
       import('./pages/auth-pages/sign-up/sign-up.component').then(
         (module) => module.SignUpComponent,
@@ -245,6 +253,6 @@ export const routes: Routes = [
   },
   {
     path: '**',
-    redirectTo: '',
+    redirectTo: 'login',
   },
 ];

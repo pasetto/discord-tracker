@@ -7,13 +7,25 @@ import { Observable, tap } from 'rxjs';
  */
 export interface PublicApiConfig {
   /**
+   * Nome da aplicação exibido no frontend.
+   */
+  appName?: string;
+  /**
    * URL base da API para chamadas autenticadas.
    */
   apiBaseUrl?: string;
   /**
-   * Caminho/URL de início do fluxo OAuth com Discord.
+   * Modo de autenticação suportado pelo backend.
    */
-  discordAuthPath?: string;
+  authMode?: 'email_password';
+  /**
+   * Indica se o aplicativo Discord já foi cadastrado no backend.
+   */
+  botConfigured?: boolean;
+  /**
+   * Client ID público do aplicativo Discord.
+   */
+  discordClientId?: string | null;
 }
 
 /**
@@ -44,13 +56,5 @@ export class PublicConfigService {
    */
   getConfig(): PublicApiConfig | null {
     return this.config;
-  }
-
-  /**
-   * Obtém o caminho padrão de autenticação OAuth do Discord.
-   * @returns {string} Caminho relativo ou URL absoluta do OAuth.
-   */
-  getDiscordAuthPath(): string {
-    return this.config?.discordAuthPath ?? '/api/v1/auth/discord';
   }
 }

@@ -1,19 +1,20 @@
 import { Injectable } from '@angular/core';
-import { PublicConfigService } from '../api/public-config.service';
+import { Observable, tap } from 'rxjs';
+import { AuthApiService, type AuthSessionResponse, type LoginRequest, type RegisterRequest } from './auth-api.service';
 
 const AUTH_TOKEN_STORAGE_KEY = 'syntra.auth.token';
+const ORG_ID_STORAGE_KEY = 'syntra.orgId';
 
 /**
  * Encapsula operações de autenticação do frontend.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  constructor(private readonly publicConfigService: PublicConfigService) {}
+  constructor(private readonly authApiService: AuthApiService) {}
 
   /**
    * Salva o token de autenticação no armazenamento local.
-   * @param {string} token Token JWT/sessão retornado pelo backend.
-   * @returns {void} Não retorna valor.
+   * @param token Token JWT retornado pelo backend
    */
   saveToken(token: string): void {
     localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
@@ -21,7 +22,7 @@ export class AuthService {
 
   /**
    * Recupera o token salvo no armazenamento local.
-   * @returns {string | null} Token salvo ou `null` quando ausente.
+   * @returns Token salvo ou `null` quando ausente
    */
   getToken(): string | null {
     return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
@@ -29,15 +30,15 @@ export class AuthService {
 
   /**
    * Remove o token atual do armazenamento local.
-   * @returns {void} Não retorna valor.
    */
   clearToken(): void {
     localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    localStorage.removeItem(ORG_ID_STORAGE_KEY);
   }
 
   /**
    * Verifica se existe token de autenticação válido em memória local.
-   * @returns {boolean} `true` quando há token não vazio, senão `false`.
+   * @returns `true` quando há token não vazio
    */
   hasToken(): boolean {
     const token = this.getToken();
@@ -45,18 +46,29 @@ export class AuthService {
   }
 
   /**
-   * Resolve o caminho/URL de início do fluxo OAuth com Discord.
-   * @returns {string} Caminho relativo ou URL absoluta do OAuth.
+   * Persiste contexto de sessão retornado pela API.
+   * @param session Resposta de login/cadastro
    */
-  resolveDiscordAuthPath(): string {
-    return this.publicConfigService.getDiscordAuthPath();
+  persistSession(session: AuthSessionResponse): void {
+    this.saveToken(session.accessToken);
+    localStorage.setItem(ORG_ID_STORAGE_KEY, session.organization.id);
   }
 
   /**
-   * Inicia o fluxo OAuth redirecionando para o endpoint do Discord.
-   * @returns {void} Não retorna valor.
+   * Realiza login com email e senha.
+   * @param payload Credenciais do usuário
+   * @returns Observable da sessão autenticada
    */
-  redirectToDiscordOAuth(): void {
-    window.location.assign(this.resolveDiscordAuthPath());
+  login(payload: LoginRequest): Observable<AuthSessionResponse> {
+    return this.authApiService.login(payload).pipe(tap((session) => this.persistSession(session)));
+  }
+
+  /**
+   * Realiza cadastro de nova conta.
+   * @param payload Dados de registro
+   * @returns Observable da sessão autenticada
+   */
+  register(payload: RegisterRequest): Observable<AuthSessionResponse> {
+    return this.authApiService.register(payload).pipe(tap((session) => this.persistSession(session)));
   }
 }

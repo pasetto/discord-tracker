@@ -19,17 +19,14 @@ describe('PublicConfigService', () => {
     httpMock.verify();
   });
 
-  it('carrega config pública e expõe discordAuthPath', () => {
+  it('carrega config pública com authMode email_password', () => {
     service.loadConfig().subscribe((config) => {
-      expect(config.discordAuthPath).toBe('/api/v1/auth/discord');
+      expect(config.authMode).toBe('email_password');
+      expect(config.appName).toBe('Syntra');
     });
 
     const req = httpMock.expectOne('/api/v1/public/config');
-    req.flush({ discordAuthPath: '/api/v1/auth/discord', appName: 'Syntra' });
-    expect(service.getDiscordAuthPath()).toBe('/api/v1/auth/discord');
-  });
-
-  it('usa fallback de OAuth quando config não foi carregada', () => {
-    expect(service.getDiscordAuthPath()).toBe('/api/v1/auth/discord');
+    req.flush({ authMode: 'email_password', appName: 'Syntra' });
+    expect(service.getConfig()?.authMode).toBe('email_password');
   });
 });
