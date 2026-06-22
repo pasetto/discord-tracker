@@ -11,6 +11,15 @@ const loadDashboardPlaceholder = () =>
   );
 
 /**
+ * Carrega de forma lazy a tela de metas individuais em configurações.
+ * @returns {Promise<unknown>} Componente lazy de metas.
+ */
+const loadGoalsSettings = () =>
+  import('./features/settings/goals/goals-settings.component').then(
+    (module) => module.GoalsSettingsComponent,
+  );
+
+/**
  * Rotas de features (esqueleto inicial com lazy loading).
  */
 const featureRoutes: Routes = [
@@ -26,8 +35,19 @@ const featureRoutes: Routes = [
   },
   {
     path: 'settings',
-    loadComponent: loadDashboardPlaceholder,
     title: 'Configurações | Syntra',
+    children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        loadComponent: loadDashboardPlaceholder,
+      },
+      {
+        path: 'goals',
+        loadComponent: loadGoalsSettings,
+        title: 'Metas individuais | Syntra',
+      },
+    ],
   },
 ];
 

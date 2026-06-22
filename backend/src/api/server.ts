@@ -17,6 +17,7 @@ import { categoriesRouter } from './routes/categories';
 import { workCalendarRouter } from './routes/workCalendar';
 import { absencesRouter } from './routes/absences';
 import { inactivityRouter } from './routes/inactivity';
+import { goalsRouter } from './routes/goals';
 import { getOpenApiSpec } from './swagger';
 
 const swaggerUi = require('koa-swagger-ui').ui as (
@@ -70,6 +71,7 @@ export function createApp(): Koa {
   );
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, absencesRouter.routes(), absencesRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, inactivityRouter.routes(), inactivityRouter.allowedMethods());
+  apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, goalsRouter.routes(), goalsRouter.allowedMethods());
 
   app.use(async (ctx, next) => {
     try {
