@@ -1,4 +1,4 @@
-import { Events, MessageReaction, User } from 'discord.js';
+import { Events, MessageReaction, PartialMessageReaction, PartialUser, User } from 'discord.js';
 import { discordClient } from '../client';
 import { createLogger } from '../../logger';
 import { guildService } from '../../services/guildService';
@@ -12,17 +12,14 @@ const log = createLogger('events:message-reaction-add');
 export function registerMessageReactionAddHandler(): void {
   discordClient.on(
     Events.MessageReactionAdd,
-    async (reaction: MessageReaction, user: User) => {
+    async (reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser) => {
       try {
         if (user.bot) {
           return;
         }
 
-        if (reaction.partial) {
-          await reaction.fetch();
-        }
-
-        const guildId = reaction.message.guildId;
+        const fullReaction = reaction.partial ? await reaction.fetch() : reaction;
+        const guildId = fullReaction.message.guildId;
         if (!guildService.isMonitoredGuild(guildId)) {
           return;
         }
@@ -33,7 +30,7 @@ export function registerMessageReactionAddHandler(): void {
         await textActivityService.recordActivity({
           guildId,
           discordId: user.id,
-          channelId: reaction.message.channelId,
+          channelId: fullReaction.message.channelId,
           eventType: 'reaction',
           occurredAt: new Date(),
         });
