@@ -6,8 +6,8 @@ import { authGuard } from './core/auth/auth.guard';
  * @returns {Promise<unknown>} Componente lazy do dashboard.
  */
 const loadDashboardPlaceholder = () =>
-  import('./pages/dashboard/ecommerce/ecommerce.component').then(
-    (module) => module.EcommerceComponent,
+  import('./features/dashboard/dashboard-placeholder.component').then(
+    (module) => module.DashboardPlaceholderComponent,
   );
 
 /**
@@ -38,6 +38,15 @@ const loadMePortal = () =>
   );
 
 /**
+ * Carrega de forma lazy o relatório de inatividade com botões de exportação.
+ * @returns {Promise<unknown>} Componente lazy de relatório de inatividade.
+ */
+const loadInactivityReport = () =>
+  import('./features/reports/inactivity/inactivity-report.component').then(
+    (module) => module.InactivityReportComponent,
+  );
+
+/**
  * Rotas de features (esqueleto inicial com lazy loading).
  */
 const featureRoutes: Routes = [
@@ -48,7 +57,18 @@ const featureRoutes: Routes = [
   },
   {
     path: 'reports',
-    loadComponent: loadDashboardPlaceholder,
+    children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: 'inactivity',
+      },
+      {
+        path: 'inactivity',
+        loadComponent: loadInactivityReport,
+        title: 'Relatório de inatividade | Syntra',
+      },
+    ],
     title: 'Relatórios | Syntra',
   },
   {
