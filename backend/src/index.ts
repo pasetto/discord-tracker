@@ -5,8 +5,10 @@ import { startServer } from './api/server';
 import { createLogger } from './logger';
 import { setDiscordPing } from './metrics/prometheus';
 import { config } from './config/env';
+import { startAbsenceStatusCron } from './workers/absenceStatusCron';
 
 const log = createLogger('main');
+let stopAbsenceStatusCron: (() => void) | undefined;
 
 /**
  * Inicia todos os subsistemas da aplicação.
@@ -22,6 +24,7 @@ async function bootstrap(): Promise<void> {
     log.warn('DISCORD_TOKEN ausente em desenvolvimento: inicializando API sem bot Discord');
   }
   await startServer();
+  stopAbsenceStatusCron = startAbsenceStatusCron();
 
   // Atualiza ping periodicamente
   setInterval(() => {
@@ -38,6 +41,7 @@ async function shutdown(signal: string): Promise<void> {
   log.info({ signal }, 'Encerrando aplicação...');
 
   try {
+    stopAbsenceStatusCron?.();
     await disconnectDiscord();
     await disconnectMongo();
     process.exit(0);
