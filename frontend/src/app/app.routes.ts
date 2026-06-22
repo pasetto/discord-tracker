@@ -2,7 +2,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
 
 /**
- * Carrega o dashboard atual como placeholder para módulos em construção.
+ * Carrega o dashboard com widget de ausências.
  * @returns {Promise<unknown>} Componente lazy do dashboard.
  */
 const loadDashboardPlaceholder = () =>
@@ -47,6 +47,42 @@ const loadInactivityReport = () =>
   );
 
 /**
+ * Carrega de forma lazy o relatório semanal de metas.
+ * @returns {Promise<unknown>} Componente lazy de metas.
+ */
+const loadGoalsReport = () =>
+  import('./features/reports/goals/goals-report.component').then(
+    (module) => module.GoalsReportComponent,
+  );
+
+/**
+ * Carrega de forma lazy a tela de calendário da organização.
+ * @returns {Promise<unknown>} Componente lazy de calendário.
+ */
+const loadCalendarSettings = () =>
+  import('./features/settings/calendar/calendar-settings.component').then(
+    (module) => module.CalendarSettingsComponent,
+  );
+
+/**
+ * Carrega de forma lazy a tela de ausências planejadas.
+ * @returns {Promise<unknown>} Componente lazy de ausências.
+ */
+const loadAbsencesSettings = () =>
+  import('./features/settings/absences/absences-settings.component').then(
+    (module) => module.AbsencesSettingsComponent,
+  );
+
+/**
+ * Carrega de forma lazy a tela de gamificação por guild.
+ * @returns {Promise<unknown>} Componente lazy de gamificação.
+ */
+const loadGamificationSettings = () =>
+  import('./features/settings/gamification/gamification-settings.component').then(
+    (module) => module.GamificationSettingsComponent,
+  );
+
+/**
  * Rotas de features (esqueleto inicial com lazy loading).
  */
 const featureRoutes: Routes = [
@@ -67,6 +103,11 @@ const featureRoutes: Routes = [
         path: 'inactivity',
         loadComponent: loadInactivityReport,
         title: 'Relatório de inatividade | Syntra',
+      },
+      {
+        path: 'goals',
+        loadComponent: loadGoalsReport,
+        title: 'Relatório de metas | Syntra',
       },
     ],
     title: 'Relatórios | Syntra',
@@ -96,6 +137,21 @@ const featureRoutes: Routes = [
         path: 'goals',
         loadComponent: loadGoalsSettings,
         title: 'Metas individuais | Syntra',
+      },
+      {
+        path: 'calendar',
+        loadComponent: loadCalendarSettings,
+        title: 'Calendário de trabalho | Syntra',
+      },
+      {
+        path: 'absences',
+        loadComponent: loadAbsencesSettings,
+        title: 'Ausências planejadas | Syntra',
+      },
+      {
+        path: 'gamification',
+        loadComponent: loadGamificationSettings,
+        title: 'Gamificação | Syntra',
       },
     ],
   },

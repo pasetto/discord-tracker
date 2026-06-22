@@ -1,0 +1,116 @@
+<section class="space-y-6">
+  <header class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Relatório de inatividade</h2>
+    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+      Tabela completa de quem sumiu na semana, com exportação de CSV.
+    </p>
+  </header>
+
+  <section class="grid gap-4 rounded-2xl border border-gray-200 bg-white p-5 md:grid-cols-2 dark:border-gray-800 dark:bg-white/[0.03]">
+    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+      organizationId
+      <input
+        class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+        [(ngModel)]="orgId"
+        placeholder="organizationId"
+      />
+    </label>
+    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+      guildId
+      <input
+        class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+        [(ngModel)]="guildId"
+        placeholder="guildId"
+      />
+    </label>
+    <div class="md:col-span-2 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+      <button
+        type="button"
+        class="min-h-11 w-full rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60 sm:w-auto"
+        (click)="loadReport()"
+        [disabled]="loading"
+      >
+        {{ loading ? 'Carregando...' : 'Atualizar relatório' }}
+      </button>
+      <button
+        type="button"
+        class="min-h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-white/5 sm:w-auto"
+        (click)="onExportInactivityCsv()"
+        [disabled]="exporting"
+      >
+        Exportar CSV inatividade
+      </button>
+      <button
+        type="button"
+        class="min-h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-white/5 sm:w-auto"
+        (click)="onExportCollaborationCsv()"
+        [disabled]="exporting"
+      >
+        Exportar CSV colaboração
+      </button>
+    </div>
+  </section>
+
+  <section
+    *ngIf="report"
+    class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]"
+  >
+    <div class="grid gap-2 text-sm text-gray-600 dark:text-gray-300 md:grid-cols-2">
+      <p><strong>Período:</strong> {{ report.periodStart | date: 'dd/MM/yyyy' }} - {{ report.periodEnd | date: 'dd/MM/yyyy' }}</p>
+      <p><strong>Gerado em:</strong> {{ report.generatedAt | date: 'dd/MM/yyyy HH:mm' }}</p>
+      <p><strong>Quem sumiu:</strong> {{ report.entries.length }}</p>
+      <p><strong>Em ausência planejada:</strong> {{ report.plannedAbsenceEntries.length }}</p>
+    </div>
+
+    <div *ngIf="report.entries.length === 0" class="rounded-lg border border-success-300 bg-success-50 px-3 py-2 text-sm text-success-700">
+      Nenhum colaborador marcado como "quem sumiu" para os filtros atuais.
+    </div>
+
+    <div *ngIf="report.entries.length > 0" class="space-y-3 md:hidden">
+      <article
+        *ngFor="let entry of report.entries"
+        class="rounded-xl border border-gray-200 p-4 text-sm dark:border-gray-700"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <p class="font-semibold text-gray-800 dark:text-white/90">{{ entry.displayName }}</p>
+          <span class="rounded-full bg-warning-100 px-2 py-0.5 text-xs text-warning-700">{{ getStatusLabel(entry.status) }}</span>
+        </div>
+        <dl class="mt-3 grid grid-cols-2 gap-2 text-gray-600 dark:text-gray-300">
+          <div><dt class="text-xs uppercase tracking-wide">Discord</dt><dd>{{ entry.discordId }}</dd></div>
+          <div><dt class="text-xs uppercase tracking-wide">Dias inativos</dt><dd>{{ entry.inactiveBusinessDays }}</dd></div>
+          <div><dt class="text-xs uppercase tracking-wide">Categoria</dt><dd>{{ entry.categoryName ?? '-' }}</dd></div>
+          <div><dt class="text-xs uppercase tracking-wide">Última presença</dt><dd>{{ entry.lastPresenceAt | date: 'dd/MM HH:mm' }}</dd></div>
+        </dl>
+      </article>
+    </div>
+
+    <div *ngIf="report.entries.length > 0" class="hidden overflow-x-auto md:block">
+      <table class="w-full min-w-[980px] table-auto text-left text-sm">
+        <thead>
+          <tr class="border-b border-gray-200 dark:border-gray-700">
+            <th class="px-2 py-2">Colaborador</th>
+            <th class="px-2 py-2">Discord</th>
+            <th class="px-2 py-2">Categoria</th>
+            <th class="px-2 py-2">Status</th>
+            <th class="px-2 py-2">Dias inativos</th>
+            <th class="px-2 py-2">Último sinal</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let entry of report.entries" class="border-b border-gray-100 dark:border-gray-800">
+            <td class="px-2 py-2">{{ entry.displayName }}</td>
+            <td class="px-2 py-2">{{ entry.discordId }}</td>
+            <td class="px-2 py-2">{{ entry.categoryName ?? '-' }}</td>
+            <td class="px-2 py-2">{{ getStatusLabel(entry.status) }}</td>
+            <td class="px-2 py-2">{{ entry.inactiveBusinessDays }}</td>
+            <td class="px-2 py-2">{{ (entry.lastTextActivityAt || entry.lastPresenceAt || entry.lastSeenAt) | date: 'dd/MM/yyyy HH:mm' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">
+    {{ errorMessage }}
+  </p>
+</section>

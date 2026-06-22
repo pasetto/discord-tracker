@@ -8,6 +8,7 @@ import { authMiddleware } from './middleware/auth';
 import { jwtAuth } from './middleware/jwtAuth';
 import { tenantMiddleware } from './middleware/tenant';
 import { authRouter } from './routes/auth';
+import { publicRouter as publicRoutesRouter } from './routes/public';
 import { healthRouter } from './routes/health';
 import { statsRouter } from './routes/stats';
 import { reportsRouter } from './routes/reports';
@@ -18,6 +19,7 @@ import { workCalendarRouter } from './routes/workCalendar';
 import { absencesRouter } from './routes/absences';
 import { inactivityRouter } from './routes/inactivity';
 import { goalsRouter } from './routes/goals';
+import { gamificationRouter } from './routes/gamification';
 import { exportRouter } from './routes/export';
 import { onboardingRouter } from './routes/onboarding';
 import { billingRouter } from './routes/billing';
@@ -51,6 +53,7 @@ export function createApp(): Koa {
 
   publicRouter.use(healthRouter.routes());
   apiV1PublicRouter.use(authRouter.routes());
+  apiV1PublicRouter.use(publicRoutesRouter.routes());
   apiV1PublicRouter.use(healthRouter.routes());
   apiV1PublicRouter.use(stripeWebhookRouter.routes());
   apiV1PublicRouter.get('/docs/openapi.json', (ctx) => {
@@ -80,6 +83,7 @@ export function createApp(): Koa {
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, absencesRouter.routes(), absencesRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, inactivityRouter.routes(), inactivityRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, goalsRouter.routes(), goalsRouter.allowedMethods());
+  apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, gamificationRouter.routes(), gamificationRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, exportRouter.routes(), exportRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, onboardingRouter.routes(), onboardingRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, billingRouter.routes(), billingRouter.allowedMethods());
