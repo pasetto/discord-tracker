@@ -6,12 +6,14 @@ import {
   type InactivityStatus,
 } from '../db/models/InactivitySnapshot';
 import { MemberCategoryModel } from '../db/models/MemberCategory';
+import { User } from '../db/models/User';
 import { PlannedAbsenceModel, type IPlannedAbsence } from '../db/models/PlannedAbsence';
 import { TextActivityEventModel } from '../db/models/TextActivityEvent';
 import { TrackedUserModel } from '../db/models/TrackedUser';
 import { WorkCalendarModel, createDefaultWorkWeek, type WorkCalendar } from '../db/models/WorkCalendar';
 import { isOnPlannedAbsence } from './plannedAbsenceService';
 import { isBusinessDay } from './workCalendarService';
+import { voiceSessionRepository } from '../repositories/voiceSessionRepository';
 
 /**
  * Configuração mínima necessária para cálculo de status de inatividade.
@@ -19,6 +21,8 @@ import { isBusinessDay } from './workCalendarService';
 export interface InactivityThresholdSettings {
   inactiveAfterBusinessDays: number;
   zeroVoiceCollaborationDays: number;
+  lateStartThresholdPercent: number;
+  minCollaborationPercentOfElapsed: number;
   notifyManagerPush: boolean;
   notifyManagerEmail: boolean;
 }
@@ -95,9 +99,22 @@ function normalizeThresholdSettings(settings?: Pick<IInactivitySettings, keyof I
   return {
     inactiveAfterBusinessDays: settings?.inactiveAfterBusinessDays ?? 2,
     zeroVoiceCollaborationDays: settings?.zeroVoiceCollaborationDays ?? 3,
+    lateStartThresholdPercent: settings?.lateStartThresholdPercent ?? 30,
+    minCollaborationPercentOfElapsed: settings?.minCollaborationPercentOfElapsed ?? 20,
     notifyManagerPush: settings?.notifyManagerPush ?? true,
     notifyManagerEmail: settings?.notifyManagerEmail ?? false,
   };
+}
+
+/**
+ * Normaliza configuração de inatividade com defaults seguros (sem breaking change).
+ * @param settings Documento opcional persistido no banco
+ * @returns Configuração pronta para cálculo semanal e intradiário
+ */
+export function getInactivityThresholdSettings(
+  settings?: Pick<IInactivitySettings, keyof InactivityThresholdSettings>,
+): InactivityThresholdSettings {
+  return normalizeThresholdSettings(settings);
 }
 
 /**
@@ -305,17 +322,28 @@ export async function generateWeeklyInactivitySnapshot(
     .exec();
 
   const discordIds = trackedUsers.map((user) => user.discordId);
-  const [lastTextByDiscordId, plannedAbsencesByDiscordId, categoryNamesById] = await Promise.all([
+  const coreUsers = await User.find({ discordId: { $in: discordIds } })
+    .select({ _id: 1, discordId: 1 })
+    .lean()
+    .exec();
+  const coreUserIdByDiscordId = new Map(coreUsers.map((user) => [user.discordId, user._id as Types.ObjectId]));
+  const coreUserIds = coreUsers.map((user) => user._id as Types.ObjectId);
+
+  const [lastTextByDiscordId, plannedAbsencesByDiscordId, categoryNamesById, lastVoiceByUserId] = await Promise.all([
     getLastTextActivityByDiscordId(organizationObjectId, guildId, discordIds),
     getPlannedAbsencesByDiscordId(organizationObjectId, guildId, discordIds),
     getCategoryNamesById(organizationObjectId, guildId),
+    voiceSessionRepository.getLastCollaborationAtByUserIds(coreUserIds),
   ]);
 
   const entries: InactivitySnapshotEntry[] = trackedUsers.map((trackedUser) => {
     const absences = plannedAbsencesByDiscordId.get(trackedUser.discordId) ?? [];
     const lastPresenceAt = trackedUser.lastSeenAt;
     const lastTextActivityAt = lastTextByDiscordId.get(trackedUser.discordId) ?? trackedUser.lastTextActivityAt;
-    const lastVoiceCollaborationAt = undefined;
+    const coreUserId = coreUserIdByDiscordId.get(trackedUser.discordId);
+    const lastVoiceCollaborationAt = coreUserId
+      ? lastVoiceByUserId.get(String(coreUserId))
+      : undefined;
     const latestSignalAt = [lastPresenceAt, lastTextActivityAt].filter((date): date is Date => Boolean(date)).reduce(
       (latest, current) => (current.getTime() > latest.getTime() ? current : latest),
       lastPresenceAt,

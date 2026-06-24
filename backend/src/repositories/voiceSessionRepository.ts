@@ -142,6 +142,39 @@ export const voiceSessionRepository = {
   },
 
   /**
+   * Retorna a última colaboração em voz por userId core.
+   * @param userIds IDs Mongo dos usuários core
+   * @returns Mapa userId → instante da última sessão VOICE colaborativa
+   */
+  async getLastCollaborationAtByUserIds(userIds: Types.ObjectId[]): Promise<Map<string, Date>> {
+    if (userIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await VoiceSession.aggregate<{ _id: Types.ObjectId; lastAt: Date }>([
+      {
+        $match: {
+          userId: { $in: userIds },
+          isIgnoredChannel: false,
+          sessionType: 'VOICE',
+        },
+      },
+      {
+        $group: {
+          _id: '$userId',
+          lastAt: {
+            $max: {
+              $ifNull: ['$endedAt', '$startedAt'],
+            },
+          },
+        },
+      },
+    ]);
+
+    return new Map(rows.map((row) => [String(row._id), row.lastAt]));
+  },
+
+  /**
    * Agrega tempo de voz por usuário em um intervalo de datas.
    * @param start Início do período
    * @param end Fim do período

@@ -9,6 +9,10 @@ export interface IInactivitySettings extends Document {
   inactiveAfterBusinessDays: number;
   zeroVoiceCollaborationDays: number;
   zeroCollaborationDays?: number;
+  /** Percentual da jornada decorrida sem aparecer para alerta intradiário (default 30). */
+  lateStartThresholdPercent: number;
+  /** Percentual mínimo de colaboração vs. tempo decorrido no dia (default 20). */
+  minCollaborationPercentOfElapsed: number;
   notifyManagerPush: boolean;
   notifyManagerEmail: boolean;
   updatedBy: Types.ObjectId;
@@ -23,6 +27,8 @@ const inactivitySettingsSchema = new Schema<IInactivitySettings>(
     inactiveAfterBusinessDays: { type: Number, required: true, min: 1, default: 2 },
     zeroVoiceCollaborationDays: { type: Number, required: true, min: 1, default: 3 },
     zeroCollaborationDays: { type: Number, required: false, min: 1 },
+    lateStartThresholdPercent: { type: Number, required: true, min: 1, max: 100, default: 30 },
+    minCollaborationPercentOfElapsed: { type: Number, required: true, min: 1, max: 100, default: 20 },
     notifyManagerPush: { type: Boolean, required: true, default: true },
     notifyManagerEmail: { type: Boolean, required: true, default: false },
     updatedBy: { type: Schema.Types.ObjectId, ref: 'PlatformUser', required: true },

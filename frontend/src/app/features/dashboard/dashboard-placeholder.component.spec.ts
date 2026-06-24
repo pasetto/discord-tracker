@@ -152,6 +152,19 @@ describe('DashboardPlaceholderComponent', () => {
     });
 
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/absences/active').flush({ absences: [] });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/inactivity/intraday').flush({
+      report: {
+        generatedAt: new Date().toISOString(),
+        timezone: 'America/Sao_Paulo',
+        elapsedWorkPercent: 40,
+        elapsedWorkSeconds: 3600,
+        totalWorkSeconds: 32400,
+        isBusinessDay: true,
+        isWithinWorkHours: true,
+        settings: { lateStartThresholdPercent: 30, minCollaborationPercentOfElapsed: 20 },
+        concernEntries: [],
+      },
+    });
 
 
 

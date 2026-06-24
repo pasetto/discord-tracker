@@ -19,6 +19,54 @@
   </section>
 
   <ng-container *ngIf="hasGuild">
+    <section class="rounded-2xl border border-warning-200 bg-warning-50/60 p-5 dark:border-warning-900 dark:bg-warning-500/10">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Quem sumiu hoje</h2>
+          <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+            Alerta intradiário com base na jornada do calendário e nos limiares configurados.
+          </p>
+          <p *ngIf="intradayReport" class="mt-2 text-xs text-gray-500">
+            Jornada: {{ intradayReport.elapsedWorkPercent | number: '1.0-0' }}% decorrida
+            <span *ngIf="!intradayReport.isBusinessDay"> · hoje não é dia útil</span>
+            <span *ngIf="intradayReport.isBusinessDay && !intradayReport.isWithinWorkHours"> · fora do horário de trabalho</span>
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <a routerLink="/app/settings/inactivity" class="min-h-11 inline-flex items-center rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100">
+            Configurar limiares
+          </a>
+          <button type="button" class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100" (click)="loadIntradayReport()" [disabled]="intradayLoading">
+            {{ intradayLoading ? 'Atualizando...' : 'Atualizar' }}
+          </button>
+        </div>
+      </div>
+
+      <p *ngIf="intradayLoading && !intradayReport" class="mt-4 text-sm text-gray-600 dark:text-gray-300">Carregando alerta do dia...</p>
+
+      <p *ngIf="intradayReport && intradayConcernEntries.length === 0" class="mt-4 text-sm text-gray-700 dark:text-gray-200">
+        Ninguém em alerta no momento — o time está dentro dos critérios de colaboração de hoje.
+      </p>
+
+      <ul *ngIf="intradayConcernEntries.length > 0" class="mt-4 space-y-2">
+        <li *ngFor="let entry of intradayConcernEntries" class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-warning-200 bg-white px-4 py-3 text-sm dark:border-warning-800 dark:bg-gray-900/40">
+          <div>
+            <p class="font-semibold text-gray-900 dark:text-white">{{ entry.displayName }}</p>
+            <p class="text-gray-600 dark:text-gray-300">{{ formatIntradayStatus(entry.status) }}</p>
+          </div>
+          <div class="text-right text-xs text-gray-500">
+            <p>Colaboração: {{ entry.collaborationPercentOfElapsed | number: '1.0-0' }}% do tempo passado</p>
+            <p *ngIf="entry.status === 'low_collaboration_today'">Voz hoje: {{ formatDuration(entry.collaborationSecondsInWorkWindow) }}</p>
+          </div>
+        </li>
+      </ul>
+
+      <p class="mt-3 text-xs text-gray-500">
+        Histórico semanal em
+        <a routerLink="/app/reports/inactivity" class="font-medium text-brand-600 hover:underline">Relatórios → Quem sumiu</a>.
+      </p>
+    </section>
+
     <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
       <div>
         <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ activeMembers.length }} membros ativos agora</p>

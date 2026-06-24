@@ -73,6 +73,11 @@ const loadAbsencesSettings = () =>
     (module) => module.AbsencesSettingsComponent,
   );
 
+const loadInactivitySettings = () =>
+  import('./features/settings/inactivity/inactivity-settings.component').then(
+    (module) => module.InactivitySettingsComponent,
+  );
+
 /**
  * Carrega de forma lazy a tela de gamificação por guild.
  * @returns {Promise<unknown>} Componente lazy de gamificação.
@@ -181,6 +186,11 @@ const featureRoutes: Routes = [
         path: 'absences',
         loadComponent: loadAbsencesSettings,
         title: 'Ausências planejadas | Syntra',
+      },
+      {
+        path: 'inactivity',
+        loadComponent: loadInactivitySettings,
+        title: 'Inatividade | Syntra',
       },
       {
         path: 'gamification',

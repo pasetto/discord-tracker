@@ -1,6 +1,8 @@
 import Router from '@koa/router';
 import { Types } from 'mongoose';
 import { getWeeklyInactivityReport } from '../../services/inactivityService';
+import { getIntradayInactivityReport } from '../../services/intradayInactivityService';
+import { getInactivitySettings, upsertInactivitySettings } from '../../services/inactivitySettingsService';
 
 /**
  * Membership de organização presente no JWT.
@@ -19,6 +21,7 @@ interface JwtUserShape {
 }
 
 const VIEWER_ROLES = new Set(['owner', 'admin', 'manager', 'viewer']);
+const MANAGER_ROLES = new Set(['owner', 'admin', 'manager']);
 
 /** Rotas de relatório core de inatividade ("quem sumiu"). */
 export const inactivityRouter = new Router();
@@ -69,6 +72,19 @@ function assertViewerRole(ctx: Router.RouterContext, organizationId: string): vo
 }
 
 /**
+ * Garante que usuário possui papel de gestão para alterar configurações.
+ * @param ctx Contexto Koa da requisição
+ * @param organizationId Organização do tenant atual
+ * @returns {void} Não retorna valor
+ */
+function assertManagerRole(ctx: Router.RouterContext, organizationId: string): void {
+  const role = getMembershipRole(ctx, organizationId);
+  if (!role || !MANAGER_ROLES.has(role)) {
+    ctx.throw(403, 'Permissão insuficiente para alterar configurações de inatividade');
+  }
+}
+
+/**
  * @openapi
  * /org/{orgId}/guilds/{guildId}/reports/inactivity/weekly:
  *   get:
@@ -102,6 +118,182 @@ inactivityRouter.get('/guilds/:guildId/reports/inactivity/weekly', async (ctx) =
 
     const report = await getWeeklyInactivityReport(organizationId, ctx.params.guildId, { categoryId }, new Date());
     ctx.body = { report };
+  } catch (error) {
+    const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
+    ctx.status = status;
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /org/{orgId}/guilds/{guildId}/reports/inactivity/intraday:
+ *   get:
+ *     tags:
+ *       - Inactivity
+ *     summary: Alerta intradiário de quem sumiu hoje
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Relatório intradiário com colaboradores em alerta
+ */
+inactivityRouter.get('/guilds/:guildId/reports/inactivity/intraday', async (ctx) => {
+  try {
+    const { organizationId } = getRequestIdentity(ctx);
+    assertViewerRole(ctx, organizationId);
+
+    const report = await getIntradayInactivityReport(organizationId, ctx.params.guildId, new Date());
+    ctx.body = { report };
+  } catch (error) {
+    const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
+    ctx.status = status;
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /org/{orgId}/guilds/{guildId}/inactivity-settings:
+ *   get:
+ *     tags:
+ *       - Inactivity
+ *     summary: Obtém configurações de inatividade da guild
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Configurações efetivas (com defaults quando ausentes)
+ */
+inactivityRouter.get('/guilds/:guildId/inactivity-settings', async (ctx) => {
+  try {
+    const { organizationId } = getRequestIdentity(ctx);
+    assertViewerRole(ctx, organizationId);
+
+    const settings = await getInactivitySettings(organizationId, ctx.params.guildId);
+    ctx.body = { settings };
+  } catch (error) {
+    ctx.status = 400;
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /org/{orgId}/guilds/{guildId}/inactivity-settings:
+ *   put:
+ *     tags:
+ *       - Inactivity
+ *     summary: Atualiza configurações de inatividade da guild
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Configurações persistidas
+ */
+inactivityRouter.put('/guilds/:guildId/inactivity-settings', async (ctx) => {
+  try {
+    const { organizationId, userId } = getRequestIdentity(ctx);
+    assertManagerRole(ctx, organizationId);
+
+    const body = ctx.request.body as Record<string, unknown>;
+    const settings = await upsertInactivitySettings(organizationId, ctx.params.guildId, userId, {
+      inactiveAfterBusinessDays: typeof body.inactiveAfterBusinessDays === 'number' ? body.inactiveAfterBusinessDays : undefined,
+      zeroVoiceCollaborationDays: typeof body.zeroVoiceCollaborationDays === 'number' ? body.zeroVoiceCollaborationDays : undefined,
+      lateStartThresholdPercent: typeof body.lateStartThresholdPercent === 'number' ? body.lateStartThresholdPercent : undefined,
+      minCollaborationPercentOfElapsed: typeof body.minCollaborationPercentOfElapsed === 'number' ? body.minCollaborationPercentOfElapsed : undefined,
+      notifyManagerPush: typeof body.notifyManagerPush === 'boolean' ? body.notifyManagerPush : undefined,
+      notifyManagerEmail: typeof body.notifyManagerEmail === 'boolean' ? body.notifyManagerEmail : undefined,
+    });
+    ctx.body = { settings };
+  } catch (error) {
+    const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
+    ctx.status = status;
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /org/{orgId}/guilds/{guildId}/reports/inactivity/intraday:
+ *   get:
+ *     tags:
+ *       - Inactivity
+ *     summary: Alerta intradiário de quem sumiu hoje
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Relatório intradiário com colaboradores em alerta
+ */
+inactivityRouter.get('/guilds/:guildId/reports/inactivity/intraday', async (ctx) => {
+  try {
+    const { organizationId } = getRequestIdentity(ctx);
+    assertViewerRole(ctx, organizationId);
+
+    const report = await getIntradayInactivityReport(organizationId, ctx.params.guildId, new Date());
+    ctx.body = { report };
+  } catch (error) {
+    const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
+    ctx.status = status;
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /org/{orgId}/guilds/{guildId}/inactivity-settings:
+ *   get:
+ *     tags:
+ *       - Inactivity
+ *     summary: Obtém configurações de inatividade da guild
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Configurações efetivas (com defaults quando ausentes)
+ */
+inactivityRouter.get('/guilds/:guildId/inactivity-settings', async (ctx) => {
+  try {
+    const { organizationId } = getRequestIdentity(ctx);
+    assertViewerRole(ctx, organizationId);
+
+    const settings = await getInactivitySettings(organizationId, ctx.params.guildId);
+    ctx.body = { settings };
+  } catch (error) {
+    ctx.status = 400;
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /org/{orgId}/guilds/{guildId}/inactivity-settings:
+ *   put:
+ *     tags:
+ *       - Inactivity
+ *     summary: Atualiza configurações de inatividade da guild
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Configurações persistidas
+ */
+inactivityRouter.put('/guilds/:guildId/inactivity-settings', async (ctx) => {
+  try {
+    const { organizationId, userId } = getRequestIdentity(ctx);
+    assertManagerRole(ctx, organizationId);
+
+    const body = ctx.request.body as Record<string, unknown>;
+    const settings = await upsertInactivitySettings(organizationId, ctx.params.guildId, userId, {
+      inactiveAfterBusinessDays: typeof body.inactiveAfterBusinessDays === 'number' ? body.inactiveAfterBusinessDays : undefined,
+      zeroVoiceCollaborationDays: typeof body.zeroVoiceCollaborationDays === 'number' ? body.zeroVoiceCollaborationDays : undefined,
+      lateStartThresholdPercent: typeof body.lateStartThresholdPercent === 'number' ? body.lateStartThresholdPercent : undefined,
+      minCollaborationPercentOfElapsed: typeof body.minCollaborationPercentOfElapsed === 'number' ? body.minCollaborationPercentOfElapsed : undefined,
+      notifyManagerPush: typeof body.notifyManagerPush === 'boolean' ? body.notifyManagerPush : undefined,
+      notifyManagerEmail: typeof body.notifyManagerEmail === 'boolean' ? body.notifyManagerEmail : undefined,
+    });
+    ctx.body = { settings };
   } catch (error) {
     const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
     ctx.status = status;

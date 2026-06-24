@@ -60,6 +60,7 @@ export class AppSidebarComponent implements OnInit, OnDestroy {
         { name: 'Calendário', path: '/app/settings/calendar' },
         { name: 'Categorias', path: '/app/settings/categories' },
         { name: 'Metas', path: '/app/settings/goals' },
+        { name: 'Inatividade', path: '/app/settings/inactivity' },
         { name: 'Ausências', path: '/app/settings/absences' },
         { name: 'Gamificação', path: '/app/settings/gamification' },
       ],
