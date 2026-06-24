@@ -3,25 +3,14 @@ import { Types } from 'mongoose';
 import { getWeeklyInactivityReport, getInactivityHistory } from '../../services/inactivityService';
 import { getIntradayInactivityReport } from '../../services/intradayInactivityService';
 import { getInactivitySettings, upsertInactivitySettings } from '../../services/inactivitySettingsService';
-
-/**
- * Membership de organização presente no JWT.
- */
-interface JwtMembership {
-  organizationId: string;
-  role: string;
-}
+import { assertManagerRole, assertViewerReadRole, getMembershipRole } from '../middleware/tenantRbac';
 
 /**
  * Shape mínimo do usuário autenticado em `ctx.state.user`.
  */
 interface JwtUserShape {
   id?: string;
-  memberships?: JwtMembership[];
 }
-
-const VIEWER_ROLES = new Set(['owner', 'admin', 'manager', 'viewer']);
-const MANAGER_ROLES = new Set(['owner', 'admin', 'manager']);
 
 /** Rotas de relatório core de inatividade ("quem sumiu"). */
 export const inactivityRouter = new Router();
@@ -47,44 +36,6 @@ function getRequestIdentity(ctx: Router.RouterContext): { organizationId: string
 }
 
 /**
- * Obtém role do usuário autenticado para a organização atual.
- * @param ctx Contexto Koa da requisição
- * @param organizationId Organização do tenant atual
- * @returns Papel normalizado em minúsculas
- */
-function getMembershipRole(ctx: Router.RouterContext, organizationId: string): string | undefined {
-  const user = ctx.state.user as JwtUserShape | undefined;
-  const membership = user?.memberships?.find((item) => item.organizationId === organizationId);
-  return membership?.role?.toLowerCase();
-}
-
-/**
- * Garante que usuário possui ao menos permissão de visualização.
- * @param ctx Contexto Koa da requisição
- * @param organizationId Organização do tenant atual
- * @returns {void} Não retorna valor
- */
-function assertViewerRole(ctx: Router.RouterContext, organizationId: string): void {
-  const role = getMembershipRole(ctx, organizationId);
-  if (!role || !VIEWER_ROLES.has(role)) {
-    ctx.throw(403, 'Permissão insuficiente para visualizar relatório de inatividade');
-  }
-}
-
-/**
- * Garante que usuário possui papel de gestão para alterar configurações.
- * @param ctx Contexto Koa da requisição
- * @param organizationId Organização do tenant atual
- * @returns {void} Não retorna valor
- */
-function assertManagerRole(ctx: Router.RouterContext, organizationId: string): void {
-  const role = getMembershipRole(ctx, organizationId);
-  if (!role || !MANAGER_ROLES.has(role)) {
-    ctx.throw(403, 'Permissão insuficiente para alterar configurações de inatividade');
-  }
-}
-
-/**
  * @openapi
  * /org/{orgId}/guilds/{guildId}/reports/inactivity/weekly:
  *   get:
@@ -107,7 +58,7 @@ function assertManagerRole(ctx: Router.RouterContext, organizationId: string): v
 inactivityRouter.get('/guilds/:guildId/reports/inactivity/weekly', async (ctx) => {
   try {
     const { organizationId } = getRequestIdentity(ctx);
-    assertViewerRole(ctx, organizationId);
+    assertViewerReadRole(ctx, organizationId);
 
     const categoryId = typeof ctx.query.categoryId === 'string' ? ctx.query.categoryId : undefined;
     if (categoryId && !Types.ObjectId.isValid(categoryId)) {
@@ -116,7 +67,14 @@ inactivityRouter.get('/guilds/:guildId/reports/inactivity/weekly', async (ctx) =
       return;
     }
 
-    const report = await getWeeklyInactivityReport(organizationId, ctx.params.guildId, { categoryId }, new Date());
+    const requesterRole = getMembershipRole(ctx, organizationId);
+    const report = await getWeeklyInactivityReport(
+      organizationId,
+      ctx.params.guildId,
+      { categoryId },
+      new Date(),
+      { requesterRole },
+    );
     ctx.body = { report };
   } catch (error) {
     const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
@@ -141,7 +99,7 @@ inactivityRouter.get('/guilds/:guildId/reports/inactivity/weekly', async (ctx) =
 inactivityRouter.get('/guilds/:guildId/reports/inactivity/intraday', async (ctx) => {
   try {
     const { organizationId } = getRequestIdentity(ctx);
-    assertViewerRole(ctx, organizationId);
+    assertViewerReadRole(ctx, organizationId);
 
     const report = await getIntradayInactivityReport(organizationId, ctx.params.guildId, new Date());
     ctx.body = { report };
@@ -168,7 +126,7 @@ inactivityRouter.get('/guilds/:guildId/reports/inactivity/intraday', async (ctx)
 inactivityRouter.get('/guilds/:guildId/inactivity-settings', async (ctx) => {
   try {
     const { organizationId } = getRequestIdentity(ctx);
-    assertViewerRole(ctx, organizationId);
+    assertViewerReadRole(ctx, organizationId);
 
     const settings = await getInactivitySettings(organizationId, ctx.params.guildId);
     ctx.body = { settings };
@@ -203,6 +161,7 @@ inactivityRouter.put('/guilds/:guildId/inactivity-settings', async (ctx) => {
       lateStartThresholdPercent: typeof body.lateStartThresholdPercent === 'number' ? body.lateStartThresholdPercent : undefined,
       minCollaborationPercentOfElapsed: typeof body.minCollaborationPercentOfElapsed === 'number' ? body.minCollaborationPercentOfElapsed : undefined,
       notifyManagerPush: typeof body.notifyManagerPush === 'boolean' ? body.notifyManagerPush : undefined,
+      notifyIntradayPush: typeof body.notifyIntradayPush === 'boolean' ? body.notifyIntradayPush : undefined,
       notifyManagerEmail: typeof body.notifyManagerEmail === 'boolean' ? body.notifyManagerEmail : undefined,
     });
     ctx.body = { settings };
@@ -239,7 +198,7 @@ inactivityRouter.put('/guilds/:guildId/inactivity-settings', async (ctx) => {
 inactivityRouter.get('/guilds/:guildId/reports/inactivity/history', async (ctx) => {
   try {
     const { organizationId } = getRequestIdentity(ctx);
-    assertViewerRole(ctx, organizationId);
+    assertViewerReadRole(ctx, organizationId);
 
     const trackedUserId = typeof ctx.query.trackedUserId === 'string' ? ctx.query.trackedUserId : '';
     if (!trackedUserId || !Types.ObjectId.isValid(trackedUserId)) {

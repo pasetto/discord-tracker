@@ -8,7 +8,7 @@ export type PlannedAbsenceType = 'vacation' | 'pto' | 'sick_leave' | 'other';
 /**
  * Estados do ciclo de vida da ausência planejada.
  */
-export type PlannedAbsenceStatus = 'scheduled' | 'active' | 'completed' | 'cancelled';
+export type PlannedAbsenceStatus = 'pending_approval' | 'scheduled' | 'active' | 'completed' | 'cancelled';
 
 /**
  * Documento de ausência planejada (férias/PTO/licença) por membro rastreado.
@@ -24,6 +24,11 @@ export interface IPlannedAbsence extends Document {
   note?: string;
   status: PlannedAbsenceStatus;
   createdBy: Types.ObjectId;
+  requestedBy?: Types.ObjectId;
+  approvedBy?: Types.ObjectId;
+  approvedAt?: Date;
+  rejectedBy?: Types.ObjectId;
+  rejectedAt?: Date;
   cancelledBy?: Types.ObjectId;
   cancelledAt?: Date;
   createdAt: Date;
@@ -40,8 +45,18 @@ const plannedAbsenceSchema = new Schema<IPlannedAbsence>(
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     note: { type: String, required: false, trim: true, maxlength: 500 },
-    status: { type: String, required: true, enum: ['scheduled', 'active', 'completed', 'cancelled'], index: true },
+    status: {
+      type: String,
+      required: true,
+      enum: ['pending_approval', 'scheduled', 'active', 'completed', 'cancelled'],
+      index: true,
+    },
     createdBy: { type: Schema.Types.ObjectId, ref: 'PlatformUser', required: true },
+    requestedBy: { type: Schema.Types.ObjectId, ref: 'PlatformUser', required: false },
+    approvedBy: { type: Schema.Types.ObjectId, ref: 'PlatformUser', required: false },
+    approvedAt: { type: Date, required: false },
+    rejectedBy: { type: Schema.Types.ObjectId, ref: 'PlatformUser', required: false },
+    rejectedAt: { type: Date, required: false },
     cancelledBy: { type: Schema.Types.ObjectId, ref: 'PlatformUser', required: false },
     cancelledAt: { type: Date, required: false },
   },

@@ -23,6 +23,7 @@ const textActivityEventModelMocks = vi.hoisted(() => ({
 
 const plannedAbsenceModelMocks = vi.hoisted(() => ({
   find: vi.fn(),
+  create: vi.fn(),
 }));
 
 vi.mock('../../src/db/models/TrackedUser', () => ({
@@ -58,6 +59,7 @@ vi.mock('../../src/db/models/TextActivityEvent', () => ({
 vi.mock('../../src/db/models/PlannedAbsence', () => ({
   PlannedAbsenceModel: {
     find: plannedAbsenceModelMocks.find,
+    create: plannedAbsenceModelMocks.create,
   },
 }));
 
@@ -81,6 +83,23 @@ function buildAuthHeader(memberships: Array<{ organizationId: string; role: stri
   return `Bearer ${token}`;
 }
 
+/**
+ * Cria token com ObjectId válido para rotas que persistem autoria.
+ * @param memberships Memberships válidas do usuário para o token
+ * @returns Header Authorization pronto para o Supertest
+ */
+function buildObjectIdAuthHeader(memberships: Array<{ organizationId: string; role: string }>): string {
+  const token = signAccessToken({
+    id: '665f9312eb6f3a663b6f0099',
+    email: 'colaborador@syntra.test',
+    username: 'colaborador',
+    discordId: 'discord-123',
+    memberships,
+  });
+
+  return `Bearer ${token}`;
+}
+
 describe('me routes', () => {
   beforeEach(() => {
     trackedUserModelMocks.find.mockReset();
@@ -89,6 +108,7 @@ describe('me routes', () => {
     presenceSessionModelMocks.aggregate.mockReset();
     textActivityEventModelMocks.countDocuments.mockReset();
     plannedAbsenceModelMocks.find.mockReset();
+    plannedAbsenceModelMocks.create.mockReset();
   });
 
   it('retorna 401 ao acessar /api/v1/me/collaboration sem JWT', async () => {
@@ -233,5 +253,51 @@ describe('me routes', () => {
     expect(response.body.exportData.auditTrail.entries).toEqual([]);
     expect(response.body.exportData.privacy.messageContentStored).toBe(false);
     expect(response.body.exportData).not.toHaveProperty('messageContent');
+  });
+
+  it('cria solicitação de ausência pendente no portal /me', async () => {
+    const app = createApp();
+    trackedUserModelMocks.find.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockReturnValue({
+          exec: vi.fn().mockResolvedValue([
+            {
+              _id: '665f9312eb6f3a663b6f0011',
+              guildId: 'guild-1',
+              discordId: 'discord-123',
+            },
+          ]),
+        }),
+      }),
+    });
+    plannedAbsenceModelMocks.create.mockResolvedValue({
+      _id: '665f9312eb6f3a663b6f00ab',
+      guildId: 'guild-1',
+      type: 'pto',
+      status: 'pending_approval',
+      startDate: new Date('2026-07-01T00:00:00.000Z'),
+      endDate: new Date('2026-07-03T00:00:00.000Z'),
+      note: 'Viagem pessoal',
+    });
+
+    const response = await request(app.callback())
+      .post('/api/v1/me/absence-requests')
+      .set('Authorization', buildObjectIdAuthHeader([{ organizationId: '665f9312eb6f3a663b6f0001', role: 'viewer' }]))
+      .send({
+        guildId: 'guild-1',
+        type: 'pto',
+        startDate: '2026-07-01T00:00:00.000Z',
+        endDate: '2026-07-03T00:00:00.000Z',
+        note: 'Viagem pessoal',
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.request).toMatchObject({
+      guildId: 'guild-1',
+      type: 'pto',
+      status: 'pending_approval',
+      note: 'Viagem pessoal',
+    });
+    expect(plannedAbsenceModelMocks.create).toHaveBeenCalledTimes(1);
   });
 });

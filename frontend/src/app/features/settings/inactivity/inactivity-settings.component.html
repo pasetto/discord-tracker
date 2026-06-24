@@ -58,13 +58,18 @@
     </div>
 
     <div class="space-y-2">
+      <h4 class="text-sm font-semibold text-gray-800 dark:text-white/90">Notificações para gestores</h4>
+      <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+        <input type="checkbox" [(ngModel)]="settings.notifyIntradayPush" />
+        Push durante o dia quando alguém não apareceu
+      </label>
       <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
         <input type="checkbox" [(ngModel)]="settings.notifyManagerPush" />
-        Notificar gestores via push quando detectar "quem sumiu"
+        Push semanal no relatório "quem sumiu"
       </label>
-      <label class="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-        <input type="checkbox" [(ngModel)]="settings.notifyManagerEmail" disabled />
-        Notificar por e-mail (em breve)
+      <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+        <input type="checkbox" [(ngModel)]="settings.notifyManagerEmail" />
+        E-mail semanal com resumo de quem sumiu (requer SMTP no servidor)
       </label>
     </div>
 

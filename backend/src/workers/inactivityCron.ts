@@ -4,6 +4,7 @@ import { WorkCalendarModel, createDefaultWorkWeek } from '../db/models/WorkCalen
 import { isBusinessDay } from '../services/workCalendarService';
 import { generateWeeklyInactivitySnapshot, listTrackedGuildIdsByOrganization } from '../services/inactivityService';
 import { getInactivitySettings } from '../services/inactivitySettingsService';
+import { sendWeeklyInactivityDigestToManagers } from '../services/emailDigestService';
 import { notifyManagersAboutMissingMembers } from '../services/pushService';
 import { enqueueWebhookDeliveries } from '../services/webhookService';
 import { getZonedParts } from '../utils/timezone';
@@ -111,6 +112,15 @@ export async function runInactivityCronTick(now: Date = new Date()): Promise<num
             organizationId,
             guildId,
             missingMembers,
+          });
+        }
+
+        if (settings.notifyManagerEmail) {
+          await sendWeeklyInactivityDigestToManagers({
+            organizationId,
+            guildId,
+            missingMembers,
+            periodEnd: snapshot.periodEnd,
           });
         }
 

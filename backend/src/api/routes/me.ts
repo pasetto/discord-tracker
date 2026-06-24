@@ -11,8 +11,10 @@ import { AuditTrailExportEntry, listAuditTrailExportStub } from '../../services/
 import { signAccessToken } from '../../services/authService';
 import { buildAuthPayloadFromPlatformUser } from '../../services/platformAuthService';
 import { getMemberGamificationInsights } from '../../services/gamificationInsightsService';
+import { createAbsenceRequest } from '../../services/plannedAbsenceService';
 
 const VIEWER_ROLES = new Set(['owner', 'admin', 'manager', 'viewer']);
+const ALLOWED_ABSENCE_TYPES = new Set<PlannedAbsenceType>(['vacation', 'pto', 'sick_leave', 'other']);
 
 /**
  * Membership presente no JWT da sessão autenticada.
@@ -53,6 +55,17 @@ interface MeAbsenceSummary {
   status: PlannedAbsenceStatus;
   startDate: Date;
   endDate: Date;
+  note?: string;
+}
+
+/**
+ * Payload aceito para criação de solicitação de ausência no portal `/me`.
+ */
+interface MeAbsenceRequestPayload {
+  guildId?: string;
+  type?: PlannedAbsenceType;
+  startDate?: string;
+  endDate?: string;
   note?: string;
 }
 
@@ -238,6 +251,26 @@ function parseObjectId(value: string, field: string): Types.ObjectId {
   }
 
   return new Types.ObjectId(value);
+}
+
+/**
+ * Converte string ISO em Date validando formato.
+ * @param value Valor textual recebido no payload
+ * @param field Nome do campo para mensagens de erro
+ * @returns Data válida
+ * @throws {Error} Quando data for inválida
+ */
+function parseDate(value: string | undefined, field: string): Date {
+  if (!value) {
+    throw new Error(`${field} é obrigatório`);
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`${field} inválido`);
+  }
+
+  return parsed;
 }
 
 /**
@@ -498,6 +531,115 @@ meRouter.get('/me/absences', async (ctx) => {
     const absences = await listOwnPlannedAbsences(identity, trackedProfiles);
 
     ctx.body = { absences };
+  } catch (error) {
+    const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
+    ctx.status = status;
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /me/absence-requests:
+ *   post:
+ *     tags:
+ *       - Me
+ *     summary: Solicita PTO/ausência para aprovação do gestor
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - type
+ *               - startDate
+ *               - endDate
+ *             properties:
+ *               guildId:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [vacation, pto, sick_leave, other]
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *               endDate:
+ *                 type: string
+ *                 format: date-time
+ *               note:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Solicitação criada com status pending_approval
+ */
+meRouter.post('/me/absence-requests', async (ctx) => {
+  try {
+    const identity = await resolveMeIdentity(ctx);
+    const user = ctx.state.user as JwtUserShape | undefined;
+    const userId = user?.id?.trim();
+    if (!userId || !Types.ObjectId.isValid(userId)) {
+      ctx.status = 401;
+      ctx.body = { error: 'Sessão inválida' };
+      return;
+    }
+
+    const payload = (ctx.request.body ?? {}) as MeAbsenceRequestPayload;
+    if (!payload.type || !ALLOWED_ABSENCE_TYPES.has(payload.type)) {
+      ctx.status = 400;
+      ctx.body = { error: 'type inválido' };
+      return;
+    }
+
+    const trackedProfiles = await listTrackedProfiles(identity);
+    if (trackedProfiles.length === 0) {
+      ctx.status = 404;
+      ctx.body = { error: 'Nenhum perfil rastreado encontrado para o usuário autenticado' };
+      return;
+    }
+
+    const requestedGuildId = payload.guildId?.trim() ?? '';
+    if (!requestedGuildId && trackedProfiles.length > 1) {
+      ctx.status = 400;
+      ctx.body = { error: 'guildId é obrigatório quando há múltiplos perfis rastreados' };
+      return;
+    }
+
+    const selectedProfile = requestedGuildId
+      ? trackedProfiles.find((profile) => profile.guildId === requestedGuildId)
+      : trackedProfiles[0];
+    if (!selectedProfile) {
+      ctx.status = 404;
+      ctx.body = { error: 'Perfil rastreado não encontrado para o guildId informado' };
+      return;
+    }
+
+    const request = await createAbsenceRequest({
+      organizationId: identity.organizationId,
+      guildId: selectedProfile.guildId,
+      trackedUserId: String(selectedProfile._id),
+      discordId: identity.discordId,
+      type: payload.type,
+      startDate: parseDate(payload.startDate, 'startDate'),
+      endDate: parseDate(payload.endDate, 'endDate'),
+      note: payload.note,
+      requestedBy: userId,
+    });
+
+    ctx.status = 201;
+    ctx.body = {
+      request: {
+        id: String(request._id),
+        guildId: request.guildId,
+        type: request.type,
+        status: request.status,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        note: request.note,
+      },
+    };
   } catch (error) {
     const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
     ctx.status = status;

@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/auth/auth.guard';
+import { managerGuard } from './core/auth/role.guard';
 import { superAdminGuard } from './core/auth/super-admin.guard';
 
 /** Metadados padrão de página para o header contextual. */
@@ -57,6 +58,11 @@ const loadRankingReport = () =>
 const loadAchievementsReport = () =>
   import('./features/reports/achievements/achievements-report.component').then(
     (module) => module.AchievementsReportComponent,
+  );
+
+const loadTextCollaborationReport = () =>
+  import('./features/reports/text-collaboration/text-collaboration-report.component').then(
+    (module) => module.TextCollaborationReportComponent,
   );
 
 const loadCalendarSettings = () =>
@@ -159,6 +165,11 @@ const featureRoutes: Routes = [
         title: 'Quem sumiu | Syntra',
       },
       {
+        path: 'text-collaboration',
+        loadComponent: loadTextCollaborationReport,
+        title: 'Sinais de texto | Syntra',
+      },
+      {
         path: 'goals',
         loadComponent: loadGoalsReport,
         title: 'Metas semanais | Syntra',
@@ -200,6 +211,7 @@ const featureRoutes: Routes = [
   },
   {
     path: 'settings',
+    canActivate: [managerGuard],
     title: 'Configurações | Syntra',
     data: page('Configurações', 'Configurações'),
     children: [

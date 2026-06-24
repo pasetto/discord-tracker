@@ -71,6 +71,41 @@ describe('inactivity routes', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.report).toBeDefined();
+    expect(inactivityMocks.getWeeklyInactivityReport).toHaveBeenCalledWith(
+      ORG_ID,
+      'guild-1',
+      { categoryId: undefined },
+      expect.any(Date),
+      { requesterRole: 'manager' },
+    );
+  });
+
+  it('envia requesterRole viewer para política de redação do weekly', async () => {
+    const app = createApp();
+    inactivityMocks.getWeeklyInactivityReport.mockResolvedValue({
+      periodStart: new Date('2026-06-18'),
+      periodEnd: new Date('2026-06-24'),
+      generatedAt: new Date('2026-06-24T12:00:00.000Z'),
+      entries: [{ discordId: 'redacted', displayName: 'Colaborador oculto', status: 'missing' }],
+      plannedAbsenceEntries: [],
+    });
+
+    const response = await request(app.callback())
+      .get(`/api/v1/org/${ORG_ID}/guilds/guild-1/reports/inactivity/weekly`)
+      .set('Authorization', buildAuthHeader([{ organizationId: ORG_ID, role: 'viewer' }]));
+
+    expect(response.status).toBe(200);
+    expect(inactivityMocks.getWeeklyInactivityReport).toHaveBeenCalledWith(
+      ORG_ID,
+      'guild-1',
+      { categoryId: undefined },
+      expect.any(Date),
+      { requesterRole: 'viewer' },
+    );
+    expect(response.body.report.entries[0]).toMatchObject({
+      discordId: 'redacted',
+      displayName: 'Colaborador oculto',
+    });
   });
 
   it('retorna relatório intradiário autenticado', async () => {
@@ -105,6 +140,7 @@ describe('inactivity routes', () => {
       lateStartThresholdPercent: 30,
       minCollaborationPercentOfElapsed: 20,
       notifyManagerPush: true,
+      notifyIntradayPush: true,
       notifyManagerEmail: false,
     });
 
@@ -125,6 +161,7 @@ describe('inactivity routes', () => {
       lateStartThresholdPercent: 25,
       minCollaborationPercentOfElapsed: 15,
       notifyManagerPush: true,
+      notifyIntradayPush: true,
       notifyManagerEmail: false,
     });
 

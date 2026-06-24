@@ -48,6 +48,7 @@ export interface IOrganizationSettings {
   timezone: string;
   privacyPolicyAcceptedAt?: Date;
   memberConsentBannerEnabled: boolean;
+  viewerCanSeeIndividualReports: boolean;
 }
 
 /**
@@ -133,6 +134,7 @@ const organizationSchema = new Schema<IOrganization>(
       timezone: { type: String, required: true, default: 'America/Sao_Paulo' },
       privacyPolicyAcceptedAt: { type: Date, required: false },
       memberConsentBannerEnabled: { type: Boolean, required: true, default: true },
+      viewerCanSeeIndividualReports: { type: Boolean, required: true, default: false },
     },
     onboarding: { type: onboardingProgressSchema, required: true, default: () => ({}) },
   },

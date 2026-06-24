@@ -40,6 +40,21 @@ export interface CreatePlannedAbsenceInput {
 }
 
 /**
+ * Payload para criação de solicitação de ausência via autoatendimento.
+ */
+export interface CreateAbsenceRequestInput {
+  organizationId: string;
+  guildId: string;
+  trackedUserId: string;
+  discordId: string;
+  type: PlannedAbsenceType;
+  startDate: Date;
+  endDate: Date;
+  note?: string;
+  requestedBy: string;
+}
+
+/**
  * Campos permitidos para atualização de ausência planejada.
  */
 export interface UpdatePlannedAbsenceInput {
@@ -218,6 +233,120 @@ export async function createPlannedAbsence(input: CreatePlannedAbsenceInput): Pr
     status,
     createdBy: parseObjectId(input.createdBy, 'createdBy'),
   });
+}
+
+/**
+ * Cria uma solicitação de ausência com status pendente de aprovação.
+ * @param input Dados obrigatórios da solicitação do colaborador
+ * @returns Documento de ausência em estado `pending_approval`
+ * @throws {Error} Quando datas ou identificadores forem inválidos
+ */
+export async function createAbsenceRequest(input: CreateAbsenceRequestInput): Promise<IPlannedAbsence> {
+  validateDateRange(input.startDate, input.endDate);
+  const requesterId = parseObjectId(input.requestedBy, 'requestedBy');
+
+  return PlannedAbsenceModel.create({
+    organizationId: parseObjectId(input.organizationId, 'organizationId'),
+    guildId: input.guildId,
+    trackedUserId: parseObjectId(input.trackedUserId, 'trackedUserId'),
+    discordId: input.discordId,
+    type: input.type,
+    startDate: input.startDate,
+    endDate: input.endDate,
+    note: input.note?.trim() || undefined,
+    status: 'pending_approval',
+    createdBy: requesterId,
+    requestedBy: requesterId,
+  });
+}
+
+/**
+ * Lista solicitações de ausência por organização/guild.
+ * @param organizationId Identificador da organização do tenant
+ * @param guildId Identificador do servidor Discord
+ * @param status Status desejado para filtro (default: pending_approval)
+ * @returns Solicitações ordenadas por data de criação
+ */
+export async function listAbsenceRequests(
+  organizationId: string,
+  guildId: string,
+  status: PlannedAbsenceStatus = 'pending_approval',
+): Promise<IPlannedAbsence[]> {
+  return PlannedAbsenceModel.find({
+    organizationId: parseObjectId(organizationId, 'organizationId'),
+    guildId,
+    status,
+  }).sort({ createdAt: -1, startDate: 1 });
+}
+
+/**
+ * Aprova solicitação pendente e converte para status operacional de ausência.
+ * @param organizationId Identificador da organização do tenant
+ * @param guildId Identificador do servidor Discord
+ * @param absenceId Identificador da solicitação
+ * @param approvedBy Usuário responsável pela aprovação
+ * @returns Documento aprovado ou null quando não encontrado
+ */
+export async function approveAbsenceRequest(
+  organizationId: string,
+  guildId: string,
+  absenceId: string,
+  approvedBy: string,
+): Promise<IPlannedAbsence | null> {
+  const current = await PlannedAbsenceModel.findOne({
+    _id: parseObjectId(absenceId, 'absenceId'),
+    organizationId: parseObjectId(organizationId, 'organizationId'),
+    guildId,
+    status: 'pending_approval',
+  });
+
+  if (!current) {
+    return null;
+  }
+
+  current.status = resolveStatusFromDates(current.startDate, current.endDate, new Date());
+  current.approvedBy = parseObjectId(approvedBy, 'approvedBy');
+  current.approvedAt = new Date();
+  await current.save();
+
+  return current;
+}
+
+/**
+ * Rejeita solicitação pendente e encerra o ciclo com status cancelado.
+ * @param organizationId Identificador da organização do tenant
+ * @param guildId Identificador do servidor Discord
+ * @param absenceId Identificador da solicitação
+ * @param rejectedBy Usuário responsável pela rejeição
+ * @returns Documento rejeitado ou null quando não encontrado
+ */
+export async function rejectAbsenceRequest(
+  organizationId: string,
+  guildId: string,
+  absenceId: string,
+  rejectedBy: string,
+): Promise<IPlannedAbsence | null> {
+  const current = await PlannedAbsenceModel.findOne({
+    _id: parseObjectId(absenceId, 'absenceId'),
+    organizationId: parseObjectId(organizationId, 'organizationId'),
+    guildId,
+    status: 'pending_approval',
+  });
+
+  if (!current) {
+    return null;
+  }
+
+  const rejectedByObjectId = parseObjectId(rejectedBy, 'rejectedBy');
+  const rejectedAt = new Date();
+  current.status = 'cancelled';
+  current.rejectedBy = rejectedByObjectId;
+  current.rejectedAt = rejectedAt;
+  current.cancelledBy = rejectedByObjectId;
+  current.cancelledAt = rejectedAt;
+  await current.save();
+
+  return current;
 }
 
 /**

@@ -2,21 +2,13 @@ import Router from '@koa/router';
 import { Types, isValidObjectId } from 'mongoose';
 import { CategoryGoalTemplateModel } from '../../db/models/CategoryGoalTemplate';
 import { applyAllCategoryGoalsToTrackedUsers, applyCategoryGoalsToTrackedUsers, getGoalsWeeklyReport } from '../../services/goalsService';
-
-/**
- * Membership de organização presente no JWT.
- */
-interface JwtMembership {
-  organizationId: string;
-  role: string;
-}
+import { assertManagerRole, assertViewerReadRole } from '../middleware/tenantRbac';
 
 /**
  * Shape mínimo do usuário autenticado em `ctx.state.user`.
  */
 interface JwtUserShape {
   id?: string;
-  memberships?: JwtMembership[];
 }
 
 /**
@@ -27,49 +19,8 @@ interface CategoryGoalTemplatePayload {
   dailyMinimumHours?: number;
 }
 
-const VIEWER_ROLES = new Set(['owner', 'admin', 'manager', 'viewer']);
-const MANAGER_ROLES = new Set(['owner', 'admin', 'manager']);
-
 /** Rotas de metas individuais e templates por categoria. */
 export const goalsRouter = new Router();
-
-/**
- * Obtém role do usuário autenticado para a organização atual.
- * @param {Router.RouterContext} ctx Contexto Koa da requisição
- * @param {string} organizationId Organização do tenant atual
- * @returns {string | undefined} Papel normalizado em minúsculas
- */
-function getMembershipRole(ctx: Router.RouterContext, organizationId: string): string | undefined {
-  const user = ctx.state.user as JwtUserShape | undefined;
-  const membership = user?.memberships?.find((item) => item.organizationId === organizationId);
-  return membership?.role?.toLowerCase();
-}
-
-/**
- * Garante permissão mínima de visualização de metas.
- * @param {Router.RouterContext} ctx Contexto Koa da requisição
- * @param {string} organizationId Organização do tenant atual
- * @returns {void} Não retorna valor
- */
-function assertViewerRole(ctx: Router.RouterContext, organizationId: string): void {
-  const role = getMembershipRole(ctx, organizationId);
-  if (!role || !VIEWER_ROLES.has(role)) {
-    ctx.throw(403, 'Permissão insuficiente para visualizar metas');
-  }
-}
-
-/**
- * Garante permissão de gestão para mutações de metas.
- * @param {Router.RouterContext} ctx Contexto Koa da requisição
- * @param {string} organizationId Organização do tenant atual
- * @returns {void} Não retorna valor
- */
-function assertManagerRole(ctx: Router.RouterContext, organizationId: string): void {
-  const role = getMembershipRole(ctx, organizationId);
-  if (!role || !MANAGER_ROLES.has(role)) {
-    ctx.throw(403, 'Permissão insuficiente para gerenciar metas');
-  }
-}
 
 /**
  * Extrai dados de identificação da requisição autenticada.
@@ -133,7 +84,7 @@ function validateTemplatePayload(
 goalsRouter.get('/guilds/:guildId/categories/goal-templates', async (ctx) => {
   try {
     const { organizationId } = getRequestIdentity(ctx);
-    assertViewerRole(ctx, organizationId);
+    assertViewerReadRole(ctx, organizationId);
 
     const templates = await CategoryGoalTemplateModel.find({
       organizationId,
@@ -169,7 +120,7 @@ goalsRouter.get('/guilds/:guildId/categories/goal-templates', async (ctx) => {
 goalsRouter.get('/guilds/:guildId/categories/:categoryId/goal-template', async (ctx) => {
   try {
     const { organizationId } = getRequestIdentity(ctx);
-    assertViewerRole(ctx, organizationId);
+    assertViewerReadRole(ctx, organizationId);
 
     if (!isValidObjectId(ctx.params.categoryId)) {
       ctx.status = 400;
@@ -398,7 +349,7 @@ goalsRouter.post('/guilds/:guildId/members/apply-all-category-goals', async (ctx
 goalsRouter.get('/guilds/:guildId/reports/goals', async (ctx) => {
   try {
     const { organizationId } = getRequestIdentity(ctx);
-    assertViewerRole(ctx, organizationId);
+    assertViewerReadRole(ctx, organizationId);
 
     const categoryId = typeof ctx.query.categoryId === 'string' ? ctx.query.categoryId : undefined;
     if (categoryId && !isValidObjectId(categoryId)) {

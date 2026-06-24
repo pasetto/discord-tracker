@@ -18,6 +18,7 @@ import { channelsRouter } from './routes/channels';
 import { categoriesRouter } from './routes/categories';
 import { workCalendarRouter } from './routes/workCalendar';
 import { absencesRouter } from './routes/absences';
+import { absenceRequestsRouter } from './routes/absenceRequests';
 import { inactivityRouter } from './routes/inactivity';
 import { goalsRouter } from './routes/goals';
 import { gamificationRouter } from './routes/gamification';
@@ -34,10 +35,12 @@ import { adminOrganizationsRouter } from './routes/adminOrganizations';
 import { discordSettingsRouter } from './routes/discordSettings';
 import { dashboardRouter } from './routes/dashboard';
 import { trackedUsersRouter } from './routes/trackedUsers';
+import { textCollaborationReportsRouter } from './routes/textCollaborationReports';
 import { superAdminMiddleware } from './middleware/superAdmin';
 import { stripeWebhookRouter } from './routes/webhooks/stripe';
 import { getOpenApiSpec } from './swagger';
 import { organizationTeamRouter, assertTeamManagerAccess } from './routes/organizationTeam';
+import { organizationSettingsRouter } from './routes/organizationSettings';
 import { attachLiveActivityWebSocket } from './websocket/liveActivitySocket';
 
 const swaggerUi = require('koa-swagger-ui').ui as (
@@ -96,6 +99,12 @@ export function createApp(): Koa {
     workCalendarRouter.allowedMethods(),
   );
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, absencesRouter.routes(), absencesRouter.allowedMethods());
+  apiV1ProtectedRouter.use(
+    '/org/:orgId',
+    tenantMiddleware,
+    absenceRequestsRouter.routes(),
+    absenceRequestsRouter.allowedMethods(),
+  );
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, inactivityRouter.routes(), inactivityRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, goalsRouter.routes(), goalsRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, gamificationRouter.routes(), gamificationRouter.allowedMethods());
@@ -105,8 +114,20 @@ export function createApp(): Koa {
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, pushRouter.routes(), pushRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, webhooksRouter.routes(), webhooksRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, trackedUsersRouter.routes(), trackedUsersRouter.allowedMethods());
+  apiV1ProtectedRouter.use(
+    '/org/:orgId',
+    tenantMiddleware,
+    textCollaborationReportsRouter.routes(),
+    textCollaborationReportsRouter.allowedMethods(),
+  );
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, dashboardRouter.routes(), dashboardRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, discordSettingsRouter.routes(), discordSettingsRouter.allowedMethods());
+  apiV1ProtectedRouter.use(
+    '/org/:orgId',
+    tenantMiddleware,
+    organizationSettingsRouter.routes(),
+    organizationSettingsRouter.allowedMethods(),
+  );
   apiV1ProtectedRouter.use(
     '/org/:orgId',
     tenantMiddleware,

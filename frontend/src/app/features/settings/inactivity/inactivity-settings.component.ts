@@ -16,6 +16,7 @@ interface InactivitySettingsDto {
   minCollaborationPercentOfElapsed: number;
   notifyManagerPush: boolean;
   notifyManagerEmail: boolean;
+  notifyIntradayPush?: boolean;
   updatedAt?: string;
 }
 
@@ -112,6 +113,7 @@ export class InactivitySettingsComponent implements OnInit {
           minCollaborationPercentOfElapsed: this.settings.minCollaborationPercentOfElapsed,
           notifyManagerPush: this.settings.notifyManagerPush,
           notifyManagerEmail: this.settings.notifyManagerEmail,
+          notifyIntradayPush: this.settings.notifyIntradayPush ?? true,
         },
       )
       .subscribe({

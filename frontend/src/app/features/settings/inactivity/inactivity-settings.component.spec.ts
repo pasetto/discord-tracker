@@ -50,6 +50,7 @@ describe('InactivitySettingsComponent', () => {
         minCollaborationPercentOfElapsed: 20,
         notifyManagerPush: true,
         notifyManagerEmail: false,
+        notifyIntradayPush: true,
       },
     });
 

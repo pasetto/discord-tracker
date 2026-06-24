@@ -3,7 +3,7 @@ import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, catchError, finalize, map, of, shareReplay, tap } from 'rxjs';
 import { AuthApiService, type AuthSessionResponse, type LoginRequest, type RegisterRequest } from './auth-api.service';
-import type { AuthOrganizationOption, AuthOrganizationSession, AuthUserSession } from './auth-session.model';
+import type { AuthOrganizationOption, AuthOrganizationSession, AuthUserSession, MembershipRole } from './auth-session.model';
 import { TenantContextService } from '../tenant/tenant-context.service';
 
 const AUTH_TOKEN_STORAGE_KEY = 'syntra.auth.token';
@@ -11,6 +11,18 @@ const ORG_ID_STORAGE_KEY = 'syntra.orgId';
 const USER_SESSION_STORAGE_KEY = 'syntra.auth.user';
 const ORG_SESSION_STORAGE_KEY = 'syntra.auth.organization';
 const ORGANIZATIONS_STORAGE_KEY = 'syntra.auth.organizations';
+
+/**
+ * Shape mínimo do payload JWT necessário para resolver role atual.
+ */
+interface MembershipRoleTokenPayload {
+  memberships?: Array<{
+    organizationId?: string;
+    role?: string;
+  }>;
+}
+
+const MEMBERSHIP_ROLES: MembershipRole[] = ['owner', 'admin', 'manager', 'viewer'];
 
 /**
  * Encapsula operações de autenticação do frontend.
@@ -254,6 +266,57 @@ export class AuthService {
    */
   isSuperAdmin(): boolean {
     return Boolean(this.getUser()?.isSuperAdmin);
+  }
+
+  /**
+   * Retorna o papel da membership na organização ativa da sessão.
+   * @returns Papel atual (`owner|admin|manager|viewer`) ou `null` quando indisponível
+   */
+  getMembershipRole(): MembershipRole | null {
+    const organizationId = this.getOrganizationId();
+    if (!organizationId) {
+      return null;
+    }
+
+    const roleFromOrganizations = this.getOrganizations().find(
+      (organization) => organization.id === organizationId && organization.status === 'active',
+    )?.role;
+    const normalizedRoleFromOrganizations = this.normalizeMembershipRole(roleFromOrganizations);
+    if (normalizedRoleFromOrganizations) {
+      return normalizedRoleFromOrganizations;
+    }
+
+    const token = this.getToken();
+    if (!token?.trim()) {
+      return null;
+    }
+
+    try {
+      const payloadSegment = token.split('.')[1];
+      if (!payloadSegment) {
+        return null;
+      }
+
+      const payload = JSON.parse(atob(payloadSegment)) as MembershipRoleTokenPayload;
+      const roleFromToken = payload.memberships?.find((membership) => membership.organizationId === organizationId)?.role;
+      return this.normalizeMembershipRole(roleFromToken);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Normaliza papel textual para o conjunto conhecido de memberships.
+   * @param role Papel bruto recebido da sessão/token
+   * @returns Papel válido normalizado ou `null` quando inválido
+   */
+  private normalizeMembershipRole(role: string | undefined): MembershipRole | null {
+    if (!role) {
+      return null;
+    }
+
+    const normalizedRole = role.toLowerCase() as MembershipRole;
+    return MEMBERSHIP_ROLES.includes(normalizedRole) ? normalizedRole : null;
   }
 
   /**

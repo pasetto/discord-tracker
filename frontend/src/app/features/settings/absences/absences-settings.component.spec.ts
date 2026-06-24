@@ -27,6 +27,7 @@ describe('AbsencesSettingsComponent', () => {
     });
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/tracked-users').flush({ members: [] });
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/absences').flush({ absences: [] });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/absence-requests?status=pending_approval').flush({ requests: [] });
   });
 
   afterEach(() => {
@@ -37,6 +38,7 @@ describe('AbsencesSettingsComponent', () => {
   it('renderiza seção de cadastro de PTO e ausências', () => {
     const textContent = (fixture.nativeElement.textContent as string).toLowerCase();
     expect(textContent).toContain('cadastrar pto e ausências');
+    expect(textContent).toContain('solicitações pendentes');
     expect(textContent).toContain('sincronizar membros');
     expect(textContent).toContain('lista de ausências');
     expect(textContent).not.toContain('trackeduserid');

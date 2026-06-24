@@ -5,6 +5,7 @@ const workCalendarFindOneMock = vi.hoisted(() => vi.fn());
 const listTrackedGuildIdsByOrganizationMock = vi.hoisted(() => vi.fn());
 const generateWeeklyInactivitySnapshotMock = vi.hoisted(() => vi.fn());
 const notifyManagersAboutMissingMembersMock = vi.hoisted(() => vi.fn());
+const sendWeeklyInactivityDigestToManagersMock = vi.hoisted(() => vi.fn());
 const getInactivitySettingsMock = vi.hoisted(() => vi.fn());
 const enqueueWebhookDeliveriesMock = vi.hoisted(() => vi.fn());
 const isBusinessDayMock = vi.hoisted(() => vi.fn());
@@ -38,6 +39,10 @@ vi.mock('../../src/services/inactivityService', () => ({
 
 vi.mock('../../src/services/pushService', () => ({
   notifyManagersAboutMissingMembers: notifyManagersAboutMissingMembersMock,
+}));
+
+vi.mock('../../src/services/emailDigestService', () => ({
+  sendWeeklyInactivityDigestToManagers: sendWeeklyInactivityDigestToManagersMock,
 }));
 
 vi.mock('../../src/services/inactivitySettingsService', () => ({
@@ -106,8 +111,9 @@ describe('inactivityCron', () => {
         { status: 'active', discordId: '2', displayName: 'Bob', inactiveBusinessDays: 0 },
       ],
     });
-    getInactivitySettingsMock.mockResolvedValue({ notifyManagerPush: true });
+    getInactivitySettingsMock.mockResolvedValue({ notifyManagerPush: true, notifyManagerEmail: false });
     notifyManagersAboutMissingMembersMock.mockResolvedValue(undefined);
+    sendWeeklyInactivityDigestToManagersMock.mockResolvedValue({ disabled: false, sent: 1, failed: 0, recipients: 1 });
     enqueueWebhookDeliveriesMock.mockResolvedValue(1);
 
     const generated = await runInactivityCronTick(new Date('2026-06-22T11:00:00.000Z'));
@@ -119,6 +125,7 @@ describe('inactivityCron', () => {
       guildId: 'guild-1',
       missingMembers: [{ discordId: '1', displayName: 'Alice', inactiveBusinessDays: 4 }],
     });
+    expect(sendWeeklyInactivityDigestToManagersMock).not.toHaveBeenCalled();
     expect(enqueueWebhookDeliveriesMock).toHaveBeenCalledWith(
       expect.objectContaining({
         organizationId: '507f1f77bcf86cd799439001',
@@ -129,6 +136,60 @@ describe('inactivityCron', () => {
       { snapshotsGenerated: 1 },
       'Ciclo do cron de inatividade concluído',
     );
+  });
+
+  it('envia digest por email quando notifyManagerEmail está habilitado', async () => {
+    organizationFindMock.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockReturnValue({
+          exec: vi.fn().mockResolvedValue([
+            {
+              _id: '507f1f77bcf86cd799439001',
+              settings: { timezone: 'America/Sao_Paulo' },
+            },
+          ]),
+        }),
+      }),
+    });
+
+    workCalendarFindOneMock.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockReturnValue({
+          exec: vi.fn().mockResolvedValue(null),
+        }),
+      }),
+    });
+
+    getZonedPartsMock
+      .mockReturnValueOnce({ year: 2026, month: 6, day: 24, hour: 8, minute: 0 })
+      .mockReturnValueOnce({ year: 2026, month: 6, day: 24, hour: 8, minute: 0 });
+    isBusinessDayMock.mockReturnValue(true);
+    listTrackedGuildIdsByOrganizationMock.mockResolvedValue(['guild-1']);
+    generateWeeklyInactivitySnapshotMock.mockResolvedValue({
+      periodStart: new Date('2026-06-17'),
+      periodEnd: new Date('2026-06-24'),
+      entries: [
+        { status: 'missing', discordId: '1', displayName: 'Alice', inactiveBusinessDays: 4 },
+      ],
+    });
+    getInactivitySettingsMock.mockResolvedValue({ notifyManagerPush: false, notifyManagerEmail: true });
+    sendWeeklyInactivityDigestToManagersMock.mockResolvedValue({
+      disabled: false,
+      sent: 1,
+      failed: 0,
+      recipients: 1,
+    });
+    enqueueWebhookDeliveriesMock.mockResolvedValue(1);
+
+    await runInactivityCronTick(new Date('2026-06-24T11:00:00.000Z'));
+
+    expect(sendWeeklyInactivityDigestToManagersMock).toHaveBeenCalledWith({
+      organizationId: '507f1f77bcf86cd799439001',
+      guildId: 'guild-1',
+      missingMembers: [{ discordId: '1', displayName: 'Alice', inactiveBusinessDays: 4 }],
+      periodEnd: new Date('2026-06-24'),
+    });
+    expect(notifyManagersAboutMissingMembersMock).not.toHaveBeenCalled();
   });
 
   it('evita reprocessar a mesma organização/guild no mesmo dia local', async () => {

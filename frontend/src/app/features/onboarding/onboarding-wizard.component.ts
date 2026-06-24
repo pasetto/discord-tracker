@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 import { OnboardingProgress } from '../../core/onboarding/onboarding-progress.model';
 import { OnboardingProgressService } from '../../core/onboarding/onboarding-progress.service';
 import { AuthService } from '../../core/auth/auth.service';
+import { ChannelsSettingsComponent } from '../settings/channels/channels-settings.component';
 
 /**
  * Metadados de apresentação para cada etapa do onboarding.
@@ -25,7 +26,7 @@ interface OnboardingStepMeta {
 @Component({
   selector: 'app-onboarding-wizard',
   standalone: true,
-  imports: [NgIf, NgFor, NgClass, AsyncPipe, DatePipe, RouterLink],
+  imports: [NgIf, NgFor, NgClass, AsyncPipe, DatePipe, RouterLink, ChannelsSettingsComponent],
   templateUrl: './onboarding-wizard.component.html',
 })
 export class OnboardingWizardComponent implements OnInit {
@@ -94,6 +95,22 @@ export class OnboardingWizardComponent implements OnInit {
   jumpToStep(step: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8): void {
     const current = this.onboardingProgressService.currentProgress.currentStep;
     this.persistStepProgress(current, step);
+  }
+
+  /**
+   * Marca o passo 4 como concluído após salvar canais no modo embutido.
+   * @returns {void} Não retorna valor
+   */
+  onEmbeddedChannelsSaved(): void {
+    const current = this.onboardingProgressService.currentProgress;
+    const completedSteps = Array.from(new Set([...current.completedSteps, 4])).sort((a, b) => a - b);
+
+    this.onboardingProgressService
+      .save(this.orgId, {
+        completedSteps,
+        channelsConfigured: true,
+      })
+      .subscribe();
   }
 
   /**

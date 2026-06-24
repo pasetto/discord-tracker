@@ -63,6 +63,45 @@
       </button>
     </div>
 
+    <section class="mt-5 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+      <h4 class="font-semibold text-gray-800 dark:text-white/90">Solicitar PTO</h4>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Envie sua solicitação de ausência para aprovação da liderança.
+      </p>
+      <div class="mt-3 grid gap-3 md:grid-cols-2">
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Tipo
+          <select class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="requestForm.type">
+            <option value="vacation">Férias</option>
+            <option value="pto">PTO</option>
+            <option value="sick_leave">Licença médica</option>
+            <option value="other">Outro</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Início
+          <input type="date" class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="requestForm.startDate" />
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Fim
+          <input type="date" class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="requestForm.endDate" />
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 md:col-span-2">
+          Observação
+          <textarea class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" rows="2" [(ngModel)]="requestForm.note"></textarea>
+        </label>
+      </div>
+      <button
+        type="button"
+        class="mt-3 min-h-11 rounded-lg bg-success-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-success-700 disabled:opacity-60"
+        [disabled]="requestLoading"
+        (click)="submitAbsenceRequest()"
+      >
+        {{ requestLoading ? 'Enviando...' : 'Solicitar aprovação' }}
+      </button>
+      <p *ngIf="requestMessage" class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ requestMessage }}</p>
+    </section>
+
     <p *ngIf="panel.loading" class="mt-4 text-sm text-gray-500 dark:text-gray-400">Carregando seus dados...</p>
 
     <p *ngIf="panel.errorMessage" class="mt-4 rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">
@@ -148,18 +187,29 @@
       class="mt-4 rounded-xl border border-gray-200 p-4 text-sm dark:border-gray-700"
     >
       <h4 class="font-semibold text-gray-800 dark:text-white/90">Ausências planejadas</h4>
-      <p *ngIf="absences.length === 0" class="mt-2 text-gray-500 dark:text-gray-400">
-        Nenhuma ausência planejada registrada para o seu perfil.
-      </p>
-      <ul *ngIf="absences.length > 0" class="mt-3 space-y-2">
-        <li *ngFor="let absence of absences" class="rounded-lg border border-gray-100 p-3 dark:border-gray-800">
-          <p class="font-medium text-gray-800 dark:text-white/90">{{ absence.type }} · {{ absence.status }}</p>
-          <p class="text-gray-600 dark:text-gray-300">
-            {{ formatDate(absence.startDate) }} até {{ formatDate(absence.endDate) }}
-          </p>
-          <p *ngIf="absence.note" class="mt-1 text-gray-500 dark:text-gray-400">{{ absence.note }}</p>
-        </li>
-      </ul>
+      <p *ngIf="absences.length === 0" class="mt-2 text-gray-500 dark:text-gray-400">Nenhuma ausência registrada para o seu perfil.</p>
+
+      <div *ngIf="pendingAbsences.length > 0" class="mt-3">
+        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-warning-700 dark:text-warning-400">Pendentes de aprovação</p>
+        <ul class="space-y-2">
+          <li *ngFor="let absence of pendingAbsences" class="rounded-lg border border-warning-300 bg-warning-50 p-3 dark:border-warning-800 dark:bg-warning-500/10">
+            <p class="font-medium text-gray-800 dark:text-white/90">{{ absence.type }} · {{ absence.status }}</p>
+            <p class="text-gray-600 dark:text-gray-300">{{ formatDate(absence.startDate) }} até {{ formatDate(absence.endDate) }}</p>
+            <p *ngIf="absence.note" class="mt-1 text-gray-500 dark:text-gray-400">{{ absence.note }}</p>
+          </li>
+        </ul>
+      </div>
+
+      <div *ngIf="scheduledAbsences.length > 0" class="mt-3">
+        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Agendadas</p>
+        <ul class="space-y-2">
+          <li *ngFor="let absence of scheduledAbsences" class="rounded-lg border border-gray-100 p-3 dark:border-gray-800">
+            <p class="font-medium text-gray-800 dark:text-white/90">{{ absence.type }} · {{ absence.status }}</p>
+            <p class="text-gray-600 dark:text-gray-300">{{ formatDate(absence.startDate) }} até {{ formatDate(absence.endDate) }}</p>
+            <p *ngIf="absence.note" class="mt-1 text-gray-500 dark:text-gray-400">{{ absence.note }}</p>
+          </li>
+        </ul>
+      </div>
     </article>
 
     <p *ngIf="panel.exportPreview" class="mt-4 text-xs text-success-700">

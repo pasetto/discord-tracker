@@ -14,6 +14,7 @@ export interface IInactivitySettings extends Document {
   /** Percentual mínimo de colaboração vs. tempo decorrido no dia (default 20). */
   minCollaborationPercentOfElapsed: number;
   notifyManagerPush: boolean;
+  notifyIntradayPush: boolean;
   notifyManagerEmail: boolean;
   updatedBy: Types.ObjectId;
   createdAt: Date;
@@ -30,6 +31,7 @@ const inactivitySettingsSchema = new Schema<IInactivitySettings>(
     lateStartThresholdPercent: { type: Number, required: true, min: 1, max: 100, default: 30 },
     minCollaborationPercentOfElapsed: { type: Number, required: true, min: 1, max: 100, default: 20 },
     notifyManagerPush: { type: Boolean, required: true, default: true },
+    notifyIntradayPush: { type: Boolean, required: true, default: true },
     notifyManagerEmail: { type: Boolean, required: true, default: false },
     updatedBy: { type: Schema.Types.ObjectId, ref: 'PlatformUser', required: true },
   },

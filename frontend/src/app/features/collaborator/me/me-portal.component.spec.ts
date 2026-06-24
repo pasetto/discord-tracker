@@ -72,4 +72,45 @@ describe('MePortalComponent', () => {
     expect(labels.some((label) => label?.includes('Baixar export LGPD'))).toBeTrue();
     expect(fixture.nativeElement.querySelector('a[href*="/api/v1/me/"]')).toBeNull();
   });
+
+  it('envia solicitação de PTO pelo portal /me', () => {
+    const component = fixture.componentInstance;
+    component.requestForm = {
+      type: 'pto',
+      startDate: '2026-07-01',
+      endDate: '2026-07-03',
+      note: 'Viagem pessoal',
+    };
+
+    component.submitAbsenceRequest();
+
+    const postReq = httpMock.expectOne('/api/v1/me/absence-requests');
+    expect(postReq.request.method).toBe('POST');
+    postReq.flush({
+      request: {
+        id: 'req-1',
+        guildId: 'guild-1',
+        type: 'pto',
+        status: 'pending_approval',
+        startDate: '2026-07-01',
+        endDate: '2026-07-03',
+      },
+    });
+
+    const absencesReq = httpMock.expectOne('/api/v1/me/absences');
+    absencesReq.flush({
+      absences: [
+        {
+          id: 'req-1',
+          guildId: 'guild-1',
+          type: 'pto',
+          status: 'pending_approval',
+          startDate: '2026-07-01',
+          endDate: '2026-07-03',
+        },
+      ],
+    });
+
+    expect(component.requestMessage.toLowerCase()).toContain('solicitação enviada');
+  });
 });

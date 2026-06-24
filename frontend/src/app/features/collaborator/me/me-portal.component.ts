@@ -1,9 +1,16 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/auth/auth.service';
 import { TrackedMemberOption, TrackedMembersService } from '../../../core/members/tracked-members.service';
 import { MemberSelectComponent } from '../../../shared/components/member-select/member-select.component';
-import { MeAbsenceSummary, MeCollaborationSummary, MeDataService, MeGamificationInsights } from './me-data.service';
+import {
+  MeAbsenceRequestInput,
+  MeAbsenceSummary,
+  MeCollaborationSummary,
+  MeDataService,
+  MeGamificationInsights,
+} from './me-data.service';
 
 /**
  * Item de transparência LGPD sobre quais sinais são monitorados.
@@ -26,12 +33,22 @@ interface MeDataPanelState {
 }
 
 /**
+ * Modelo de formulário para solicitação de ausência no portal `/me`.
+ */
+interface MeAbsenceRequestForm {
+  type: MeAbsenceRequestInput['type'];
+  startDate: string;
+  endDate: string;
+  note: string;
+}
+
+/**
  * Portal do colaborador para transparência e acesso aos dados próprios em `/me`.
  */
 @Component({
   selector: 'app-me-portal',
   standalone: true,
-  imports: [CommonModule, MemberSelectComponent],
+  imports: [CommonModule, FormsModule, MemberSelectComponent],
   templateUrl: './me-portal.component.html',
 })
 export class MePortalComponent implements OnInit {
@@ -67,6 +84,14 @@ export class MePortalComponent implements OnInit {
   linkLoading = false;
   linkMessage = '';
   showDiscordLink = false;
+  requestLoading = false;
+  requestMessage = '';
+  requestForm: MeAbsenceRequestForm = {
+    type: 'pto',
+    startDate: '',
+    endDate: '',
+    note: '',
+  };
 
   constructor(
     private readonly meDataService: MeDataService,
@@ -190,6 +215,63 @@ export class MePortalComponent implements OnInit {
         }
       },
     });
+  }
+
+  /**
+   * Solicita PTO/ausência para aprovação da liderança.
+   * @returns {void} Não retorna valor
+   */
+  submitAbsenceRequest(): void {
+    if (!this.requestForm.startDate || !this.requestForm.endDate) {
+      this.requestMessage = 'Informe as datas de início e fim para solicitar PTO.';
+      return;
+    }
+
+    this.requestLoading = true;
+    this.requestMessage = '';
+    this.panel.errorMessage = '';
+
+    this.meDataService
+      .createAbsenceRequest({
+        type: this.requestForm.type,
+        startDate: this.requestForm.startDate,
+        endDate: this.requestForm.endDate,
+        note: this.requestForm.note.trim() || undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.requestLoading = false;
+          this.requestMessage = 'Solicitação enviada com sucesso. Aguarde aprovação da liderança.';
+          this.requestForm = {
+            type: 'pto',
+            startDate: '',
+            endDate: '',
+            note: '',
+          };
+          this.loadAbsences();
+        },
+        error: (error) => {
+          this.requestLoading = false;
+          this.requestMessage = this.resolveErrorMessage(error);
+          if (error.status === 422) {
+            this.showDiscordLink = true;
+          }
+        },
+      });
+  }
+
+  /**
+   * Retorna ausências com status pendente de aprovação.
+   */
+  get pendingAbsences(): MeAbsenceSummary[] {
+    return (this.panel.absences ?? []).filter((absence) => absence.status === 'pending_approval');
+  }
+
+  /**
+   * Retorna ausências já agendadas.
+   */
+  get scheduledAbsences(): MeAbsenceSummary[] {
+    return (this.panel.absences ?? []).filter((absence) => absence.status === 'scheduled');
   }
 
   /**

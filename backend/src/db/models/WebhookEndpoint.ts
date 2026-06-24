@@ -7,6 +7,7 @@ export const OUTBOUND_WEBHOOK_EVENTS = [
   'daily_report.generated',
   'member.collaboration_hours.threshold',
   'member.inactivity.detected',
+  'member.intraday_concern.detected',
   'member.collaboration_goal.behind',
   'member.streak.achieved',
   'member.category.updated',

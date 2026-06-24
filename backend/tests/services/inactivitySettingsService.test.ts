@@ -10,6 +10,7 @@ describe('getInactivityThresholdSettings', () => {
     expect(settings.lateStartThresholdPercent).toBe(30);
     expect(settings.minCollaborationPercentOfElapsed).toBe(20);
     expect(settings.notifyManagerPush).toBe(true);
+    expect(settings.notifyIntradayPush).toBe(true);
     expect(settings.notifyManagerEmail).toBe(false);
   });
 
@@ -20,11 +21,13 @@ describe('getInactivityThresholdSettings', () => {
       lateStartThresholdPercent: 40,
       minCollaborationPercentOfElapsed: 25,
       notifyManagerPush: false,
+      notifyIntradayPush: false,
       notifyManagerEmail: true,
     });
 
     expect(settings.inactiveAfterBusinessDays).toBe(3);
     expect(settings.lateStartThresholdPercent).toBe(40);
     expect(settings.minCollaborationPercentOfElapsed).toBe(25);
+    expect(settings.notifyIntradayPush).toBe(false);
   });
 });

@@ -11,6 +11,7 @@ const defaultSettings = {
   inactiveAfterBusinessDays: 2,
   zeroVoiceCollaborationDays: 3,
   notifyManagerPush: true,
+  notifyIntradayPush: true,
   notifyManagerEmail: false,
 };
 

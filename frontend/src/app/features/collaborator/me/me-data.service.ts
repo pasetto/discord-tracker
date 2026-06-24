@@ -34,8 +34,19 @@ export interface MeCollaborationSummary {
 export interface MeAbsenceSummary {
   id: string;
   guildId: string;
-  type: string;
-  status: string;
+  type: 'vacation' | 'pto' | 'sick_leave' | 'other';
+  status: 'pending_approval' | 'scheduled' | 'active' | 'completed' | 'cancelled';
+  startDate: string;
+  endDate: string;
+  note?: string;
+}
+
+/**
+ * Payload de solicitação de ausência via portal do colaborador.
+ */
+export interface MeAbsenceRequestInput {
+  guildId?: string;
+  type: 'vacation' | 'pto' | 'sick_leave' | 'other';
   startDate: string;
   endDate: string;
   note?: string;
@@ -95,6 +106,15 @@ export class MeDataService {
    */
   loadAbsences(): Observable<{ absences: MeAbsenceSummary[] }> {
     return this.httpClient.get<{ absences: MeAbsenceSummary[] }>('/api/v1/me/absences');
+  }
+
+  /**
+   * Cria solicitação de PTO/ausência para aprovação da liderança.
+   * @param payload Dados obrigatórios da solicitação
+   * @returns Observable com solicitação criada em status pendente
+   */
+  createAbsenceRequest(input: MeAbsenceRequestInput): Observable<{ request: MeAbsenceSummary }> {
+    return this.httpClient.post<{ request: MeAbsenceSummary }>('/api/v1/me/absence-requests', input);
   }
 
   /**

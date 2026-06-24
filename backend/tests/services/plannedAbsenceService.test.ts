@@ -25,4 +25,16 @@ describe('isOnPlannedAbsence', () => {
 
     expect(isOnPlannedAbsence(absences, new Date('2026-06-15T12:00:00.000Z'))).toBe(false);
   });
+
+  it('retorna false quando status pending_approval', () => {
+    const absences = [
+      {
+        status: 'pending_approval' as const,
+        startDate: new Date('2026-06-10T00:00:00.000Z'),
+        endDate: new Date('2026-06-20T23:59:59.999Z'),
+      },
+    ];
+
+    expect(isOnPlannedAbsence(absences, new Date('2026-06-15T12:00:00.000Z'))).toBe(false);
+  });
 });

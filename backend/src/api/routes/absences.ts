@@ -51,7 +51,7 @@ interface JwtUserShape {
 const MANAGER_ROLES = new Set(['owner', 'admin', 'manager']);
 const VIEWER_ROLES = new Set(['owner', 'admin', 'manager', 'viewer']);
 const ALLOWED_TYPES = new Set<PlannedAbsenceType>(['vacation', 'pto', 'sick_leave', 'other']);
-const ALLOWED_STATUS = new Set<PlannedAbsenceStatus>(['scheduled', 'active', 'completed', 'cancelled']);
+const ALLOWED_STATUS = new Set<PlannedAbsenceStatus>(['pending_approval', 'scheduled', 'active', 'completed', 'cancelled']);
 
 /** Rotas CRUD de ausências planejadas por organização/guild. */
 export const absencesRouter = new Router();
@@ -158,7 +158,7 @@ function parseDate(value: string | undefined, field: string): Date {
  *         name: status
  *         schema:
  *           type: string
- *           enum: [scheduled, active, completed, cancelled]
+ *           enum: [pending_approval, scheduled, active, completed, cancelled]
  *     responses:
  *       200:
  *         description: Lista de ausências

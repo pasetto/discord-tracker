@@ -111,4 +111,29 @@ describe('AuthService', () => {
       activeConnection: null,
     });
   });
+
+  it('retorna membership role da organização ativa', () => {
+    localStorage.setItem('syntra.orgId', 'org-2');
+    localStorage.setItem(
+      'syntra.auth.organizations',
+      JSON.stringify([
+        { id: 'org-1', name: 'Org 1', slug: 'org-1', role: 'viewer', status: 'active' },
+        { id: 'org-2', name: 'Org 2', slug: 'org-2', role: 'manager', status: 'active' },
+      ]),
+    );
+
+    expect(service.getMembershipRole()).toBe('manager');
+  });
+
+  it('faz fallback para memberships do token quando lista não existe', () => {
+    localStorage.setItem('syntra.orgId', 'org-9');
+    const payload = btoa(
+      JSON.stringify({
+        memberships: [{ organizationId: 'org-9', role: 'admin' }],
+      }),
+    );
+    service.saveToken(`header.${payload}.signature`);
+
+    expect(service.getMembershipRole()).toBe('admin');
+  });
 });

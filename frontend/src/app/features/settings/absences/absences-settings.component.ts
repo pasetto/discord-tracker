@@ -23,7 +23,7 @@ interface PlannedAbsenceDto {
   startDate: string;
   endDate: string;
   note?: string;
-  status: 'scheduled' | 'active' | 'completed' | 'cancelled';
+  status: 'pending_approval' | 'scheduled' | 'active' | 'completed' | 'cancelled';
 }
 
 /**
@@ -49,8 +49,10 @@ interface AbsenceFormModel {
 })
 export class AbsencesSettingsComponent implements OnInit {
   absences: PlannedAbsenceDto[] = [];
+  pendingRequests: PlannedAbsenceDto[] = [];
   members: TrackedMemberOption[] = [];
   editingAbsenceId: string | null = null;
+  reviewingRequestId: string | null = null;
 
   createForm: AbsenceFormModel = this.createInitialForm();
   editForm: AbsenceFormModel = this.createInitialForm();
@@ -89,6 +91,7 @@ export class AbsencesSettingsComponent implements OnInit {
       if (this.hasGuild) {
         this.loadMembers();
         this.loadAbsences();
+        this.loadPendingRequests();
       }
     });
   }
@@ -150,6 +153,26 @@ export class AbsencesSettingsComponent implements OnInit {
         this.loading = false;
       },
     });
+  }
+
+  /**
+   * Carrega fila de solicitações pendentes enviadas pelo portal colaborador.
+   */
+  loadPendingRequests(): void {
+    if (!this.hasGuild) {
+      return;
+    }
+
+    this.httpClient
+      .get<{ requests: PlannedAbsenceDto[] }>(`${this.getBaseUrl()}/absence-requests?status=pending_approval`)
+      .subscribe({
+        next: (response) => {
+          this.pendingRequests = response.requests ?? [];
+        },
+        error: (error) => {
+          this.errorMessage = error.error?.error ?? 'Não foi possível carregar solicitações pendentes.';
+        },
+      });
   }
 
   /**
@@ -259,6 +282,51 @@ export class AbsencesSettingsComponent implements OnInit {
       error: (error) => {
         this.errorMessage = error.error?.error ?? 'Falha ao cancelar ausência.';
         this.saving = false;
+      },
+    });
+  }
+
+  /**
+   * Aprova solicitação pendente e converte para ausência planejada.
+   * @param requestId Identificador da solicitação
+   */
+  approveRequest(requestId: string): void {
+    this.reviewingRequestId = requestId;
+    this.errorMessage = '';
+    this.successMessage = '';
+
+    this.httpClient.post<{ request: PlannedAbsenceDto }>(`${this.getBaseUrl()}/absence-requests/${requestId}/approve`, {}).subscribe({
+      next: () => {
+        this.reviewingRequestId = null;
+        this.successMessage = 'Solicitação aprovada com sucesso.';
+        this.loadPendingRequests();
+        this.loadAbsences();
+      },
+      error: (error) => {
+        this.reviewingRequestId = null;
+        this.errorMessage = error.error?.error ?? 'Falha ao aprovar solicitação.';
+      },
+    });
+  }
+
+  /**
+   * Rejeita solicitação pendente.
+   * @param requestId Identificador da solicitação
+   */
+  rejectRequest(requestId: string): void {
+    this.reviewingRequestId = requestId;
+    this.errorMessage = '';
+    this.successMessage = '';
+
+    this.httpClient.post<{ request: PlannedAbsenceDto }>(`${this.getBaseUrl()}/absence-requests/${requestId}/reject`, {}).subscribe({
+      next: () => {
+        this.reviewingRequestId = null;
+        this.successMessage = 'Solicitação rejeitada.';
+        this.loadPendingRequests();
+      },
+      error: (error) => {
+        this.reviewingRequestId = null;
+        this.errorMessage = error.error?.error ?? 'Falha ao rejeitar solicitação.';
       },
     });
   }

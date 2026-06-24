@@ -58,6 +58,27 @@ export interface NotifyManagersAboutMissingMembersInput {
 }
 
 /**
+ * Colaborador em alerta intradiário para notificação de gestores.
+ */
+export interface IntradayConcernInput {
+  trackedUserId: string;
+  discordId: string;
+  displayName: string;
+  status: 'not_started' | 'low_collaboration_today';
+  elapsedWorkPercent: number;
+  collaborationPercentOfElapsed: number;
+}
+
+/**
+ * Entrada para envio de push intradiário para gestores.
+ */
+export interface NotifyManagersAboutIntradayConcernsInput {
+  organizationId: string;
+  guildId: string;
+  concerns: IntradayConcernInput[];
+}
+
+/**
  * Resultado agregado de entrega de push para auditoria/log.
  */
 export interface PushDispatchResult {
@@ -140,6 +161,61 @@ async function listManagerIds(organizationId: Types.ObjectId): Promise<string[]>
 }
 
 /**
+ * Faz fan-out de payload para todas as assinaturas push dos gestores da organização.
+ * @param organizationId Organização alvo para lookup de gestores
+ * @param payload JSON serializado a ser enviado pelo provedor push
+ * @returns Métricas agregadas do envio
+ */
+async function dispatchPushPayloadToManagers(
+  organizationId: Types.ObjectId,
+  payload: string,
+): Promise<PushDispatchResult> {
+  const managerIds = await listManagerIds(organizationId);
+  if (managerIds.length === 0) {
+    return { disabled: false, managers: 0, subscriptions: 0, sent: 0, failed: 0 };
+  }
+
+  const subscriptions = await PushSubscriptionModel.find({
+    organizationId,
+    userId: { $in: managerIds.map((id) => new Types.ObjectId(id)) },
+  }).lean();
+
+  let sent = 0;
+  let failed = 0;
+  for (const subscription of subscriptions) {
+    try {
+      await webPush.sendNotification(
+        toWebPushSubscription({
+          endpoint: subscription.endpoint,
+          keys: {
+            p256dh: subscription.keys.p256dh,
+            auth: subscription.keys.auth,
+          },
+          expirationTime: subscription.expirationTime ?? null,
+        }),
+        payload,
+      );
+      sent += 1;
+    } catch (error) {
+      failed += 1;
+      const statusCode = (error as { statusCode?: number })?.statusCode;
+      if (statusCode === 404 || statusCode === 410) {
+        await PushSubscriptionModel.deleteOne({ endpoint: subscription.endpoint });
+      }
+      log.warn({ err: error, endpoint: subscription.endpoint }, 'Falha ao enviar web push para assinatura');
+    }
+  }
+
+  return {
+    disabled: false,
+    managers: managerIds.length,
+    subscriptions: subscriptions.length,
+    sent,
+    failed,
+  };
+}
+
+/**
  * Registra ou atualiza assinatura web push do usuário atual.
  * @param {RegisterPushSubscriptionInput} input Dados do usuário e assinatura.
  * @returns {Promise<void>} Não retorna valor.
@@ -215,55 +291,42 @@ export async function notifyManagersAboutMissingMembers(
   }
 
   const organizationId = toObjectId(input.organizationId, 'organizationId');
-  const managerIds = await listManagerIds(organizationId);
-  if (managerIds.length === 0) {
-    return { disabled: false, managers: 0, subscriptions: 0, sent: 0, failed: 0 };
-  }
-
-  const subscriptions = await PushSubscriptionModel.find({
-    organizationId,
-    userId: { $in: managerIds.map((id) => new Types.ObjectId(id)) },
-  }).lean();
-
   const payload = JSON.stringify({
     title: 'Syntra - Quem sumiu',
+    type: 'weekly_inactivity',
     body: `${input.missingMembers.length} colaborador(es) sumiram esta semana.`,
     guildId: input.guildId,
     missingMembers: input.missingMembers,
     createdAt: new Date().toISOString(),
   });
 
-  let sent = 0;
-  let failed = 0;
-  for (const subscription of subscriptions) {
-    try {
-      await webPush.sendNotification(
-        toWebPushSubscription({
-          endpoint: subscription.endpoint,
-          keys: {
-            p256dh: subscription.keys.p256dh,
-            auth: subscription.keys.auth,
-          },
-          expirationTime: subscription.expirationTime ?? null,
-        }),
-        payload,
-      );
-      sent += 1;
-    } catch (error) {
-      failed += 1;
-      const statusCode = (error as { statusCode?: number })?.statusCode;
-      if (statusCode === 404 || statusCode === 410) {
-        await PushSubscriptionModel.deleteOne({ endpoint: subscription.endpoint });
-      }
-      log.warn({ err: error, endpoint: subscription.endpoint }, 'Falha ao enviar web push para assinatura');
-    }
+  return dispatchPushPayloadToManagers(organizationId, payload);
+}
+
+/**
+ * Envia notificação push intradiária para gestores sobre colaboradores em alerta.
+ * @param {NotifyManagersAboutIntradayConcernsInput} input Organização/guild e preocupações detectadas no dia.
+ * @returns {Promise<PushDispatchResult>} Métricas de envio para auditoria.
+ */
+export async function notifyManagersAboutIntradayConcerns(
+  input: NotifyManagersAboutIntradayConcernsInput,
+): Promise<PushDispatchResult> {
+  if (!configureVapidIfNeeded()) {
+    return { disabled: true, managers: 0, subscriptions: 0, sent: 0, failed: 0 };
+  }
+  if (input.concerns.length === 0) {
+    return { disabled: false, managers: 0, subscriptions: 0, sent: 0, failed: 0 };
   }
 
-  return {
-    disabled: false,
-    managers: managerIds.length,
-    subscriptions: subscriptions.length,
-    sent,
-    failed,
-  };
+  const organizationId = toObjectId(input.organizationId, 'organizationId');
+  const payload = JSON.stringify({
+    title: 'Syntra - Alerta intradiário',
+    type: 'intraday_inactivity',
+    body: `${input.concerns.length} colaborador(es) ainda não apareceram ou estão abaixo da colaboração esperada hoje.`,
+    guildId: input.guildId,
+    concerns: input.concerns,
+    createdAt: new Date().toISOString(),
+  });
+
+  return dispatchPushPayloadToManagers(organizationId, payload);
 }

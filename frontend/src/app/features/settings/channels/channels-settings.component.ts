@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
@@ -44,6 +44,16 @@ interface ChannelSelectionState {
   templateUrl: './channels-settings.component.html',
 })
 export class ChannelsSettingsComponent implements OnInit {
+  /**
+   * Ativa modo embutido para uso dentro do onboarding.
+   */
+  @Input() embedded = false;
+
+  /**
+   * Disparado quando as regras são salvas com sucesso.
+   */
+  @Output() rulesSaved = new EventEmitter<void>();
+
   loading = false;
   saving = false;
   successMessage = '';
@@ -131,6 +141,7 @@ export class ChannelsSettingsComponent implements OnInit {
         next: () => {
           this.saving = false;
           this.successMessage = 'Regras de canais salvas com sucesso.';
+          this.rulesSaved.emit();
         },
         error: () => {
           this.errorMessage = 'Falha ao salvar regras de canais.';

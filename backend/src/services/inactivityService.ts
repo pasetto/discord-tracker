@@ -11,6 +11,7 @@ import { PlannedAbsenceModel, type IPlannedAbsence } from '../db/models/PlannedA
 import { TextActivityEventModel } from '../db/models/TextActivityEvent';
 import { TrackedUserModel } from '../db/models/TrackedUser';
 import { WorkCalendarModel, createDefaultWorkWeek, type WorkCalendar } from '../db/models/WorkCalendar';
+import { OrganizationModel } from '../db/models/Organization';
 import { isOnPlannedAbsence } from './plannedAbsenceService';
 import { isBusinessDay } from './workCalendarService';
 import { voiceSessionRepository } from '../repositories/voiceSessionRepository';
@@ -24,6 +25,7 @@ export interface InactivityThresholdSettings {
   lateStartThresholdPercent: number;
   minCollaborationPercentOfElapsed: number;
   notifyManagerPush: boolean;
+  notifyIntradayPush: boolean;
   notifyManagerEmail: boolean;
 }
 
@@ -65,6 +67,13 @@ export interface InactivityWeeklyReport {
   generatedAt: Date;
   entries: InactivitySnapshotEntry[];
   plannedAbsenceEntries: InactivitySnapshotEntry[];
+}
+
+/**
+ * Contexto de acesso aplicado ao relatório semanal de inatividade.
+ */
+export interface InactivityWeeklyAccessContext {
+  requesterRole?: 'owner' | 'admin' | 'manager' | 'viewer';
 }
 
 /**
@@ -123,6 +132,7 @@ function normalizeThresholdSettings(settings?: Pick<IInactivitySettings, keyof I
     lateStartThresholdPercent: settings?.lateStartThresholdPercent ?? 30,
     minCollaborationPercentOfElapsed: settings?.minCollaborationPercentOfElapsed ?? 20,
     notifyManagerPush: settings?.notifyManagerPush ?? true,
+    notifyIntradayPush: settings?.notifyIntradayPush ?? true,
     notifyManagerEmail: settings?.notifyManagerEmail ?? false,
   };
 }
@@ -144,7 +154,13 @@ export function getInactivityThresholdSettings(
  * @returns Status calculado para o relatório
  * @example
  * computeInactivityStatus({
- *   settings: { inactiveAfterBusinessDays: 2, zeroVoiceCollaborationDays: 3, notifyManagerPush: true, notifyManagerEmail: false },
+ *   settings: {
+ *     inactiveAfterBusinessDays: 2,
+ *     zeroVoiceCollaborationDays: 3,
+ *     notifyManagerPush: true,
+ *     notifyIntradayPush: true,
+ *     notifyManagerEmail: false,
+ *   },
  *   businessDaysInactive: 3,
  *   onPlannedAbsence: false,
  *   hasRecentText: false,
@@ -327,6 +343,41 @@ async function resolveWorkCalendar(
 }
 
 /**
+ * Verifica se o relatório semanal deve ocultar PII para `viewer`.
+ * @param organizationId Organização do tenant
+ * @param requesterRole Papel de acesso do solicitante
+ * @returns `true` quando deve redigir `displayName` e `discordId`
+ */
+async function shouldRedactViewerIndividualData(
+  organizationId: Types.ObjectId,
+  requesterRole: InactivityWeeklyAccessContext['requesterRole'],
+): Promise<boolean> {
+  if (requesterRole !== 'viewer') {
+    return false;
+  }
+
+  const organization = await OrganizationModel.findById(organizationId)
+    .select({ 'settings.viewerCanSeeIndividualReports': 1 })
+    .lean()
+    .exec();
+
+  return !Boolean(organization?.settings?.viewerCanSeeIndividualReports);
+}
+
+/**
+ * Remove PII de entradas individuais preservando métricas e status.
+ * @param entries Entradas originais do snapshot
+ * @returns Entradas com `displayName`/`discordId` anonimizados
+ */
+function redactWeeklyEntries(entries: InactivitySnapshotEntry[]): InactivitySnapshotEntry[] {
+  return entries.map((entry) => ({
+    ...entry,
+    displayName: 'Colaborador oculto',
+    discordId: 'redacted',
+  }));
+}
+
+/**
  * Gera o snapshot semanal de inatividade para organização e guild.
  * @param organizationId Identificador textual da organização
  * @param guildId Identificador da guild no Discord
@@ -484,6 +535,7 @@ export async function generateWeeklyInactivitySnapshot(
  * @param guildId Identificador da guild no Discord
  * @param filters Filtros opcionais para o relatório
  * @param referenceDate Data de referência para geração/consulta do snapshot
+ * @param accessContext Contexto de papel para aplicar política de visibilidade
  * @returns Estrutura pronta para endpoint de relatório semanal
  */
 export async function getWeeklyInactivityReport(
@@ -491,6 +543,7 @@ export async function getWeeklyInactivityReport(
   guildId: string,
   filters: InactivityReportFilters = {},
   referenceDate: Date = new Date(),
+  accessContext: InactivityWeeklyAccessContext = {},
 ): Promise<InactivityWeeklyReport> {
   const organizationObjectId = parseObjectId(organizationId, 'organizationId');
   const periodEnd = startOfUtcDay(referenceDate);
@@ -520,12 +573,14 @@ export async function getWeeklyInactivityReport(
     absences = absences.filter(matchCategory);
   }
 
+  const shouldRedact = await shouldRedactViewerIndividualData(organizationObjectId, accessContext.requesterRole);
+
   return {
     periodStart,
     periodEnd,
     generatedAt: freshSnapshot.generatedAt,
-    entries,
-    plannedAbsenceEntries: absences,
+    entries: shouldRedact ? redactWeeklyEntries(entries) : entries,
+    plannedAbsenceEntries: shouldRedact ? redactWeeklyEntries(absences) : absences,
   };
 }
 

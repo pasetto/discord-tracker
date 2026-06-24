@@ -27,6 +27,11 @@ export class ReportsHubComponent {
       description: 'Colaboradores sem sinais recentes de colaboração',
     },
     {
+      label: 'Sinais de texto',
+      path: 'text-collaboration',
+      description: 'Volume de sinais textuais por colaborador no período',
+    },
+    {
       label: 'Metas semanais',
       path: 'goals',
       description: 'Progresso das metas individuais do time',

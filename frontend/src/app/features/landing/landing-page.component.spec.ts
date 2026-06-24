@@ -14,4 +14,15 @@ describe('LandingPageComponent', () => {
     const fixture = TestBed.createComponent(LandingPageComponent);
     expect(fixture.componentInstance).toBeTruthy();
   });
+
+  it('deve renderizar blocos de problema, como funciona e privacidade', () => {
+    const fixture = TestBed.createComponent(LandingPageComponent);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('[data-testid="landing-problem"]')).toBeTruthy();
+    expect(element.querySelector('[data-testid="landing-how"]')).toBeTruthy();
+    expect(element.querySelector('[data-testid="landing-privacy"]')).toBeTruthy();
+  });
 });

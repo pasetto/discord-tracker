@@ -7,11 +7,13 @@ import { setDiscordPing } from './metrics/prometheus';
 import { PlatformNotConfiguredError } from './services/botManager';
 import { startAbsenceStatusCron } from './workers/absenceStatusCron';
 import { startInactivityCron } from './workers/inactivityCron';
+import { startIntradayInactivityCron } from './workers/intradayInactivityCron';
 import { startWebhookWorker } from './workers/webhookWorker';
 
 const log = createLogger('main');
 let stopAbsenceStatusCron: (() => void) | undefined;
 let stopInactivityCron: (() => void) | undefined;
+let stopIntradayInactivityCron: (() => void) | undefined;
 let stopWebhookWorker: (() => void) | undefined;
 
 /**
@@ -44,6 +46,7 @@ async function bootstrap(): Promise<void> {
   await startServer();
   stopAbsenceStatusCron = startAbsenceStatusCron();
   stopInactivityCron = startInactivityCron();
+  stopIntradayInactivityCron = startIntradayInactivityCron();
   stopWebhookWorker = startWebhookWorker();
 
   // Atualiza ping periodicamente
@@ -63,6 +66,7 @@ async function shutdown(signal: string): Promise<void> {
   try {
     stopAbsenceStatusCron?.();
     stopInactivityCron?.();
+    stopIntradayInactivityCron?.();
     stopWebhookWorker?.();
     await disconnectDiscord();
     await disconnectMongo();

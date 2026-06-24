@@ -1,4 +1,9 @@
 /**
+ * Papéis suportados na membership de organização.
+ */
+export type MembershipRole = 'owner' | 'admin' | 'manager' | 'viewer';
+
+/**
  * Dados do usuário autenticado persistidos no navegador.
  */
 export interface AuthUserSession {
@@ -24,6 +29,6 @@ export interface AuthOrganizationOption {
   id: string;
   name: string;
   slug: string;
-  role: string;
+  role: MembershipRole;
   status: 'active' | 'pending';
 }

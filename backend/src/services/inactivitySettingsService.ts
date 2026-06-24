@@ -11,6 +11,7 @@ export interface InactivitySettingsUpdateInput {
   lateStartThresholdPercent?: number;
   minCollaborationPercentOfElapsed?: number;
   notifyManagerPush?: boolean;
+  notifyIntradayPush?: boolean;
   notifyManagerEmail?: boolean;
 }
 
@@ -125,6 +126,7 @@ export async function upsertInactivitySettings(
     lateStartThresholdPercent: input.lateStartThresholdPercent ?? defaults.lateStartThresholdPercent,
     minCollaborationPercentOfElapsed: input.minCollaborationPercentOfElapsed ?? defaults.minCollaborationPercentOfElapsed,
     notifyManagerPush: input.notifyManagerPush ?? defaults.notifyManagerPush,
+    notifyIntradayPush: input.notifyIntradayPush ?? defaults.notifyIntradayPush,
     notifyManagerEmail: input.notifyManagerEmail ?? defaults.notifyManagerEmail,
   };
 

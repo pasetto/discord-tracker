@@ -89,4 +89,36 @@ describe('MeDataService', () => {
     expect(req.request.body).toEqual({ discordId: 'discord-1' });
     req.flush({ accessToken: 'token', discordId: 'discord-1', displayName: 'Ana' });
   });
+
+  it('cria solicitação de ausência para aprovação da liderança', () => {
+    service
+      .createAbsenceRequest({
+        type: 'pto',
+        startDate: '2026-07-01',
+        endDate: '2026-07-03',
+        note: 'Viagem pessoal',
+      })
+      .subscribe((response) => {
+        expect(response.request.status).toBe('pending_approval');
+      });
+
+    const req = httpMock.expectOne('/api/v1/me/absence-requests');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({
+      type: 'pto',
+      startDate: '2026-07-01',
+      endDate: '2026-07-03',
+      note: 'Viagem pessoal',
+    });
+    req.flush({
+      request: {
+        id: 'req-1',
+        guildId: 'guild-1',
+        type: 'pto',
+        status: 'pending_approval',
+        startDate: '2026-07-01',
+        endDate: '2026-07-03',
+      },
+    });
+  });
 });
