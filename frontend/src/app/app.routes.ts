@@ -56,6 +56,15 @@ const loadGoalsReport = () =>
   );
 
 /**
+ * Carrega de forma lazy o relatório de ausências ativas.
+ * @returns {Promise<unknown>} Componente lazy de ausências ativas.
+ */
+const loadAbsencesReport = () =>
+  import('./features/reports/absences/absences-report.component').then(
+    (module) => module.AbsencesReportComponent,
+  );
+
+/**
  * Carrega de forma lazy a tela de calendário da organização.
  * @returns {Promise<unknown>} Componente lazy de calendário.
  */
@@ -134,6 +143,11 @@ const featureRoutes: Routes = [
         path: 'goals',
         loadComponent: loadGoalsReport,
         title: 'Relatório de metas | Syntra',
+      },
+      {
+        path: 'absences',
+        loadComponent: loadAbsencesReport,
+        title: 'Ausências ativas | Syntra',
       },
     ],
     title: 'Relatórios | Syntra',

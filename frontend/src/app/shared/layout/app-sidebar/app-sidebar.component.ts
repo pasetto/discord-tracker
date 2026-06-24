@@ -39,6 +39,7 @@ export class AppSidebarComponent implements OnInit, OnDestroy {
       subItems: [
         { name: 'Quem sumiu', path: '/app/reports/inactivity' },
         { name: 'Metas semanais', path: '/app/reports/goals' },
+        { name: 'Ausências ativas', path: '/app/reports/absences' },
       ],
     },
     {

@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { interval, Subscription } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import {
   DashboardLiveSnapshot,
@@ -37,6 +37,19 @@ interface IntradayConcernEntryDto {
   hasAppearedToday: boolean;
 }
 
+/** Status semanal de inatividade para contagem no dashboard. */
+type WeeklyInactivityStatus = 'missing' | 'low_voice_collaboration' | 'returned' | 'on_planned_absence' | 'active';
+
+/** Entrada resumida do relatório semanal de inatividade. */
+interface WeeklyInactivityEntryDto {
+  status: WeeklyInactivityStatus;
+}
+
+/** Relatório semanal resumido para widget do dashboard. */
+interface WeeklyInactivityReportDto {
+  entries: WeeklyInactivityEntryDto[];
+}
+
 /** Relatório intradiário consumido pelo widget do dashboard. */
 interface IntradayInactivityReportDto {
   generatedAt: string;
@@ -64,6 +77,8 @@ interface IntradayInactivityReportDto {
 })
 export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
   activeAbsences: ActiveAbsenceDto[] = [];
+  weeklyReport: WeeklyInactivityReportDto | null = null;
+  weeklyLoading = false;
   intradayReport: IntradayInactivityReportDto | null = null;
   intradayLoading = false;
   activeMembers: LiveMemberSnapshot[] = [];
@@ -108,6 +123,17 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
     return this.intradayReport?.concernEntries ?? [];
   }
 
+  /** Quantidade de colaboradores em alerta no relatório semanal. */
+  get weeklyConcernCount(): number {
+    if (!this.weeklyReport) {
+      return 0;
+    }
+
+    return this.weeklyReport.entries.filter(
+      (entry) => entry.status === 'missing' || entry.status === 'low_voice_collaboration',
+    ).length;
+  }
+
   /** Carrega contexto, WebSocket ao vivo, ausências e alerta intradiário. */
   ngOnInit(): void {
     this.subscriptions.add(
@@ -142,6 +168,14 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
         }
       }),
     );
+
+    this.subscriptions.add(
+      interval(5 * 60 * 1000).subscribe(() => {
+        if (this.hasGuild) {
+          this.loadIntradayReport();
+        }
+      }),
+    );
   }
 
   /** Encerra WebSocket e assinaturas ao sair da tela. */
@@ -150,10 +184,11 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
     this.liveActivitySocket.disconnect();
   }
 
-  /** Recarrega conexão WebSocket, ausências e alerta intradiário. */
+  /** Recarrega conexão WebSocket, ausências e alertas de inatividade. */
   loadDashboardData(): void {
     this.connectLiveSocket();
     this.loadActiveAbsences();
+    this.loadWeeklyReport();
     this.loadIntradayReport();
   }
 
@@ -191,6 +226,29 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
         },
         error: () => {
           this.loading = false;
+        },
+      });
+  }
+
+  /** Consulta relatório semanal resumido para widget "quem sumiu esta semana". */
+  loadWeeklyReport(): void {
+    if (!this.hasGuild) {
+      return;
+    }
+
+    this.weeklyLoading = true;
+
+    this.httpClient
+      .get<{ report: WeeklyInactivityReportDto }>(
+        `${this.tenantContext.getGuildApiBaseUrl()}/reports/inactivity/weekly`,
+      )
+      .subscribe({
+        next: (response) => {
+          this.weeklyReport = response.report;
+          this.weeklyLoading = false;
+        },
+        error: () => {
+          this.weeklyLoading = false;
         },
       });
   }
@@ -348,5 +406,21 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
       low_collaboration_today: 'Colaboração baixa hoje',
     };
     return labels[status];
+  }
+
+  /**
+   * Classe CSS do badge de severidade intradiária.
+   * @param status Status retornado pela API intradiária
+   * @returns Classe tailwind para cor do badge
+   */
+  getIntradayStatusBadgeClass(status: IntradayConcernStatus): string {
+    switch (status) {
+      case 'not_started':
+        return 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300';
+      case 'low_collaboration_today':
+        return 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300';
+      default:
+        return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300';
+    }
   }
 }

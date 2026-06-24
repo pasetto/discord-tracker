@@ -56,6 +56,13 @@
           >
             {{ item.actionLabel }}
           </a>
+          <a
+            *ngIf="item.secondaryActionRoute && item.secondaryActionLabel"
+            [routerLink]="item.secondaryActionRoute"
+            class="rounded-lg border border-gray-300 px-3 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-100 min-h-11 inline-flex items-center dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+          >
+            {{ item.secondaryActionLabel }}
+          </a>
         </div>
       </article>
     </div>

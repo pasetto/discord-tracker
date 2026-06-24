@@ -16,4 +16,11 @@ describe('OnboardingWizardComponent', () => {
     const fixture = TestBed.createComponent(OnboardingWizardComponent);
     expect(fixture.componentInstance).toBeTruthy();
   });
+
+  it('passo 5 menciona limiares de inatividade e link secundário', () => {
+    const fixture = TestBed.createComponent(OnboardingWizardComponent);
+    const step5 = fixture.componentInstance.steps.find((item) => item.step === 5);
+    expect(step5?.description).toContain('limiares de inatividade');
+    expect(step5?.secondaryActionRoute).toBe('/app/settings/inactivity');
+  });
 });
