@@ -231,8 +231,8 @@ Itens previstos no spec mas **fora do MVP atual**:
 | UI Super Admin `/admin/discord` (CRUD bot plataforma) | Implementado (bootstrap dev + activate/validate) |
 | UI tenant `/settings/discord` (conectar bot + escolher guild) | Implementado |
 | Seletor visual de canais Discord (vs editor JSON atual) | Pendente |
-| `/settings/inactivity` — limiares configuráveis na UI | Pendente |
-| `/reports/absences` — página dedicada de ausências | Pendente |
+| `/settings/inactivity` — limiares configuráveis na UI | Implementado (semanal + intraday) |
+| `/reports/absences` — página dedicada de ausências | Implementado |
 | Push automático na quinta quando meta &lt; 50% | Lógica pronta; worker pendente |
 | Guards `SuperAdminGuard` / `RoleGuard` no frontend | Pendente |
 | E2E completo: signup → onboarding → relatório | Smoke apenas |
