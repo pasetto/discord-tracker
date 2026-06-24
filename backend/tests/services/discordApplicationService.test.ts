@@ -9,7 +9,7 @@ describe('validateDiscordApplicationInputFormat', () => {
     name: 'Meu bot',
     clientId: '1234567890123456789',
     clientSecret: 'abcdefghijklmnopqrstuvwxyz123456',
-    botToken: 'MTUxNzU3OTQ4Mjc5NjY1ODgxMA.GA_y8s.TP0mOkBVA66VhKfiNPtqtp0rrQ_MjuHkdi6aRE',
+    botToken: 'MTUxNzU3OTQ4Mjc5NjY1ODgxMA.GA_y8s.TP0mOkBVA66VhKfiNPtqtp0rrQ_MjuHkdi123321',
   };
 
   it('aceita credenciais com formato válido do Discord', () => {
