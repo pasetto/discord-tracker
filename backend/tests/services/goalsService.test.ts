@@ -238,9 +238,77 @@ describe('goalsService', () => {
     });
 
     expect(report.entries).toHaveLength(1);
-    expect(report.entries[0]?.weeklyGoalHours).toBe(8);
+    expect(report.entries[0]?.weeklyGoalHours).toBeCloseTo(4.57, 2);
     expect(report.entries[0]?.categoryName).toBe('Suporte');
     expect(report.entries[0]?.realizedHours).toBe(2);
-    expect(report.entries[0]?.progressPercent).toBe(25);
+    expect(report.entries[0]?.progressPercent).toBeCloseTo(43.76, 1);
+  });
+
+  it('soma horas apenas dentro do intervalo customizado', async () => {
+    const organizationId = new mongoose.Types.ObjectId();
+    const guildId = 'guild-range';
+
+    const [trackedUser] = await TrackedUserModel.create([
+      {
+        organizationId,
+        guildId,
+        discordId: 'd-range',
+        username: 'range',
+        displayName: 'Range',
+        firstSeenAt: new Date('2026-06-01T10:00:00.000Z'),
+        lastSeenAt: new Date('2026-06-10T10:00:00.000Z'),
+      },
+    ]);
+
+    const coreUser = await User.create({
+      discordId: 'd-range',
+      username: 'range',
+      displayName: 'Range',
+      firstSeenAt: new Date('2026-06-01T10:00:00.000Z'),
+      lastSeenAt: new Date('2026-06-10T10:00:00.000Z'),
+    });
+
+    await UserCollaborationGoalModel.create({
+      organizationId,
+      guildId,
+      trackedUserId: trackedUser._id,
+      weeklyCollaborationHours: 7,
+      source: 'manual',
+      setBy: new mongoose.Types.ObjectId(),
+    });
+
+    await VoiceSession.create([
+      {
+        userId: coreUser._id,
+        channelId: '10',
+        channelName: 'Colaboração',
+        startedAt: new Date('2026-06-10T09:00:00.000Z'),
+        endedAt: new Date('2026-06-10T10:00:00.000Z'),
+        durationSeconds: 3600,
+        isIgnoredChannel: false,
+        sessionType: 'VOICE',
+      },
+      {
+        userId: coreUser._id,
+        channelId: '10',
+        channelName: 'Colaboração',
+        startedAt: new Date('2026-06-20T09:00:00.000Z'),
+        endedAt: new Date('2026-06-20T11:00:00.000Z'),
+        durationSeconds: 7200,
+        isIgnoredChannel: false,
+        sessionType: 'VOICE',
+      },
+    ]);
+
+    const report = await getGoalsWeeklyReport({
+      organizationId: organizationId.toHexString(),
+      guildId,
+      from: new Date('2026-06-10T00:00:00.000Z'),
+      to: new Date('2026-06-10T23:59:59.999Z'),
+      referenceDate: new Date('2026-06-10T23:59:59.999Z'),
+    });
+
+    expect(report.entries[0]?.realizedHours).toBe(1);
+    expect(report.entries[0]?.weeklyGoalHours).toBe(1);
   });
 });

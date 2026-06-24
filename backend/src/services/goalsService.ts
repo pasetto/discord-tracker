@@ -5,6 +5,13 @@ import { TrackedUserModel } from '../db/models/TrackedUser';
 import { User } from '../db/models/User';
 import { UserCollaborationGoalModel } from '../db/models/UserCollaborationGoal';
 import { VoiceSession } from '../db/models/VoiceSession';
+import {
+  countInclusiveUtcDays,
+  endOfUtcDay,
+  overlapSeconds,
+  startOfUtcDay,
+  startOfUtcWeek,
+} from '../utils/sessionTimeUtils';
 
 /**
  * Payload necessário para aplicar template de categoria em metas individuais.
@@ -32,6 +39,10 @@ export interface GoalsWeeklyReportInput {
   guildId: string;
   categoryId?: string;
   referenceDate?: Date;
+  /** Início do intervalo (sobrescreve semana corrente quando informado com `to`) */
+  from?: Date;
+  /** Fim do intervalo (sobrescreve semana corrente quando informado com `from`) */
+  to?: Date;
 }
 
 /**
@@ -61,23 +72,65 @@ export interface GoalsWeeklyReport {
 }
 
 /**
- * Trunca data para início do dia UTC.
- * @param {Date} value Data de referência
- * @returns {Date} Data no início do dia UTC
+ * Soma horas colaborativas em voz por usuário core no intervalo (com overlap parcial).
+ * @param coreUserIds IDs de usuários core
+ * @param periodStart Início do período
+ * @param periodEnd Fim do período
+ * @returns Mapa userId → horas realizadas
  */
-function startOfUtcDay(value: Date): Date {
-  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate(), 0, 0, 0, 0));
+async function aggregateRealizedVoiceHoursByUserId(
+  coreUserIds: Types.ObjectId[],
+  periodStart: Date,
+  periodEnd: Date,
+): Promise<Map<string, number>> {
+  if (coreUserIds.length === 0) {
+    return new Map();
+  }
+
+  const sessions = await VoiceSession.find({
+    userId: { $in: coreUserIds },
+    isIgnoredChannel: false,
+    sessionType: 'VOICE',
+    startedAt: { $lte: periodEnd },
+    $or: [{ endedAt: null }, { endedAt: { $gte: periodStart } }],
+  })
+    .select({ userId: 1, startedAt: 1, endedAt: 1 })
+    .lean()
+    .exec();
+
+  const totals = new Map<string, number>();
+  for (const session of sessions) {
+    const userId = String(session.userId);
+    const seconds = overlapSeconds(session.startedAt, session.endedAt ?? null, periodStart, periodEnd);
+    if (seconds <= 0) {
+      continue;
+    }
+    totals.set(userId, (totals.get(userId) ?? 0) + seconds);
+  }
+
+  return new Map(
+    Array.from(totals.entries()).map(([userId, seconds]) => [userId, Number((seconds / 3600).toFixed(2))]),
+  );
 }
 
 /**
- * Retorna início da semana (segunda-feira) em UTC para uma data.
- * @param {Date} value Data de referência
- * @returns {Date} Segunda-feira da semana da data
+ * Calcula meta proporcional ao número de dias do intervalo selecionado.
+ * @param weeklyGoalHours Meta semanal configurada
+ * @param periodStart Início do período
+ * @param periodEnd Fim do período
+ * @returns Meta ajustada ao intervalo ou null
  */
-function startOfUtcWeek(value: Date): Date {
-  const day = value.getUTCDay();
-  const offsetToMonday = day === 0 ? 6 : day - 1;
-  return new Date(startOfUtcDay(value).getTime() - offsetToMonday * 24 * 60 * 60 * 1000);
+function prorateWeeklyGoalHours(
+  weeklyGoalHours: number | null | undefined,
+  periodStart: Date,
+  periodEnd: Date,
+): number | null {
+  if (!weeklyGoalHours || weeklyGoalHours <= 0) {
+    return null;
+  }
+
+  const days = countInclusiveUtcDays(periodStart, periodEnd);
+  return Number(((weeklyGoalHours * days) / 7).toFixed(2));
 }
 
 /**
@@ -227,8 +280,21 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
   const organizationId = parseObjectId(input.organizationId, 'organizationId');
   const categoryId = input.categoryId ? parseObjectId(input.categoryId, 'categoryId') : undefined;
   const referenceDate = input.referenceDate ?? new Date();
-  const periodStart = startOfUtcWeek(referenceDate);
-  const periodEnd = startOfUtcDay(referenceDate);
+
+  let periodStart: Date;
+  let periodEnd: Date;
+
+  if (input.from && input.to) {
+    periodStart = startOfUtcDay(input.from);
+    periodEnd = endOfUtcDay(input.to);
+  } else {
+    periodStart = startOfUtcWeek(referenceDate);
+    periodEnd = endOfUtcDay(referenceDate);
+  }
+
+  if (periodStart.getTime() > periodEnd.getTime()) {
+    throw new Error('Intervalo inválido: from deve ser anterior ou igual a to');
+  }
 
   const trackedUsers = await TrackedUserModel.find({
     organizationId,
@@ -261,7 +327,7 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
   const coreUserIdByDiscordId = new Map(coreUsers.map((user) => [user.discordId, user._id as Types.ObjectId]));
   const coreUserIds = coreUsers.map((user) => user._id as Types.ObjectId);
 
-  const [goals, realizedRows] = await Promise.all([
+  const [goals, realizedHoursByCoreUserId] = await Promise.all([
     UserCollaborationGoalModel.find({
       organizationId,
       guildId: input.guildId,
@@ -270,34 +336,19 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
       .select({ trackedUserId: 1, weeklyCollaborationHours: 1, dailyMinimumHours: 1 })
       .lean()
       .exec(),
-    coreUserIds.length > 0
-      ? VoiceSession.aggregate<{ _id: Types.ObjectId; totalSeconds: number }>([
-          {
-            $match: {
-              userId: { $in: coreUserIds },
-              startedAt: { $gte: periodStart, $lte: periodEnd },
-              durationSeconds: { $gt: 0 },
-              isIgnoredChannel: false,
-              sessionType: 'VOICE',
-            },
-          },
-          { $group: { _id: '$userId', totalSeconds: { $sum: '$durationSeconds' } } },
-        ])
-      : Promise.resolve([]),
+    aggregateRealizedVoiceHoursByUserId(coreUserIds, periodStart, periodEnd),
   ]);
 
   const goalsByTrackedUserId = new Map(goals.map((goal) => [String(goal.trackedUserId), goal]));
-  const realizedHoursByCoreUserId = new Map(
-    realizedRows.map((row) => [String(row._id), Number((row.totalSeconds / 3600).toFixed(2))]),
-  );
 
   const entries: GoalWeeklyReportEntry[] = trackedUsers.map((trackedUser) => {
     const goal = goalsByTrackedUserId.get(String(trackedUser._id));
     const coreUserId = coreUserIdByDiscordId.get(trackedUser.discordId);
     const realizedHours = coreUserId ? realizedHoursByCoreUserId.get(String(coreUserId)) ?? 0 : 0;
     const weeklyGoalHours = goal?.weeklyCollaborationHours ?? null;
-    const progressPercent = weeklyGoalHours && weeklyGoalHours > 0
-      ? Number(Math.min(100, (realizedHours / weeklyGoalHours) * 100).toFixed(2))
+    const periodGoalHours = prorateWeeklyGoalHours(weeklyGoalHours, periodStart, periodEnd);
+    const progressPercent = periodGoalHours && periodGoalHours > 0
+      ? Number(Math.min(100, (realizedHours / periodGoalHours) * 100).toFixed(2))
       : 0;
 
     const trackedCategoryId = trackedUser.categoryId as Types.ObjectId | undefined;
@@ -308,11 +359,13 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
       displayName: trackedUser.displayName,
       categoryId: trackedCategoryId,
       categoryName: trackedCategoryId ? categoryNameById.get(String(trackedCategoryId)) : undefined,
-      weeklyGoalHours,
+      weeklyGoalHours: periodGoalHours,
       dailyMinimumHours: goal?.dailyMinimumHours ?? null,
       realizedHours,
       progressPercent,
-      shouldAlertLowProgress: weeklyGoalHours ? shouldTriggerLowProgressThursdayAlert(referenceDate, progressPercent) : false,
+      shouldAlertLowProgress: periodGoalHours
+        ? shouldTriggerLowProgressThursdayAlert(referenceDate, progressPercent)
+        : false,
     };
   });
 

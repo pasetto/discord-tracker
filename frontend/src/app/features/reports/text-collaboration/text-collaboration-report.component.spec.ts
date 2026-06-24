@@ -34,9 +34,8 @@ describe('TextCollaborationReportComponent', () => {
     });
 
     const reportRequest = httpMock.expectOne((req) =>
-      req.url === '/api/v1/org/org-1/guilds/guild-1/reports/text-collaboration'
-      && req.params.has('from')
-      && req.params.has('to'));
+      req.url.includes('/reports/text-collaboration') && req.params.get('preset') === 'last_7_days',
+    );
 
     reportRequest.flush({
       report: {

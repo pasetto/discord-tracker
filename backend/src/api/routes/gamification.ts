@@ -7,6 +7,7 @@ import {
 } from '../../services/gamificationService';
 import { getGamificationRankingReport } from '../../services/gamificationRankingService';
 import { getGuildGamificationInsights } from '../../services/gamificationInsightsService';
+import { parseReportDateRangeQuery } from '../../utils/reportDateRange';
 
 /**
  * Membership de organização presente no JWT.
@@ -84,6 +85,28 @@ function assertViewerRole(ctx: Router.RouterContext, organizationId: string): vo
   if (!role || !VIEWER_ROLES.has(role)) {
     ctx.throw(403, 'Permissão insuficiente para visualizar ranking');
   }
+}
+
+/**
+ * Resolve data de referência a partir de query params de relatório.
+ * @param ctx Contexto Koa da requisição
+ * @returns Data de referência para cálculo do período
+ */
+function resolveReferenceDateFromQuery(ctx: Router.RouterContext): Date {
+  const referenceDateParam = typeof ctx.query.referenceDate === 'string' ? ctx.query.referenceDate : undefined;
+  const presetParam = typeof ctx.query.preset === 'string' ? ctx.query.preset : undefined;
+  const fromParam = typeof ctx.query.from === 'string' ? ctx.query.from : undefined;
+  const toParam = typeof ctx.query.to === 'string' ? ctx.query.to : undefined;
+
+  if (referenceDateParam) {
+    return new Date(referenceDateParam);
+  }
+
+  if (presetParam || fromParam || toParam) {
+    return parseReportDateRangeQuery({ preset: presetParam, from: fromParam, to: toParam }).to;
+  }
+
+  return new Date();
 }
 
 /**
@@ -202,8 +225,7 @@ gamificationRouter.get('/guilds/:guildId/gamification/ranking', async (ctx) => {
     const { organizationId, userId } = getRequestIdentity(ctx);
     assertViewerRole(ctx, organizationId);
 
-    const referenceDate =
-      typeof ctx.query.referenceDate === 'string' ? new Date(ctx.query.referenceDate) : new Date();
+    const referenceDate = resolveReferenceDateFromQuery(ctx);
     if (Number.isNaN(referenceDate.getTime())) {
       ctx.status = 400;
       ctx.body = { error: 'referenceDate inválida' };
@@ -243,8 +265,7 @@ gamificationRouter.get('/guilds/:guildId/gamification/insights', async (ctx) => 
     const { organizationId } = getRequestIdentity(ctx);
     assertViewerRole(ctx, organizationId);
 
-    const referenceDate =
-      typeof ctx.query.referenceDate === 'string' ? new Date(ctx.query.referenceDate) : new Date();
+    const referenceDate = resolveReferenceDateFromQuery(ctx);
     if (Number.isNaN(referenceDate.getTime())) {
       ctx.status = 400;
       ctx.body = { error: 'referenceDate inválida' };

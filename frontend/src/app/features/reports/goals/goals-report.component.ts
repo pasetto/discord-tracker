@@ -3,6 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TenantContextService } from '../../../core/tenant/tenant-context.service';
+import { ReportDateRangeValue, resolveReportDateRange, toReportDateHttpParams } from '../../../core/reports/report-date-range.util';
+import { ReportDateFilterComponent } from '../../../shared/components/report-date-filter/report-date-filter.component';
 
 /**
  * Linha do relatório de metas individuais retornada pelo backend.
@@ -45,11 +47,12 @@ interface GoalsReportCategoryGroup {
 @Component({
   selector: 'app-goals-report',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, ReportDateFilterComponent],
   templateUrl: './goals-report.component.html',
 })
 export class GoalsReportComponent implements OnInit {
   report: GoalsReportDto | null = null;
+  dateRange: ReportDateRangeValue = resolveReportDateRange('this_week');
   loading = false;
   errorMessage = '';
 
@@ -110,10 +113,21 @@ export class GoalsReportComponent implements OnInit {
    */
   ngOnInit(): void {
     this.tenantContext.refresh().subscribe(() => {
-      if (this.hasGuild) {
+      if (this.hasGuild && this.dateRange) {
         this.loadReport();
       }
     });
+  }
+
+  /**
+   * Atualiza intervalo selecionado e recarrega relatório de metas.
+   * @param range Período escolhido no filtro
+   */
+  onDateRangeChange(range: ReportDateRangeValue): void {
+    this.dateRange = range;
+    if (this.hasGuild) {
+      this.loadReport();
+    }
   }
 
   /**
@@ -124,11 +138,17 @@ export class GoalsReportComponent implements OnInit {
       this.errorMessage = 'Configure o Discord e selecione um servidor para ver o relatório de metas.';
       return;
     }
+    if (!this.dateRange) {
+      return;
+    }
 
     this.loading = true;
     this.errorMessage = '';
 
-    this.httpClient.get<{ report: GoalsReportDto }>(`${this.tenantContext.getGuildApiBaseUrl()}/reports/goals`).subscribe({
+    const params = toReportDateHttpParams(this.dateRange);
+    this.httpClient
+      .get<{ report: GoalsReportDto }>(`${this.tenantContext.getGuildApiBaseUrl()}/reports/goals`, { params })
+      .subscribe({
       next: (response) => {
         this.report = response.report;
         this.loading = false;

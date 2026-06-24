@@ -25,7 +25,9 @@ describe('RankingReportComponent', () => {
       botConnected: true,
       activeConnection: { guildId: 'guild-1', guildName: 'Servidor Teste', isMonitoringEnabled: true },
     });
-    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/gamification/ranking').flush({
+    httpMock.expectOne((request) =>
+      request.url.includes('/gamification/ranking') && request.params.get('preset') === 'this_week',
+    ).flush({
       report: {
         available: true,
         period: 'weekly',

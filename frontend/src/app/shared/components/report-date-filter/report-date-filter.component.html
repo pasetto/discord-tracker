@@ -1,0 +1,43 @@
+<div class="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+  <label class="flex w-full flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 sm:min-w-[220px] sm:w-auto">
+    Período
+    <select
+      class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+      [(ngModel)]="selectedPreset"
+      (ngModelChange)="onPresetChange()"
+    >
+      <option *ngFor="let option of presetOptions" [value]="option[0]">{{ option[1] }}</option>
+      <option value="custom">Personalizado</option>
+    </select>
+  </label>
+
+  <div *ngIf="selectedPreset === 'custom'" class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
+    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+      De
+      <input
+        type="date"
+        class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+        [(ngModel)]="customFrom"
+      />
+    </label>
+    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+      Até
+      <input
+        type="date"
+        class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+        [(ngModel)]="customTo"
+      />
+    </label>
+    <button
+      type="button"
+      class="min-h-11 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
+      (click)="applyCustomRange()"
+    >
+      Aplicar
+    </button>
+  </div>
+
+  <p class="text-xs text-gray-500 dark:text-gray-400 sm:mb-3">{{ currentRangeLabel }}</p>
+</div>
+
+<p *ngIf="errorMessage" class="text-xs text-error-600">{{ errorMessage }}</p>

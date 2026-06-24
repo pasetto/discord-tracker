@@ -1,5 +1,6 @@
 import Router from '@koa/router';
 import { getTextCollaborationReport } from '../../services/textCollaborationReportService';
+import { parseReportDateRangeQuery } from '../../utils/reportDateRange';
 
 /**
  * Membership de organização presente no JWT.
@@ -38,7 +39,6 @@ function getMembershipRole(ctx: Router.RouterContext, organizationId: string): s
  * Garante que usuário possui ao menos permissão de visualização.
  * @param ctx Contexto Koa da requisição
  * @param organizationId Organização do tenant atual
- * @returns {void} Não retorna valor
  */
 function assertViewerRole(ctx: Router.RouterContext, organizationId: string): void {
   const role = getMembershipRole(ctx, organizationId);
@@ -62,23 +62,6 @@ function getRequestOrganizationId(ctx: Router.RouterContext): string {
 }
 
 /**
- * Converte valor de query string para data válida.
- * @param value Valor textual recebido na URL
- * @returns Data parseada
- * @throws {Error} Quando valor não é uma data ISO válida
- */
-function parseRequiredDateParam(value: string | undefined): Date {
-  if (!value) {
-    throw new Error('Parâmetros inválidos: from e to são obrigatórios');
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    throw new Error('Parâmetros inválidos: from e to devem estar em formato ISO-8601');
-  }
-  return parsed;
-}
-
-/**
  * @openapi
  * /org/{orgId}/guilds/{guildId}/reports/text-collaboration:
  *   get:
@@ -91,16 +74,19 @@ function parseRequiredDateParam(value: string | undefined): Date {
  *     parameters:
  *       - in: query
  *         name: from
- *         required: true
  *         schema:
  *           type: string
  *           format: date-time
  *       - in: query
  *         name: to
- *         required: true
  *         schema:
  *           type: string
  *           format: date-time
+ *       - in: query
+ *         name: preset
+ *         schema:
+ *           type: string
+ *           enum: [today, yesterday, this_week, last_week, last_7_days]
  *     responses:
  *       200:
  *         description: Relatório agregado de sinais de texto no período
@@ -114,14 +100,19 @@ textCollaborationReportsRouter.get('/guilds/:guildId/reports/text-collaboration'
     const organizationId = getRequestOrganizationId(ctx);
     assertViewerRole(ctx, organizationId);
 
-    const from = parseRequiredDateParam(typeof ctx.query.from === 'string' ? ctx.query.from : undefined);
-    const to = parseRequiredDateParam(typeof ctx.query.to === 'string' ? ctx.query.to : undefined);
+    const fromParam = typeof ctx.query.from === 'string' ? ctx.query.from : undefined;
+    const toParam = typeof ctx.query.to === 'string' ? ctx.query.to : undefined;
+    const presetParam = typeof ctx.query.preset === 'string' ? ctx.query.preset : undefined;
+
+    const range = fromParam || toParam || presetParam
+      ? parseReportDateRangeQuery({ preset: presetParam, from: fromParam, to: toParam })
+      : parseReportDateRangeQuery({ preset: 'last_7_days' });
 
     const report = await getTextCollaborationReport({
       organizationId,
       guildId: ctx.params.guildId,
-      from,
-      to,
+      from: range.from,
+      to: range.to,
     });
     ctx.body = { report };
   } catch (error) {

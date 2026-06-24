@@ -56,6 +56,10 @@ export interface ComputeBusinessDaysBetweenInput {
  */
 export interface InactivityReportFilters {
   categoryId?: string;
+  /** Início do período exibido (opcional; default: fim - 6 dias) */
+  from?: Date;
+  /** Fim do período analisado (opcional; default: referenceDate) */
+  to?: Date;
 }
 
 /**
@@ -546,18 +550,33 @@ export async function getWeeklyInactivityReport(
   accessContext: InactivityWeeklyAccessContext = {},
 ): Promise<InactivityWeeklyReport> {
   const organizationObjectId = parseObjectId(organizationId, 'organizationId');
-  const periodEnd = startOfUtcDay(referenceDate);
-  const periodStart = new Date(periodEnd.getTime() - 6 * 24 * 60 * 60 * 1000);
+
+  let periodStart: Date;
+  let periodEnd: Date;
+  let analysisReferenceDate: Date;
+
+  if (filters.from && filters.to) {
+    periodStart = startOfUtcDay(filters.from);
+    periodEnd = startOfUtcDay(filters.to);
+    analysisReferenceDate = periodEnd;
+  } else {
+    periodEnd = startOfUtcDay(referenceDate);
+    periodStart = new Date(periodEnd.getTime() - 6 * 24 * 60 * 60 * 1000);
+    analysisReferenceDate = referenceDate;
+  }
+
+  const snapshotPeriodStart = new Date(startOfUtcDay(analysisReferenceDate).getTime() - 6 * 24 * 60 * 60 * 1000);
 
   const snapshot = await InactivitySnapshotModel.findOne({
     organizationId: organizationObjectId,
     guildId,
-    periodStart,
+    periodStart: snapshotPeriodStart,
   })
     .lean()
     .exec();
 
-  const freshSnapshot = snapshot ?? (await generateWeeklyInactivitySnapshot(organizationId, guildId, referenceDate));
+  const freshSnapshot = snapshot
+    ?? (await generateWeeklyInactivitySnapshot(organizationId, guildId, analysisReferenceDate));
   const allEntries = freshSnapshot.entries;
   const plannedAbsenceEntries = allEntries.filter((entry) => entry.status === 'on_planned_absence');
   const baseEntries = allEntries.filter((entry) => entry.status !== 'on_planned_absence');

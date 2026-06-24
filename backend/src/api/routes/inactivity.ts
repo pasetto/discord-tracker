@@ -4,6 +4,7 @@ import { getWeeklyInactivityReport, getInactivityHistory } from '../../services/
 import { getIntradayInactivityReport } from '../../services/intradayInactivityService';
 import { getInactivitySettings, upsertInactivitySettings } from '../../services/inactivitySettingsService';
 import { assertManagerRole, assertViewerReadRole, getMembershipRole } from '../middleware/tenantRbac';
+import { parseReportDateRangeQuery } from '../../utils/reportDateRange';
 
 /**
  * Shape mínimo do usuário autenticado em `ctx.state.user`.
@@ -49,6 +50,21 @@ function getRequestIdentity(ctx: Router.RouterContext): { organizationId: string
  *         name: categoryId
  *         schema:
  *           type: string
+ *       - in: query
+ *         name: preset
+ *         schema:
+ *           type: string
+ *           enum: [today, yesterday, this_week, last_week, last_7_days]
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date-time
  *     responses:
  *       200:
  *         description: Relatório semanal calculado para o gestor
@@ -67,12 +83,18 @@ inactivityRouter.get('/guilds/:guildId/reports/inactivity/weekly', async (ctx) =
       return;
     }
 
+    const range = parseReportDateRangeQuery({
+      preset: typeof ctx.query.preset === 'string' ? ctx.query.preset : undefined,
+      from: typeof ctx.query.from === 'string' ? ctx.query.from : undefined,
+      to: typeof ctx.query.to === 'string' ? ctx.query.to : undefined,
+    });
+
     const requesterRole = getMembershipRole(ctx, organizationId);
     const report = await getWeeklyInactivityReport(
       organizationId,
       ctx.params.guildId,
-      { categoryId },
-      new Date(),
+      { categoryId, from: range.from, to: range.to },
+      range.to,
       { requesterRole },
     );
     ctx.body = { report };

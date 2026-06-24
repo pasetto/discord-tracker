@@ -3,6 +3,7 @@ import { Types, isValidObjectId } from 'mongoose';
 import { CategoryGoalTemplateModel } from '../../db/models/CategoryGoalTemplate';
 import { applyAllCategoryGoalsToTrackedUsers, applyCategoryGoalsToTrackedUsers, getGoalsWeeklyReport } from '../../services/goalsService';
 import { assertManagerRole, assertViewerReadRole } from '../middleware/tenantRbac';
+import { parseReportDateRangeQuery } from '../../utils/reportDateRange';
 
 /**
  * Shape mínimo do usuário autenticado em `ctx.state.user`.
@@ -342,6 +343,26 @@ goalsRouter.post('/guilds/:guildId/members/apply-all-category-goals', async (ctx
  *     summary: Retorna relatório semanal de meta versus realizado por usuário
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: preset
+ *         schema:
+ *           type: string
+ *           enum: [today, yesterday, this_week, last_week, last_7_days]
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *       - in: query
+ *         name: categoryId
+ *         schema:
+ *           type: string
  *     responses:
  *       200:
  *         description: Relatório semanal de metas individuais
@@ -358,10 +379,19 @@ goalsRouter.get('/guilds/:guildId/reports/goals', async (ctx) => {
       return;
     }
 
+    const range = parseReportDateRangeQuery({
+      preset: typeof ctx.query.preset === 'string' ? ctx.query.preset : undefined,
+      from: typeof ctx.query.from === 'string' ? ctx.query.from : undefined,
+      to: typeof ctx.query.to === 'string' ? ctx.query.to : undefined,
+    });
+
     const report = await getGoalsWeeklyReport({
       organizationId,
       guildId: ctx.params.guildId,
       categoryId,
+      from: range.from,
+      to: range.to,
+      referenceDate: range.to,
     });
 
     ctx.body = { report };

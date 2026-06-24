@@ -1,8 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TenantContextService } from '../../../core/tenant/tenant-context.service';
+import { ReportDateRangeValue, resolveReportDateRange, toReportDateHttpParams } from '../../../core/reports/report-date-range.util';
+import { ReportDateFilterComponent } from '../../../shared/components/report-date-filter/report-date-filter.component';
 
 /**
  * Linha de colaborador no relatório de sinais de texto.
@@ -31,11 +33,12 @@ interface TextCollaborationReportDto {
 @Component({
   selector: 'app-text-collaboration-report',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, ReportDateFilterComponent],
   templateUrl: './text-collaboration-report.component.html',
 })
 export class TextCollaborationReportComponent implements OnInit {
   report: TextCollaborationReportDto | null = null;
+  dateRange: ReportDateRangeValue = resolveReportDateRange('last_7_days');
   loading = false;
   errorMessage = '';
 
@@ -73,10 +76,21 @@ export class TextCollaborationReportComponent implements OnInit {
    */
   ngOnInit(): void {
     this.tenantContext.refresh().subscribe(() => {
-      if (this.hasGuild) {
+      if (this.hasGuild && this.dateRange) {
         this.loadReport();
       }
     });
+  }
+
+  /**
+   * Atualiza intervalo selecionado e recarrega relatório de sinais de texto.
+   * @param range Período escolhido no filtro
+   */
+  onDateRangeChange(range: ReportDateRangeValue): void {
+    this.dateRange = range;
+    if (this.hasGuild) {
+      this.loadReport();
+    }
   }
 
   /**
@@ -87,25 +101,14 @@ export class TextCollaborationReportComponent implements OnInit {
       this.errorMessage = 'Configure o Discord e selecione um servidor para ver os sinais de texto.';
       return;
     }
+    if (!this.dateRange) {
+      return;
+    }
 
     this.loading = true;
     this.errorMessage = '';
 
-    const now = new Date();
-    const to = new Date(Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
-      23,
-      59,
-      59,
-      999,
-    ));
-    const from = new Date(to.getTime() - (6 * 24 * 60 * 60 * 1000));
-
-    const params = new HttpParams()
-      .set('from', from.toISOString())
-      .set('to', to.toISOString());
+    const params = toReportDateHttpParams(this.dateRange);
 
     this.httpClient.get<{ report: TextCollaborationReportDto }>(
       `${this.tenantContext.getGuildApiBaseUrl()}/reports/text-collaboration`,

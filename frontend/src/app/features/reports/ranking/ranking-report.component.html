@@ -1,4 +1,6 @@
 <section class="space-y-4">
+  <app-report-date-filter (rangeChange)="onDateRangeChange($event)" />
+
   <section *ngIf="!hasGuild" class="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-500/10">
     <h3 class="text-base font-semibold text-gray-900 dark:text-white">Configure o Discord primeiro</h3>
     <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">Selecione um servidor para ver o ranking gamificado.</p>
@@ -7,21 +9,23 @@
     </a>
   </section>
 
-  <section *ngIf="hasGuild" class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-    <div class="text-sm text-gray-600 dark:text-gray-300">
-      <p>Servidor: <strong>{{ guildName }}</strong></p>
-      @if (report?.available) {
-        <p class="mt-1 text-xs text-gray-500">{{ periodLabel }} · {{ metricLabel }}</p>
-      }
+  <section *ngIf="hasGuild" class="space-y-3 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="text-sm text-gray-600 dark:text-gray-300">
+        <p>Servidor: <strong>{{ guildName }}</strong></p>
+        @if (report?.available) {
+          <p class="mt-1 text-xs text-gray-500">{{ periodLabel }} · {{ metricLabel }}</p>
+        }
+      </div>
+      <button
+        type="button"
+        class="min-h-11 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
+        (click)="loadReport()"
+        [disabled]="loading"
+      >
+        {{ loading ? 'Carregando...' : 'Atualizar ranking' }}
+      </button>
     </div>
-    <button
-      type="button"
-      class="min-h-11 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
-      (click)="loadReport()"
-      [disabled]="loading"
-    >
-      {{ loading ? 'Carregando...' : 'Atualizar ranking' }}
-    </button>
   </section>
 
   @if (errorMessage) {

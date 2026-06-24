@@ -3,6 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TenantContextService } from '../../../core/tenant/tenant-context.service';
+import { ReportDateRangeValue, resolveReportDateRange, toReportDateHttpParams } from '../../../core/reports/report-date-range.util';
+import { ReportDateFilterComponent } from '../../../shared/components/report-date-filter/report-date-filter.component';
 
 /** Linha do ranking gamificado. */
 interface GamificationRankingEntryDto {
@@ -40,11 +42,12 @@ interface GamificationRankingReportDto {
 @Component({
   selector: 'app-ranking-report',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, ReportDateFilterComponent],
   templateUrl: './ranking-report.component.html',
 })
 export class RankingReportComponent implements OnInit {
   report: GamificationRankingReportDto | null = null;
+  dateRange: ReportDateRangeValue = resolveReportDateRange('this_week');
   loading = false;
   errorMessage = '';
 
@@ -87,26 +90,40 @@ export class RankingReportComponent implements OnInit {
   /** Carrega ranking ao abrir a tela. */
   ngOnInit(): void {
     this.tenantContext.refresh().subscribe(() => {
-      if (this.hasGuild) {
+      if (this.hasGuild && this.dateRange) {
         this.loadReport();
       }
     });
   }
 
   /**
+   * Atualiza intervalo selecionado e recarrega ranking.
+   * @param range Período escolhido no filtro
+   */
+  onDateRangeChange(range: ReportDateRangeValue): void {
+    this.dateRange = range;
+    if (this.hasGuild) {
+      this.loadReport();
+    }
+  }
+
+  /**
    * Busca ranking gamificado no backend.
    */
   loadReport(): void {
-    if (!this.hasGuild) {
+    if (!this.hasGuild || !this.dateRange) {
       return;
     }
 
     this.loading = true;
     this.errorMessage = '';
 
+    const params = toReportDateHttpParams(this.dateRange);
+
     this.httpClient
       .get<{ report: GamificationRankingReportDto }>(
         `${this.tenantContext.getGuildApiBaseUrl()}/gamification/ranking`,
+        { params },
       )
       .subscribe({
         next: ({ report }) => {

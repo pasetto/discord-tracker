@@ -74,7 +74,7 @@ describe('inactivity routes', () => {
     expect(inactivityMocks.getWeeklyInactivityReport).toHaveBeenCalledWith(
       ORG_ID,
       'guild-1',
-      { categoryId: undefined },
+      expect.objectContaining({ categoryId: undefined, from: expect.any(Date), to: expect.any(Date) }),
       expect.any(Date),
       { requesterRole: 'manager' },
     );
@@ -98,7 +98,7 @@ describe('inactivity routes', () => {
     expect(inactivityMocks.getWeeklyInactivityReport).toHaveBeenCalledWith(
       ORG_ID,
       'guild-1',
-      { categoryId: undefined },
+      expect.objectContaining({ categoryId: undefined, from: expect.any(Date), to: expect.any(Date) }),
       expect.any(Date),
       { requesterRole: 'viewer' },
     );

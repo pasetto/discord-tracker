@@ -2,6 +2,7 @@ import Router from '@koa/router';
 import { Types } from 'mongoose';
 import { getGoalsWeeklyReport, type GoalWeeklyReportEntry } from '../../services/goalsService';
 import { getWeeklyInactivityReport } from '../../services/inactivityService';
+import { parseReportDateRangeQuery } from '../../utils/reportDateRange';
 
 /**
  * Membership de organização presente no JWT.
@@ -177,7 +178,18 @@ exportRouter.post('/guilds/:guildId/export/inactivity', async (ctx) => {
       return;
     }
 
-    const report = await getWeeklyInactivityReport(organizationId, ctx.params.guildId, { categoryId }, new Date());
+    const range = parseReportDateRangeQuery({
+      preset: typeof ctx.query.preset === 'string' ? ctx.query.preset : undefined,
+      from: typeof ctx.query.from === 'string' ? ctx.query.from : undefined,
+      to: typeof ctx.query.to === 'string' ? ctx.query.to : undefined,
+    });
+
+    const report = await getWeeklyInactivityReport(
+      organizationId,
+      ctx.params.guildId,
+      { categoryId, from: range.from, to: range.to },
+      range.to,
+    );
     const headers = [
       'displayName',
       'discordId',
@@ -244,11 +256,19 @@ exportRouter.post('/guilds/:guildId/export/csv', async (ctx) => {
       return;
     }
 
+    const range = parseReportDateRangeQuery({
+      preset: typeof ctx.query.preset === 'string' ? ctx.query.preset : undefined,
+      from: typeof ctx.query.from === 'string' ? ctx.query.from : undefined,
+      to: typeof ctx.query.to === 'string' ? ctx.query.to : undefined,
+    });
+
     const report = await getGoalsWeeklyReport({
       organizationId,
       guildId: ctx.params.guildId,
       categoryId,
-      referenceDate: new Date(),
+      from: range.from,
+      to: range.to,
+      referenceDate: range.to,
     });
 
     const headers = [

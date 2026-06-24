@@ -50,6 +50,32 @@ export function startOfUtcWeek(date: Date): Date {
 }
 
 /**
+ * Retorna fim da semana (domingo 23:59:59.999 UTC) para a semana da data informada.
+ * @param date Data de referência
+ * @returns Último instante do domingo da semana UTC
+ */
+export function endOfUtcWeek(date: Date): Date {
+  const weekStart = startOfUtcWeek(date);
+  const sunday = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
+  return endOfUtcDay(sunday);
+}
+
+/**
+ * Conta dias de calendário inclusivos entre duas datas UTC (início/fim de dia).
+ * @param from Início do intervalo
+ * @param to Fim do intervalo
+ * @returns Quantidade de dias inclusivos (>= 1 quando from <= to)
+ */
+export function countInclusiveUtcDays(from: Date, to: Date): number {
+  const start = startOfUtcDay(from).getTime();
+  const end = startOfUtcDay(to).getTime();
+  if (end < start) {
+    return 0;
+  }
+  return Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
+}
+
+/**
  * Retorna início do mês em UTC.
  * @param date Data de referência
  * @returns Primeiro dia do mês UTC

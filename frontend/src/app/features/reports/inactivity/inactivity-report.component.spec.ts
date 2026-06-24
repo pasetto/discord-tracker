@@ -34,7 +34,9 @@ describe('InactivityReportComponent', () => {
     });
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/categories').flush({ categories: [] });
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/tracked-users').flush({ members: [] });
-    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/inactivity/weekly').flush({
+    httpMock.expectOne((request) =>
+      request.url.includes('/reports/inactivity/weekly') && request.params.get('preset') === 'this_week',
+    ).flush({
       report: {
         periodStart: '2026-06-18',
         periodEnd: '2026-06-24',
@@ -58,7 +60,9 @@ describe('InactivityReportComponent', () => {
     });
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/categories').flush({ categories: [] });
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/tracked-users').flush({ members: [] });
-    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/inactivity/weekly').flush({
+    httpMock.expectOne((request) =>
+      request.url.includes('/reports/inactivity/weekly') && request.params.get('preset') === 'this_week',
+    ).flush({
       report: {
         periodStart: '2026-06-18',
         periodEnd: '2026-06-24',
@@ -109,7 +113,9 @@ describe('InactivityReportComponent', () => {
     });
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/categories').flush({ categories: [] });
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/tracked-users').flush({ members: [] });
-    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/inactivity/weekly').flush({
+    httpMock.expectOne((request) =>
+      request.url.includes('/reports/inactivity/weekly') && request.params.get('preset') === 'this_week',
+    ).flush({
       report: {
         periodStart: '2026-06-18',
         periodEnd: '2026-06-24',

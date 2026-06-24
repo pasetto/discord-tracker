@@ -5,6 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { TrackedMembersService } from '../../../core/members/tracked-members.service';
 import { TenantContextService } from '../../../core/tenant/tenant-context.service';
+import { ReportDateRangeValue, resolveReportDateRange, toReportDateHttpParams } from '../../../core/reports/report-date-range.util';
+import { ReportDateFilterComponent } from '../../../shared/components/report-date-filter/report-date-filter.component';
 
 /**
  * Status de inatividade exposto pelo relatório semanal.
@@ -79,13 +81,14 @@ interface InactivityMemberHistoryDto {
 @Component({
   selector: 'app-inactivity-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, ReportDateFilterComponent],
   templateUrl: './inactivity-report.component.html',
 })
 export class InactivityReportComponent implements OnInit {
   report: InactivityReportDto | null = null;
   categories: MemberCategoryDto[] = [];
   selectedCategoryId = '';
+  dateRange: ReportDateRangeValue = resolveReportDateRange('this_week');
   sortColumn: InactivitySortColumn = 'inactiveBusinessDays';
   sortDirection: 'asc' | 'desc' = 'desc';
   selectedTrackedUserId: string | null = null;
@@ -164,9 +167,23 @@ export class InactivityReportComponent implements OnInit {
       if (this.hasGuild) {
         this.loadCategories();
         this.loadMembersCount();
-        this.loadReport();
+        if (this.dateRange) {
+          this.loadReport();
+        }
       }
     });
+  }
+
+  /**
+   * Atualiza intervalo selecionado e recarrega relatório.
+   * @param range Período escolhido no filtro
+   */
+  onDateRangeChange(range: ReportDateRangeValue): void {
+    this.dateRange = range;
+    this.clearHistorySelection();
+    if (this.hasGuild) {
+      this.loadReport();
+    }
   }
 
   /**
@@ -277,11 +294,14 @@ export class InactivityReportComponent implements OnInit {
       this.errorMessage = 'Configure o Discord e selecione um servidor antes de carregar o relatório.';
       return;
     }
+    if (!this.dateRange) {
+      return;
+    }
 
     this.loading = true;
     this.errorMessage = '';
 
-    let params = new HttpParams();
+    let params = toReportDateHttpParams(this.dateRange);
     if (this.selectedCategoryId) {
       params = params.set('categoryId', this.selectedCategoryId);
     }
@@ -403,8 +423,13 @@ export class InactivityReportComponent implements OnInit {
     this.exporting = true;
     this.errorMessage = '';
 
+    let params = this.dateRange ? toReportDateHttpParams(this.dateRange) : new HttpParams();
+    if (this.selectedCategoryId) {
+      params = params.set('categoryId', this.selectedCategoryId);
+    }
+
     this.httpClient
-      .post(`${this.getBaseUrl()}${route}`, {}, { observe: 'response', responseType: 'blob' })
+      .post(`${this.getBaseUrl()}${route}`, {}, { observe: 'response', responseType: 'blob', params })
       .subscribe({
         next: (response) => {
           this.triggerCsvDownload(response, fallbackFilename);

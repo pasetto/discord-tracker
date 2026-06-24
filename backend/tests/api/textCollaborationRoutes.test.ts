@@ -80,6 +80,6 @@ describe('text collaboration report routes', () => {
       .set('Authorization', buildAuthHeader([{ organizationId: ORG_ID, role: 'manager' }]));
 
     expect(response.status).toBe(400);
-    expect(response.body.error).toContain('Parâmetros inválidos');
+    expect(response.body.error).toContain('from inválido');
   });
 });

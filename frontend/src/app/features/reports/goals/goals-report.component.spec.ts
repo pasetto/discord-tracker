@@ -25,7 +25,9 @@ describe('GoalsReportComponent', () => {
       botConnected: true,
       activeConnection: { guildId: 'guild-1', guildName: 'Servidor Teste', isMonitoringEnabled: true },
     });
-    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/goals').flush({
+    httpMock.expectOne((request) =>
+      request.url.includes('/reports/goals') && request.params.get('preset') === 'this_week',
+    ).flush({
       report: { periodStart: '', periodEnd: '', generatedAt: '', entries: [] },
     });
     fixture.detectChanges();
