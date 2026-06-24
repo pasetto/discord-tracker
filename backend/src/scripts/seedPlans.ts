@@ -65,6 +65,34 @@ const seedPlans = [
     sortOrder: 2,
     trialDays: 7,
   },
+  {
+    name: 'Business',
+    slug: 'business',
+    description: 'Para operações maiores com exportação, API e webhooks de integração.',
+    priceCents: 29900,
+    currency: 'BRL' as const,
+    billingInterval: 'month' as const,
+    limits: {
+      maxGuilds: 3,
+      maxTrackedMembers: 200,
+      dataRetentionDays: 365,
+    },
+    features: {
+      gamification: true,
+      ranking: true,
+      exportCsv: true,
+      exportPdf: false,
+      apiAccess: true,
+      webhooks: true,
+      customChannelRules: true,
+      teamGoals: true,
+      advancedReports: true,
+    },
+    isActive: true,
+    isPublic: true,
+    sortOrder: 3,
+    trialDays: 7,
+  },
 ];
 
 /**

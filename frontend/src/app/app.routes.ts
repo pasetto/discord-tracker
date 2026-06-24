@@ -287,6 +287,22 @@ export const routes: Routes = [
     title: 'Syntra | Colaboração no Discord',
   },
   {
+    path: 'case-studies',
+    loadComponent: () =>
+      import('./features/marketing/case-studies/case-study-page.component').then(
+        (module) => module.CaseStudyPageComponent,
+      ),
+    title: 'Cases | Syntra',
+  },
+  {
+    path: 'case-studies/:slug',
+    loadComponent: () =>
+      import('./features/marketing/case-studies/case-study-page.component').then(
+        (module) => module.CaseStudyPageComponent,
+      ),
+    title: 'Case | Syntra',
+  },
+  {
     path: 'app',
     canActivate: [authGuard],
     loadComponent: () =>

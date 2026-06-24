@@ -1,19 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import {
+  FALLBACK_PRICING_PLANS,
+  PricingPlanCardView,
+  PublicPricingService,
+} from '../../../core/pricing/public-pricing.service';
 
 /**
- * Representa um card de plano exibido na landing page.
- */
-export interface PricingPlanCard {
-  name: 'Starter' | 'Team';
-  priceBrlMonthly: string;
-  description: string;
-  maxTrackedMembers: number;
-}
-
-/**
- * Seção de preços da landing com planos em BRL.
+ * Seção de preços da landing com planos em BRL carregados da API pública.
  */
 @Component({
   selector: 'app-pricing-section',
@@ -21,22 +16,25 @@ export interface PricingPlanCard {
   imports: [CommonModule, RouterLink],
   templateUrl: './pricing-section.component.html',
 })
-export class PricingSectionComponent {
+export class PricingSectionComponent implements OnInit {
+  loading = true;
+  plans: PricingPlanCardView[] = FALLBACK_PRICING_PLANS;
+
+  constructor(private readonly publicPricingService: PublicPricingService) {}
+
   /**
-   * Cards de preço visíveis publicamente na landing.
+   * Carrega planos públicos ao inicializar a seção.
    */
-  readonly plans: PricingPlanCard[] = [
-    {
-      name: 'Starter',
-      priceBrlMonthly: 'R$ 79',
-      description: 'Para times enxutos que precisam descobrir rapidamente quem sumiu.',
-      maxTrackedMembers: 25,
-    },
-    {
-      name: 'Team',
-      priceBrlMonthly: 'R$ 149',
-      description: 'Para equipes em crescimento que querem colaboração mais previsível.',
-      maxTrackedMembers: 75,
-    },
-  ];
+  ngOnInit(): void {
+    this.publicPricingService.fetchPricingCards().subscribe({
+      next: (plans) => {
+        this.plans = plans;
+        this.loading = false;
+      },
+      error: () => {
+        this.plans = FALLBACK_PRICING_PLANS;
+        this.loading = false;
+      },
+    });
+  }
 }

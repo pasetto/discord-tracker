@@ -1,0 +1,61 @@
+{
+  "name": "Syntra - Inatividade para Slack",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "syntra-inactivity",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-in",
+      "name": "Webhook Syntra",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.headers['x-syntra-event'] }}",
+              "operation": "equal",
+              "value2": "member.inactivity.detected"
+            }
+          ]
+        }
+      },
+      "id": "if-inactivity",
+      "name": "É inatividade semanal?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/REPLACE/WITH/YOUR_WEBHOOK",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": `:warning: ${$json.body.missingCount} colaborador(es) sumiram esta semana no Discord.`\n}"
+      },
+      "id": "slack-post",
+      "name": "Slack Incoming",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 0]
+    }
+  ],
+  "connections": {
+    "Webhook Syntra": {
+      "main": [[{ "node": "É inatividade semanal?", "type": "main", "index": 0 }]]
+    },
+    "É inatividade semanal?": {
+      "main": [[{ "node": "Slack Incoming", "type": "main", "index": 0 }]]
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

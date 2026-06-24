@@ -456,11 +456,11 @@ export const managerGuard: CanActivateFn = () => {
 
 ## Fase 3 — Crescer ticket e TAM
 
-**Critério de conclusão:** Login Google opcional; docs webhooks com exemplos n8n; plano Business na landing via API; 3 case studies publicados.
+**Critério de conclusão:** ~~Login Google opcional~~ **(pendente v1.1+)**; docs webhooks com exemplos n8n; plano Business na landing via API; 3 case studies publicados. ✅ **Concluída em 24/06/2026** (exceto Task 3.1).
 
 ---
 
-### Task 3.1: SSO Google Workspace
+### Task 3.1: SSO Google Workspace — **PENDENTE (fora do escopo desta entrega)**
 
 **Design sem breaking change:** Login email/senha permanece. Google é **login adicional**; conta linkada por email matching ou fluxo explícito de link.
 
@@ -632,11 +632,11 @@ flowchart LR
 | Seletor canais onboarding | 2.2 |
 | RoleGuard + viewer policy | 2.3 |
 | E2E signup → alerta | 2.4 |
-| SSO Google | 3.1 |
+| SSO Google | 3.1 **(pendente)** |
 | Webhooks documentados | 3.2 |
 | Business + export/API | 3.3 |
 | Case studies | 3.4 |
 | Sem breaking changes | Princípios + designs aditivos em cada task |
 | Testes em tudo | Checklist + TDD por task |
 
-**Gaps intencionais pós-plano (v1.2+):** sync Stripe ao editar plano admin, persistência histórica badges, multi-moeda, Slack/Teams.
+**Gaps intencionais pós-plano (v1.2+):** sync Stripe ao editar plano admin, persistência histórica badges, multi-moeda, **SSO Google Workspace (pendente por decisão de produto)**.

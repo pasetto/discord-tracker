@@ -320,7 +320,7 @@ Prefixo: `/api/v1`. Autenticação: `Authorization: Bearer <access_token>`.
 | Stripe | `/webhooks/stripe` | Assinatura Stripe |
 | Realtime | `/ws/live` | JWT (query/header) |
 
-Documentação interativa: **Swagger** em `/api/v1/docs`. Mapa detalhado: [backend/AGENTS.md](backend/AGENTS.md).
+Documentação interativa: **Swagger** em `/api/v1/docs`. Mapa detalhado: [backend/AGENTS.md](backend/AGENTS.md). Integrações webhook: [docs/integrations/webhooks.md](docs/integrations/webhooks.md).
 
 ---
 
@@ -367,14 +367,19 @@ Secrets: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `DEPLOY_PATH`.
 | Limiares inatividade na UI | Implementado |
 | Relatório ausências dedicado | Implementado |
 | Sync Stripe ao editar plano no admin | Pendente |
-| `RoleGuard` por papel tenant no frontend | Pendente |
+| `RoleGuard` por papel tenant no frontend | Implementado |
+| Email digest semanal + push intraday | Implementado |
+| PTO self-service (colaborador solicita) | Implementado |
+| Landing expandida + plano Business + cases | Implementado |
+| Docs webhooks (`docs/integrations/webhooks.md`) | Implementado |
+| E2E jornada signup → dashboard alerta | Implementado |
 | Push automático quinta (meta &lt; 50%) | Lógica pronta; worker pendente |
 | Preview ao vivo na tela de gamificação | Pendente |
 | Persistência histórica de badges (worker) | Pendente |
-| E2E completo signup → onboarding → relatório | Smoke apenas |
-| Seletor visual de canais Discord | Pendente |
+| Seletor visual de canais Discord | Implementado (settings + onboarding) |
 | Filtros ranking por role Discord | Pendente |
-| Email digest, SSO, multi-moeda, PTO self-service | v1.1+ |
+| SSO Google Workspace | Pendente (v1.1+) |
+| Multi-moeda | v1.1+ |
 
 ---
 

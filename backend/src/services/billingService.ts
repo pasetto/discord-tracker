@@ -106,6 +106,54 @@ function parseObjectId(value: string, label: string): Types.ObjectId {
 }
 
 /**
+ * Representação pública de plano para landing e checkout.
+ */
+export interface PublicPlanDto {
+  slug: string;
+  name: string;
+  description: string;
+  priceCents: number;
+  currency: 'BRL';
+  billingInterval: IPlan['billingInterval'];
+  limits: IPlan['limits'];
+  features: IPlan['features'];
+  trialDays: number;
+  sortOrder: number;
+}
+
+/**
+ * Converte documento de plano em DTO público (sem IDs Stripe).
+ * @param plan Plano Mongoose
+ * @returns Objeto serializável para API pública
+ */
+export function toPublicPlanDto(plan: IPlan): PublicPlanDto {
+  return {
+    slug: plan.slug,
+    name: plan.name,
+    description: plan.description,
+    priceCents: plan.priceCents,
+    currency: plan.currency,
+    billingInterval: plan.billingInterval,
+    limits: plan.limits,
+    features: plan.features,
+    trialDays: plan.trialDays,
+    sortOrder: plan.sortOrder,
+  };
+}
+
+/**
+ * Lista planos públicos e ativos para exibição na landing.
+ * @returns Planos ordenados por `sortOrder`
+ */
+export async function listPublicPlans(): Promise<PublicPlanDto[]> {
+  const plans = await PlanModel.find({ isActive: true, isPublic: true })
+    .sort({ sortOrder: 1, name: 1 })
+    .exec();
+
+  return plans.map(toPublicPlanDto);
+}
+
+/**
  * Busca plano público/ativo por slug para checkout.
  * @param {string} slug Slug do plano selecionado
  * @returns {Promise<IPlan>} Plano encontrado

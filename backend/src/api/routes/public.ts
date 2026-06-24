@@ -1,5 +1,6 @@
 import Router from '@koa/router';
 import { config } from '../../config/env';
+import { listPublicPlans } from '../../services/billingService';
 import { getPublicDiscordClientId } from '../../services/discordApplicationService';
 import { previewOrganizationInvite } from '../../services/organizationTeamService';
 
@@ -35,6 +36,19 @@ publicRouter.get('/public/config', async (ctx) => {
  *       - Public
  *     summary: Valida código de convite e retorna nome da organização
  */
+/**
+ * @openapi
+ * /pricing:
+ *   get:
+ *     tags:
+ *       - Public
+ *     summary: Lista planos públicos ativos para landing e checkout
+ */
+publicRouter.get('/pricing', async (ctx) => {
+  const plans = await listPublicPlans();
+  ctx.body = { plans };
+});
+
 publicRouter.get('/public/invite-codes/:inviteCode', async (ctx) => {
   try {
     const preview = await previewOrganizationInvite(ctx.params.inviteCode);
