@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test.describe('Smoke de relatório de inatividade', () => {
   test('landing menciona quem sumiu', async ({ page }) => {
     await page.goto('/landing');
-    await expect(page.getByText(/quem sumiu/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /quem sumiu/i })).toBeVisible();
   });
 
   test('rota de relatório exige autenticação', async ({ page }) => {

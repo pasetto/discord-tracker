@@ -206,9 +206,12 @@ onboardingRouter.put('/onboarding', async (ctx) => {
       return;
     }
 
+    const onboardingValue = organization.onboarding as IOnboardingProgress & {
+      toObject?: () => IOnboardingProgress;
+    };
     const currentOnboarding =
-      typeof organization.onboarding?.toObject === 'function'
-        ? organization.onboarding.toObject()
+      typeof onboardingValue?.toObject === 'function'
+        ? onboardingValue.toObject()
         : { ...organization.onboarding };
     const mergedOnboarding = { ...currentOnboarding, ...onboardingPatch };
 
