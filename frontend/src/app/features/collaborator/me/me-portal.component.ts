@@ -3,7 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { AuthService } from '../../../core/auth/auth.service';
 import { TrackedMemberOption, TrackedMembersService } from '../../../core/members/tracked-members.service';
 import { MemberSelectComponent } from '../../../shared/components/member-select/member-select.component';
-import { MeAbsenceSummary, MeCollaborationSummary, MeDataService } from './me-data.service';
+import { MeAbsenceSummary, MeCollaborationSummary, MeDataService, MeGamificationInsights } from './me-data.service';
 
 /**
  * Item de transparência LGPD sobre quais sinais são monitorados.
@@ -21,6 +21,7 @@ interface MeDataPanelState {
   errorMessage: string;
   collaboration: MeCollaborationSummary | null;
   absences: MeAbsenceSummary[] | null;
+  gamification: MeGamificationInsights | null;
   exportPreview: Record<string, unknown> | null;
 }
 
@@ -57,6 +58,7 @@ export class MePortalComponent implements OnInit {
     errorMessage: '',
     collaboration: null,
     absences: null,
+    gamification: null,
     exportPreview: null,
   };
 
@@ -133,6 +135,28 @@ export class MePortalComponent implements OnInit {
     this.meDataService.loadCollaborationSummary().subscribe({
       next: (response) => {
         this.panel.collaboration = response.summary;
+        this.panel.loading = false;
+      },
+      error: (error) => {
+        this.panel.loading = false;
+        this.panel.errorMessage = this.resolveErrorMessage(error);
+        if (error.status === 422) {
+          this.showDiscordLink = true;
+        }
+      },
+    });
+  }
+
+  /**
+   * Carrega badges e streak do colaborador.
+   */
+  loadGamification(): void {
+    this.panel.loading = true;
+    this.panel.errorMessage = '';
+
+    this.meDataService.loadGamification().subscribe({
+      next: (response) => {
+        this.panel.gamification = response.insights;
         this.panel.loading = false;
       },
       error: (error) => {

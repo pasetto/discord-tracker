@@ -94,7 +94,7 @@ function parseObjectId(value: string, label: string): Types.ObjectId {
  * @returns Flags de recurso e identificação do plano
  * @throws {Error} Quando organização/plano não existir
  */
-async function getOrganizationPlanContext(
+export async function getOrganizationPlanContext(
   organizationId: Types.ObjectId,
 ): Promise<GamificationPlanFeatures & GamificationPlanInfo> {
   const organization = await OrganizationModel.findById(organizationId)

@@ -5,6 +5,8 @@ import {
   getGamificationSettings,
   upsertGamificationSettings,
 } from '../../services/gamificationService';
+import { getGamificationRankingReport } from '../../services/gamificationRankingService';
+import { getGuildGamificationInsights } from '../../services/gamificationInsightsService';
 
 /**
  * Membership de organização presente no JWT.
@@ -42,6 +44,7 @@ interface GamificationPatchPayload {
 }
 
 const MANAGER_ROLES = new Set(['owner', 'admin', 'manager']);
+const VIEWER_ROLES = new Set(['owner', 'admin', 'manager', 'viewer']);
 
 /** Rotas de configuração de gamificação por guild. */
 export const gamificationRouter = new Router();
@@ -68,6 +71,18 @@ function assertManagerRole(ctx: Router.RouterContext, organizationId: string): v
   const role = getMembershipRole(ctx, organizationId);
   if (!role || !MANAGER_ROLES.has(role)) {
     ctx.throw(403, 'Permissão insuficiente para gerenciar gamificação');
+  }
+}
+
+/**
+ * Garante permissão mínima de visualização do ranking gamificado.
+ * @param ctx Contexto Koa da requisição
+ * @param organizationId Organização do tenant atual
+ */
+function assertViewerRole(ctx: Router.RouterContext, organizationId: string): void {
+  const role = getMembershipRole(ctx, organizationId);
+  if (!role || !VIEWER_ROLES.has(role)) {
+    ctx.throw(403, 'Permissão insuficiente para visualizar ranking');
   }
 }
 
@@ -163,6 +178,86 @@ gamificationRouter.put('/guilds/:guildId/gamification', async (ctx) => {
     });
 
     ctx.body = result;
+  } catch (error) {
+    ctx.status = mapHttpStatus(error);
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /org/{orgId}/guilds/{guildId}/gamification/ranking:
+ *   get:
+ *     tags:
+ *       - Gamification
+ *     summary: Ranking gamificado conforme configuração da guild
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Ranking do período configurado
+ */
+gamificationRouter.get('/guilds/:guildId/gamification/ranking', async (ctx) => {
+  try {
+    const { organizationId, userId } = getRequestIdentity(ctx);
+    assertViewerRole(ctx, organizationId);
+
+    const referenceDate =
+      typeof ctx.query.referenceDate === 'string' ? new Date(ctx.query.referenceDate) : new Date();
+    if (Number.isNaN(referenceDate.getTime())) {
+      ctx.status = 400;
+      ctx.body = { error: 'referenceDate inválida' };
+      return;
+    }
+
+    const report = await getGamificationRankingReport({
+      organizationId,
+      guildId: ctx.params.guildId,
+      viewerPlatformUserId: userId,
+      viewerRole: getMembershipRole(ctx, organizationId),
+      referenceDate,
+    });
+
+    ctx.body = { report };
+  } catch (error) {
+    ctx.status = mapHttpStatus(error);
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /org/{orgId}/guilds/{guildId}/gamification/insights:
+ *   get:
+ *     tags:
+ *       - Gamification
+ *     summary: Conquistas (badges e streaks) dos membros rastreados
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Badges e streaks por colaborador
+ */
+gamificationRouter.get('/guilds/:guildId/gamification/insights', async (ctx) => {
+  try {
+    const { organizationId } = getRequestIdentity(ctx);
+    assertViewerRole(ctx, organizationId);
+
+    const referenceDate =
+      typeof ctx.query.referenceDate === 'string' ? new Date(ctx.query.referenceDate) : new Date();
+    if (Number.isNaN(referenceDate.getTime())) {
+      ctx.status = 400;
+      ctx.body = { error: 'referenceDate inválida' };
+      return;
+    }
+
+    const insights = await getGuildGamificationInsights({
+      organizationId,
+      guildId: ctx.params.guildId,
+      referenceDate,
+    });
+
+    ctx.body = { insights };
   } catch (error) {
     ctx.status = mapHttpStatus(error);
     ctx.body = { error: (error as Error).message };

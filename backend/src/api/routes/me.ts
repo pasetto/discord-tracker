@@ -10,6 +10,7 @@ import { PlannedAbsenceModel, PlannedAbsenceStatus, PlannedAbsenceType } from '.
 import { AuditTrailExportEntry, listAuditTrailExportStub } from '../../services/auditLogService';
 import { signAccessToken } from '../../services/authService';
 import { buildAuthPayloadFromPlatformUser } from '../../services/platformAuthService';
+import { getMemberGamificationInsights } from '../../services/gamificationInsightsService';
 
 const VIEWER_ROLES = new Set(['owner', 'admin', 'manager', 'viewer']);
 
@@ -564,6 +565,53 @@ meRouter.get('/me/data-export', async (ctx) => {
         },
       },
     };
+  } catch (error) {
+    const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
+    ctx.status = status;
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /me/gamification:
+ *   get:
+ *     tags:
+ *       - Me
+ *     summary: Badges e streak do colaborador autenticado
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: guildId
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Conquistas e streak do titular
+ */
+meRouter.get('/me/gamification', async (ctx) => {
+  try {
+    const identity = await resolveMeIdentity(ctx);
+    const trackedProfiles = await listTrackedProfiles(identity);
+    const requestedGuildId = typeof ctx.query.guildId === 'string' ? ctx.query.guildId.trim() : '';
+    const profile =
+      trackedProfiles.find((item) => item.guildId === requestedGuildId) ?? trackedProfiles[0];
+
+    if (!profile) {
+      ctx.status = 404;
+      ctx.body = { error: 'Nenhum perfil rastreado encontrado para este usuário' };
+      return;
+    }
+
+    const insights = await getMemberGamificationInsights({
+      organizationId: identity.organizationId,
+      guildId: profile.guildId,
+      discordId: identity.discordId,
+      displayName: profile.displayName,
+    });
+
+    ctx.body = { insights };
   } catch (error) {
     const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
     ctx.status = status;

@@ -49,6 +49,16 @@ const loadAbsencesReport = () =>
     (module) => module.AbsencesReportComponent,
   );
 
+const loadRankingReport = () =>
+  import('./features/reports/ranking/ranking-report.component').then(
+    (module) => module.RankingReportComponent,
+  );
+
+const loadAchievementsReport = () =>
+  import('./features/reports/achievements/achievements-report.component').then(
+    (module) => module.AchievementsReportComponent,
+  );
+
 const loadCalendarSettings = () =>
   import('./features/settings/calendar/calendar-settings.component').then(
     (module) => module.CalendarSettingsComponent,
@@ -147,6 +157,16 @@ const featureRoutes: Routes = [
         path: 'absences',
         loadComponent: loadAbsencesReport,
         title: 'Ausências em andamento | Syntra',
+      },
+      {
+        path: 'ranking',
+        loadComponent: loadRankingReport,
+        title: 'Ranking de colaboração | Syntra',
+      },
+      {
+        path: 'achievements',
+        loadComponent: loadAchievementsReport,
+        title: 'Conquistas do time | Syntra',
       },
     ],
   },

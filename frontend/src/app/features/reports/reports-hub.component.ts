@@ -36,5 +36,15 @@ export class ReportsHubComponent {
       path: 'absences',
       description: 'Férias, PTO e licenças ativas no momento',
     },
+    {
+      label: 'Ranking',
+      path: 'ranking',
+      description: 'Top colaboradores conforme gamificação configurada',
+    },
+    {
+      label: 'Conquistas',
+      path: 'achievements',
+      description: 'Badges e streaks do time',
+    },
   ];
 }

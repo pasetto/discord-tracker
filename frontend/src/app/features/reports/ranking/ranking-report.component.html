@@ -1,0 +1,106 @@
+<section class="space-y-4">
+  <section *ngIf="!hasGuild" class="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-500/10">
+    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Configure o Discord primeiro</h3>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">Selecione um servidor para ver o ranking gamificado.</p>
+    <a routerLink="/app/settings/discord" class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+      Configurar Discord
+    </a>
+  </section>
+
+  <section *ngIf="hasGuild" class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <div class="text-sm text-gray-600 dark:text-gray-300">
+      <p>Servidor: <strong>{{ guildName }}</strong></p>
+      @if (report?.available) {
+        <p class="mt-1 text-xs text-gray-500">{{ periodLabel }} · {{ metricLabel }}</p>
+      }
+    </div>
+    <button
+      type="button"
+      class="min-h-11 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
+      (click)="loadReport()"
+      [disabled]="loading"
+    >
+      {{ loading ? 'Carregando...' : 'Atualizar ranking' }}
+    </button>
+  </section>
+
+  @if (errorMessage) {
+    <p class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ errorMessage }}</p>
+  }
+
+  @if (loading && !report) {
+    <p class="rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-500 dark:border-gray-800 dark:bg-white/[0.03]">
+      Carregando ranking...
+    </p>
+  }
+
+  @if (report && !report.available) {
+    <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-500/10">
+      <h3 class="font-semibold text-gray-900 dark:text-white">Ranking indisponível</h3>
+      <p class="mt-2 text-sm text-gray-700 dark:text-gray-200">{{ report.reason }}</p>
+      <a routerLink="/app/settings/gamification" class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+        Configurar gamificação
+      </a>
+    </section>
+  }
+
+  @if (report?.available) {
+    <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <div class="flex flex-col gap-1 text-sm text-gray-600 dark:text-gray-300">
+        <p><strong>Período:</strong> {{ report!.periodStart | date: 'dd/MM/yyyy' }} – {{ report!.periodEnd | date: 'dd/MM/yyyy' }}</p>
+        <p><strong>Visibilidade:</strong> {{ report!.visibility }}</p>
+        @if (report!.viewerPosition) {
+          <p><strong>Sua posição:</strong> {{ report!.viewerPosition }}º</p>
+        }
+      </div>
+
+      @if (report!.entries.length === 0) {
+        <p class="rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
+          Nenhum dado de colaboração no período. O ranking aparece quando há horas registradas para membros rastreados.
+        </p>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-left text-sm">
+            <thead class="border-b border-gray-200 text-gray-500 dark:border-gray-700">
+              <tr>
+                <th class="px-3 py-2">#</th>
+                <th class="px-3 py-2">Colaborador</th>
+                <th class="px-3 py-2">{{ metricLabel }}</th>
+                @if (report!.showExactHours && report!.metric !== 'collaboration_score') {
+                  <th class="px-3 py-2 hidden sm:table-cell">Voz</th>
+                  <th class="px-3 py-2 hidden md:table-cell">Online</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (entry of report!.entries; track entry.discordId) {
+                <tr
+                  class="border-b border-gray-100 dark:border-gray-800"
+                  [class.bg-brand-50]="entry.isViewer"
+                  [class.dark:bg-brand-500/10]="entry.isViewer"
+                >
+                  <td class="px-3 py-3 font-semibold text-gray-800 dark:text-white">{{ entry.position }}</td>
+                  <td class="px-3 py-3">
+                    <span class="font-medium text-gray-900 dark:text-white">{{ entry.displayName }}</span>
+                    @if (entry.isViewer) {
+                      <span class="ml-2 text-xs text-brand-600">(você)</span>
+                    }
+                  </td>
+                  <td class="px-3 py-3 font-medium text-brand-700 dark:text-brand-300">{{ entry.metricLabel }}</td>
+                  @if (report!.showExactHours && report!.metric !== 'collaboration_score') {
+                    <td class="px-3 py-3 hidden text-gray-600 sm:table-cell dark:text-gray-400">{{ entry.voiceHours | number: '1.1-1' }} h</td>
+                    <td class="px-3 py-3 hidden text-gray-600 md:table-cell dark:text-gray-400">{{ entry.onlineHours | number: '1.1-1' }} h</td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      @if (report!.anonymousMode) {
+        <p class="text-xs text-gray-500">Modo anônimo ativo — nomes de outros colaboradores estão mascarados.</p>
+      }
+    </section>
+  }
+</section>

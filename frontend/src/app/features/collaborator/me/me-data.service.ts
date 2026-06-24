@@ -42,6 +42,39 @@ export interface MeAbsenceSummary {
 }
 
 /**
+ * Badge conquistado pelo colaborador.
+ */
+export interface MeGamificationBadge {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  earnedInPeriod: string;
+}
+
+/**
+ * Streak do colaborador no portal /me.
+ */
+export interface MeGamificationStreak {
+  enabled: boolean;
+  currentDays: number;
+  minHoursPerDay: number;
+  lastQualifiedDate: string | null;
+}
+
+/**
+ * Insights de gamificação do colaborador autenticado.
+ */
+export interface MeGamificationInsights {
+  discordId: string;
+  displayName: string;
+  badgesEnabled: boolean;
+  streaksEnabled: boolean;
+  badges: MeGamificationBadge[];
+  streak: MeGamificationStreak;
+}
+
+/**
  * Serviço de autoatendimento do portal colaborador (`/me`).
  */
 @Injectable({ providedIn: 'root' })
@@ -70,6 +103,16 @@ export class MeDataService {
    */
   loadDataExport(): Observable<{ exportData: Record<string, unknown> }> {
     return this.httpClient.get<{ exportData: Record<string, unknown> }>('/api/v1/me/data-export');
+  }
+
+  /**
+   * Carrega badges e streak do colaborador autenticado.
+   * @param guildId Servidor Discord (opcional)
+   * @returns Observable com conquistas e streak
+   */
+  loadGamification(guildId?: string): Observable<{ insights: MeGamificationInsights }> {
+    const params = guildId ? `?guildId=${encodeURIComponent(guildId)}` : '';
+    return this.httpClient.get<{ insights: MeGamificationInsights }>(`/api/v1/me/gamification${params}`);
   }
 
   /**
