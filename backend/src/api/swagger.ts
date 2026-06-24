@@ -1,0 +1,39 @@
+import swaggerJsdoc from 'swagger-jsdoc';
+import type { Options } from 'swagger-jsdoc';
+
+const swaggerOptions: Options = {
+  definition: {
+    openapi: '3.0.3',
+    info: {
+      title: 'Syntra Backend API',
+      version: '1.0.0',
+      description: 'Documentação HTTP da API do backend Syntra.',
+    },
+    servers: [{ url: '/api/v1' }],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+    },
+  },
+  apis: [`${__dirname}/routes/*.{ts,js}`],
+};
+
+/**
+ * Gera e mantém em cache o documento OpenAPI da API HTTP.
+ * @returns Documento OpenAPI 3 em formato JSON serializável
+ */
+export function getOpenApiSpec(): object {
+  if (cachedSpec) {
+    return cachedSpec;
+  }
+
+  cachedSpec = swaggerJsdoc(swaggerOptions);
+  return cachedSpec;
+}
+
+let cachedSpec: object | null = null;

@@ -1,0 +1,138 @@
+<section class="space-y-6">
+  <header class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Configurações de calendário</h2>
+    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+      Defina jornada semanal e feriados usados no cálculo de colaboração.
+    </p>
+  </header>
+
+  <section class="flex justify-end rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <button
+      type="button"
+      class="min-h-11 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
+      (click)="loadCalendar()"
+      [disabled]="loading"
+    >
+      {{ loading ? 'Carregando...' : 'Recarregar calendário' }}
+    </button>
+  </section>
+
+  <section
+    *ngIf="calendar"
+    class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]"
+  >
+    <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Jornada semanal</h3>
+    <div class="grid gap-3">
+      <article
+        *ngFor="let item of weekItems"
+        class="grid gap-3 rounded-xl border border-gray-200 p-4 md:grid-cols-[160px_1fr_1fr] md:items-center dark:border-gray-700"
+      >
+        <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+          <input type="checkbox" [(ngModel)]="getDaySchedule(item.key).enabled" />
+          {{ item.label }}
+        </label>
+        <label class="flex flex-col gap-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          Início
+          <input
+            type="time"
+            class="rounded-lg border border-gray-300 px-3 py-2 text-sm normal-case dark:border-gray-700 dark:bg-gray-900"
+            [(ngModel)]="getDaySchedule(item.key).startTime"
+            [disabled]="!getDaySchedule(item.key).enabled"
+          />
+        </label>
+        <label class="flex flex-col gap-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          Fim
+          <input
+            type="time"
+            class="rounded-lg border border-gray-300 px-3 py-2 text-sm normal-case dark:border-gray-700 dark:bg-gray-900"
+            [(ngModel)]="getDaySchedule(item.key).endTime"
+            [disabled]="!getDaySchedule(item.key).enabled"
+          />
+        </label>
+      </article>
+    </div>
+  </section>
+
+  <section
+    *ngIf="calendar"
+    class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]"
+  >
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Feriados</h3>
+      <button
+        type="button"
+        class="min-h-11 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-white/5 sm:w-auto"
+        (click)="addHoliday()"
+      >
+        Adicionar feriado
+      </button>
+    </div>
+
+    <div class="space-y-3">
+      <article
+        *ngFor="let holiday of calendar.holidays; let idx = index"
+        class="grid gap-3 rounded-xl border border-gray-200 p-4 md:grid-cols-[140px_1fr_140px_auto] dark:border-gray-700"
+      >
+        <label class="flex flex-col gap-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          Data
+          <input
+            type="date"
+            class="rounded-lg border border-gray-300 px-3 py-2 text-sm normal-case dark:border-gray-700 dark:bg-gray-900"
+            [(ngModel)]="holiday.date"
+          />
+        </label>
+        <label class="flex flex-col gap-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          Nome
+          <input
+            class="rounded-lg border border-gray-300 px-3 py-2 text-sm normal-case dark:border-gray-700 dark:bg-gray-900"
+            [(ngModel)]="holiday.name"
+            placeholder="Ex.: Recesso empresa"
+          />
+        </label>
+        <label class="flex flex-col gap-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          Tipo
+          <select
+            class="rounded-lg border border-gray-300 px-3 py-2 text-sm normal-case dark:border-gray-700 dark:bg-gray-900"
+            [(ngModel)]="holiday.type"
+          >
+            <option value="company_custom">Empresa</option>
+            <option value="national_br">Nacional BR</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          class="min-h-11 w-full self-end rounded-lg border border-error-300 px-3 py-2 text-sm font-medium text-error-600 hover:bg-error-50 md:w-auto"
+          (click)="removeHoliday(idx)"
+        >
+          Remover
+        </button>
+      </article>
+    </div>
+
+    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+      <button
+        type="button"
+        class="min-h-11 w-full rounded-lg bg-success-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-success-700 disabled:opacity-60 sm:w-auto"
+        (click)="saveCalendar()"
+        [disabled]="saving"
+      >
+        {{ saving ? 'Salvando...' : 'Salvar calendário' }}
+      </button>
+      <button
+        type="button"
+        class="min-h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-white/5 sm:w-auto"
+        (click)="seedBrazilHolidays()"
+        [disabled]="seeding"
+      >
+        {{ seeding ? 'Aplicando seed...' : 'Seed feriados BR (2026-2028)' }}
+      </button>
+    </div>
+  </section>
+
+  <p *ngIf="successMessage" class="rounded-lg border border-success-300 bg-success-50 px-3 py-2 text-sm text-success-700">
+    {{ successMessage }}
+  </p>
+  <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">
+    {{ errorMessage }}
+  </p>
+</section>

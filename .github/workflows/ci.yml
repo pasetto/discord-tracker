@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev, develop]
+
+jobs:
+  backend:
+    name: Backend (Vitest + lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Lint TypeScript
+        run: npm run lint --workspace=backend
+
+      - name: Testes unitários com cobertura
+        run: npm run test:coverage --workspace=backend
+
+      - name: Build
+        run: npm run build --workspace=backend
+
+  frontend:
+    name: Frontend (Karma + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Build produção
+        run: npm run build --workspace=frontend
+
+      - name: Testes unitários com cobertura (headless)
+        run: npm run test:coverage --workspace=frontend
+
+  frontend-e2e:
+    name: Frontend E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Instalar Chromium do Playwright
+        run: npx playwright install chromium
+
+      - name: Smoke e2e onboarding + landing
+        run: npm run test:e2e --workspace=frontend

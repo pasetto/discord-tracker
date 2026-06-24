@@ -1,0 +1,66 @@
+<main class="min-h-screen bg-gray-50 px-4 py-12 text-gray-900 dark:bg-gray-950 dark:text-white sm:px-6">
+  <div class="mx-auto max-w-4xl">
+    <a routerLink="/landing" class="text-sm font-medium text-brand-600 hover:underline dark:text-brand-300">← Voltar para a landing</a>
+
+    <ng-container *ngIf="!selected && !notFound">
+      <header class="mt-6">
+        <h1 class="text-3xl font-bold">Cases de times no Discord</h1>
+        <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">
+          Como empresas usam o Syntra para ver colaboração e quem sumiu — sem invadir privacidade.
+        </p>
+      </header>
+
+      <div class="mt-8 space-y-4">
+        <article
+          *ngFor="let study of studies"
+          class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]"
+        >
+          <p class="text-xs font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-300">{{ study.industry }}</p>
+          <h2 class="mt-2 text-xl font-semibold">{{ study.title }}</h2>
+          <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ study.subtitle }}</p>
+          <a
+            [routerLink]="['/case-studies', study.slug]"
+            class="mt-4 inline-flex text-sm font-medium text-brand-600 hover:underline dark:text-brand-300"
+          >
+            Ler case completo
+          </a>
+        </article>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="selected">
+      <header class="mt-6">
+        <p class="text-xs font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-300">{{ selected.industry }} · {{ selected.teamSize }}</p>
+        <h1 class="mt-2 text-3xl font-bold">{{ selected.title }}</h1>
+        <p class="mt-3 text-base text-gray-600 dark:text-gray-300">{{ selected.subtitle }}</p>
+      </header>
+
+      <section class="mt-8 space-y-6 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div>
+          <h2 class="text-lg font-semibold">Desafio</h2>
+          <p class="mt-2 text-sm text-gray-700 dark:text-gray-200">{{ selected.challenge }}</p>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold">Como o Syntra ajudou</h2>
+          <p class="mt-2 text-sm text-gray-700 dark:text-gray-200">{{ selected.solution }}</p>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold">Resultados</h2>
+          <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700 dark:text-gray-200">
+            <li *ngFor="let result of selected.results">{{ result }}</li>
+          </ul>
+        </div>
+        <blockquote *ngIf="selected.quote" class="border-l-4 border-brand-400 pl-4 text-sm italic text-gray-700 dark:text-gray-200">
+          "{{ selected.quote }}"
+          <footer *ngIf="selected.quoteAuthor" class="mt-2 not-italic text-xs text-gray-500">— {{ selected.quoteAuthor }}</footer>
+        </blockquote>
+      </section>
+
+      <a routerLink="/signup" class="mt-8 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white hover:bg-brand-600">
+        Experimentar no seu time
+      </a>
+    </ng-container>
+
+    <p *ngIf="notFound" class="mt-8 text-sm text-error-600">Case não encontrado.</p>
+  </div>
+</main>

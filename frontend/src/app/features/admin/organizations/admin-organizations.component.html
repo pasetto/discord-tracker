@@ -1,0 +1,42 @@
+<section class="space-y-4">
+  <header class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-950">
+    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Organizações</h2>
+    <p class="text-sm text-gray-500">{{ total }} tenant(s) cadastrado(s)</p>
+  </header>
+
+  @if (errorMessage) {
+    <p class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ errorMessage }}</p>
+  }
+
+  <div class="overflow-x-auto rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
+    @if (loading) {
+      <p class="p-5 text-sm text-gray-500">Carregando…</p>
+    } @else {
+      <table class="min-w-full text-left text-sm">
+        <thead class="border-b border-gray-200 text-gray-500 dark:border-gray-800">
+          <tr>
+            <th class="px-4 py-3">Organização</th>
+            <th class="px-4 py-3">Plano</th>
+            <th class="px-4 py-3">Assinatura</th>
+            <th class="px-4 py-3">Criada em</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (org of organizations; track org.id) {
+            <tr class="border-b border-gray-100 dark:border-gray-800">
+              <td class="px-4 py-3">
+                <p class="font-medium text-gray-900 dark:text-white">{{ org.name }}</p>
+                <p class="text-xs text-gray-500">{{ org.slug }}</p>
+              </td>
+              <td class="px-4 py-3">{{ org.planName }}</td>
+              <td class="px-4 py-3">
+                <span class="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700">{{ org.subscriptionStatus }}</span>
+              </td>
+              <td class="px-4 py-3 text-xs text-gray-500">{{ org.createdAt | date: 'dd/MM/yyyy' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</section>

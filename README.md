@@ -1,222 +1,387 @@
-# Discord Tracker
+# Syntra
 
-Bot Discord para monitoramento contínuo de presença e atividade em canais de voz, com histórico detalhado para relatórios de jornada e auditoria.
+SaaS B2B de **colaboração** para times remotos no Discord — foco em **quem sumiu**: inatividade, ausências planejadas (PTO), metas individuais, sinais de texto (somente metadados) e gamificação opcional (ranking, badges, streaks).
+
+Monorepo **npm workspaces**: `backend/` (API + bot Discord) + `frontend/` (Angular 21 + TailAdmin + PWA).
+
+| Documento | Conteúdo |
+|-----------|----------|
+| [Design spec](docs/superpowers/specs/2026-06-20-pulsedesk-saas-design.md) | Arquitetura, modelos, API, fases |
+| [Plano de implementação](docs/superpowers/plans/2026-06-20-syntra-saas-implementation.md) | Tasks por fase |
+| [AGENTS.md](AGENTS.md) | Regras gerais para agentes e desenvolvedores |
+| [backend/AGENTS.md](backend/AGENTS.md) | Mapa de rotas API, serviços, convenções backend |
+| [frontend/AGENTS.md](frontend/AGENTS.md) | Rotas UI, guards, integração API |
+
+---
+
+## Funcionalidades (MVP)
+
+### Core — quem sumiu
+
+| Área | Backend | Frontend |
+|------|---------|----------|
+| Inatividade intraday/semanal | `InactivityService` + cron | `/app/dashboard`, `/app/reports/inactivity` |
+| Calendário + feriados BR | `WorkCalendar` | `/app/settings/calendar` |
+| PTO / ausências | `PlannedAbsence` | `/app/settings/absences`, `/app/reports/absences` |
+| Metas individuais | `UserCollaborationGoal` | `/app/settings/goals`, `/app/reports/goals` |
+| Sinais de texto (metadados) | `TextActivityEvent` | — |
+
+### Operação do time
+
+| Área | Backend | Frontend |
+|------|---------|----------|
+| Bot Discord multitenant | `DiscordApplication`, `GuildConnection` | `/app/settings/discord` |
+| Regras de canais | `ChannelRule` | `/app/settings/channels` |
+| Categorias + membros rastreados | `trackedUserService` | `/app/settings/categories` |
+| Dashboard ao vivo + WebSocket | `dashboardLiveService`, `/ws/live` | `/app/live` |
+| Onboarding 8 passos | API de progresso | `/app/onboarding` |
+| Portal colaborador LGPD | `/me/*` | `/app/me` |
+
+### Gamificação (plano Team+)
+
+| Área | Backend | Frontend |
+|------|---------|----------|
+| Config por guild | `gamificationService` | `/app/settings/gamification` |
+| Ranking configurável | `gamificationRankingService` | `/app/reports/ranking` |
+| Badges + streaks (on-read) | `gamificationInsightsService` | `/app/reports/achievements`, `/app/me` |
+
+### Plataforma
+
+| Área | Backend | Frontend |
+|------|---------|----------|
+| Auth email + OAuth Discord | JWT access/refresh | login, signup, guards |
+| Billing Stripe BRL | checkout + webhooks | landing pricing |
+| Super Admin | `adminPlanService`, `adminPlatformService` | `/admin/*` |
+| Web Push (VAPID) | subscribe + alertas | PWA |
+| Webhooks outbound | HMAC + worker | — |
+| Export CSV + audit | `/export`, audit log | `/me` data-export |
+| Swagger | `/api/v1/docs` | — |
+
+---
+
+## Papéis e autorização
+
+### Plataforma (`PlatformUser`)
+
+| Flag | Acesso |
+|------|--------|
+| `isSuperAdmin: true` | Painel `/admin/*`, API `/api/v1/admin/*` |
+
+Não é role de tenant — é flag na conta da plataforma. Promovido em `/admin/users` ou via seed/MongoDB.
+
+### Tenant (por organização)
+
+| Papel | Relatórios | Configurações | Gamificação |
+|-------|------------|---------------|-------------|
+| `viewer` | Sim | Não | Ranking/conquistas (visibilidade aplicada) |
+| `manager` | Sim | Maioria | Config + visão completa |
+| `admin` / `owner` | Sim | Tudo | Tudo |
+
+Toda rota `/api/v1/org/:orgId/*` valida membership via JWT + `tenantMiddleware`.
+
+---
+
+## Navegação (gestor)
+
+| Rota | Função |
+|------|--------|
+| `/app/dashboard` | Início — alertas quem sumiu hoje/semana |
+| `/app/live` | Time ao vivo — presença, movimentação, ranking operacional |
+| `/app/reports/inactivity` | **Core** — relatório quem sumiu |
+| `/app/reports/goals` | Metas vs horas colaborativas |
+| `/app/reports/absences` | Ausências em andamento |
+| `/app/reports/ranking` | Ranking gamificado (métrica/período configuráveis) |
+| `/app/reports/achievements` | Badges e streaks do time |
+| `/app/settings/*` | Discord, canais, categorias, calendário, PTO, metas, inatividade, gamificação |
+| `/app/onboarding` | Setup inicial (8 passos) — fora da sidebar |
+| `/app/me` | Portal do colaborador — dados próprios + conquistas |
+
+**Sidebar:** Início · Time ao vivo · Relatórios · Configurações  
+**Mobile:** bottom nav com os mesmos atalhos  
+**Onboarding / Meu portal:** banner + menu do usuário
+
+---
+
+## Gamificação
+
+### Planos
+
+Features controladas em `Plan.features` (editável em `/admin/plans`):
+
+| Feature | Plano típico |
+|---------|--------------|
+| `gamification` | Team+ |
+| `ranking` | Team+ |
+
+Se o ranking aparecer bloqueado com plano Team, verifique se o documento `Plan` no MongoDB tem `features.ranking: true` (re-seed: `npm run seed:plans --workspace=backend`).
+
+### Configuração (`GamificationSettings`)
+
+- **Toggles:** gamificação global, ranking, badges, streaks
+- **Ranking:** métrica (horas colaborativas, voz, texto), período (dia/semana/mês), top N, visibilidade (todos / gestores / anônimo parcial)
+- **Badges:** pacote `minimal` | `standard` | `full`
+- **Streaks:** mínimo de horas colaborativas por dia para contar o dia
+
+### Badges por pacote
+
+| Pacote | Badges |
+|--------|--------|
+| `minimal` | Madrugador, Colaborador |
+| `standard` | + Campeão de voz |
+| `full` | + Sinal de texto, Presença constante |
+
+Cálculo **on-the-fly** (sem histórico persistido no MVP) — baseado em sessões de voz, presença e eventos de texto.
+
+### API
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `GET` | `/org/:orgId/guilds/:guildId/gamification` | Config atual |
+| `PUT` | `/org/:orgId/guilds/:guildId/gamification` | Atualizar config (manager+) |
+| `GET` | `.../gamification/ranking` | Ranking do período |
+| `GET` | `.../gamification/insights` | Badges + streaks do time |
+| `GET` | `/me/gamification?guildId=` | Conquistas do colaborador logado |
+
+---
+
+## Painel Super Admin (`/admin`)
+
+Acesso restrito a `isSuperAdmin: true` em `PlatformUser`.
+
+| Rota UI | API | Função |
+|---------|-----|--------|
+| `/admin` | — | Visão geral |
+| `/admin/plans` | `GET/POST/PATCH /api/v1/admin/plans` | Planos — preço, limites, **features** |
+| `/admin/users` | `GET/PATCH /api/v1/admin/users` | Contas; promover/revogar super admin |
+| `/admin/organizations` | `GET /api/v1/admin/organizations` | Tenants e assinaturas |
+| `/admin/discord` | `/api/v1/admin/discord/*` | Bot compartilhado da plataforma |
+
+**Promover super admin (dev):**
+
+```bash
+npm run seed:discord-app --workspace=backend
+# ou no MongoDB:
+db.platformusers.updateOne({ email: "seu@email.com" }, { $set: { isSuperAdmin: true } })
+```
+
+Após login/refresh, o menu exibe **Painel da plataforma**.
+
+---
 
 ## Stack
 
-- Node.js 22+
-- TypeScript
-- Discord.js v14
-- MongoDB + Mongoose
-- Koa (API HTTP)
-- Pino (logs)
-- prom-client (métricas Prometheus)
-- PM2 (produção)
-- Docker + Docker Compose
+| Camada | Tecnologias |
+|--------|-------------|
+| Backend | Node.js 22, TypeScript, Koa, discord.js 14, Mongoose, Vitest, Supertest |
+| Frontend | Angular 21, Tailwind CSS 4, TailAdmin, Karma, Playwright |
+| Infra | MongoDB 7, Docker Compose, GitHub Actions, Stripe, web-push |
 
-## Funcionalidades
+---
 
-- Monitoramento de status: ONLINE, IDLE, DND, OFFLINE, INVISIBLE
-- Eventos de voz: entrada, saída, troca, movimentação, AFK automático, reconexão
-- Tempo produtivo vs canais ignorados (AFK, Almoço)
-- Recuperação automática de sessões após reinício
-- API REST com healthcheck, stats, relatórios e ranking
-- Dashboard web (EJS)
-- Métricas Prometheus em `/metrics`
+## Estrutura do monorepo
+
+```
+discord-tracker/
+├── backend/
+│   ├── src/
+│   │   ├── api/           # Rotas Koa, middleware, Swagger, WebSocket
+│   │   ├── bot/           # Cliente Discord e eventos
+│   │   ├── db/models/     # Schemas Mongoose multitenant
+│   │   ├── services/      # Lógica de negócio
+│   │   └── workers/       # Crons (inatividade, webhooks)
+│   └── tests/
+├── frontend/
+│   └── src/app/
+│       ├── core/          # Auth, admin API, tenant, guards, push
+│       └── features/      # landing, dashboard, live, reports, settings, admin, /me
+├── docs/
+├── .github/workflows/     # CI + deploy SSH
+├── docker-compose.yml
+└── package.json           # workspaces: backend, frontend
+```
+
+---
 
 ## Pré-requisitos
 
-- Node.js 22+
-- MongoDB 7+
-- Bot Discord com intents:
-  - `Guilds`
-  - `GuildMembers`
-  - `GuildPresences` (Privileged)
-  - `GuildVoiceStates`
+- **Node.js 22+**
+- **MongoDB 7+** (local ou via Docker)
+- Aplicação Discord com intents privilegiados:
+  - `Guilds`, `GuildMembers`, `GuildPresences`, `GuildVoiceStates`, `GuildMessages` (metadados)
 
-> **Importante:** Ative *Server Members Intent* e *Presence Intent* no [Discord Developer Portal](https://discord.com/developers/applications).
+> Em produção, credenciais do bot e guild monitorado são configurados **via UI**, não por variáveis de ambiente.
+
+---
 
 ## Instalação
 
 ```bash
-# Clone e entre no diretório
+git clone <repo-url>
 cd discord-tracker
 
-# Instale dependências
-npm install
+npm ci
 
-# Configure variáveis de ambiente
 cp .env.example .env
-# Edite .env com seu DISCORD_TOKEN e demais configs
+# Preencha ENCRYPTION_KEY, JWT_SECRET e demais vars de infra
 
-# Desenvolvimento
-npm run dev
-
-# Build produção
-npm run build
-npm start
+npm run seed:plans --workspace=backend   # catálogo Starter/Team (dev)
 ```
+
+---
+
+## Desenvolvimento local
+
+```bash
+# Terminal 1 — API + bot (:3000)
+npm run dev:backend
+
+# Terminal 2 — Angular com proxy para API (:4200)
+npm run dev:frontend
+```
+
+### Configurar o bot Discord (obrigatório — **sem** `DISCORD_TOKEN` no `.env`)
+
+1. Gere `ENCRYPTION_KEY` (32 bytes base64) no `.env`
+2. **Remova** `DISCORD_TOKEN`, `DISCORD_GUILD_ID` e `DISCORD_OAUTH_*` do `.env` se existirem
+3. Cadastre o bot:
+   - **UI:** http://localhost:4200/admin/discord (bootstrap automático em dev)
+   - **Seed:** edite `backend/seed/discord-app.local.json` (a partir do `.example`) e rode:
+
+```bash
+npm run seed:discord-app --workspace=backend
+```
+
+> `discord-app.local.json` é gitignored — nunca commite tokens.
+
+4. Reinicie o backend — bot conecta com token **criptografado no MongoDB**
+5. Escolha o servidor em http://localhost:4200/app/settings/discord
+6. Complete o onboarding em http://localhost:4200/app/onboarding
+
+| Serviço | URL |
+|---------|-----|
+| Frontend | http://localhost:4200 |
+| API | http://localhost:3000 |
+| Health | http://localhost:3000/health |
+| Swagger | http://localhost:3000/api/v1/docs |
+| WebSocket live | `ws://localhost:3000/api/v1/ws/live` |
+
+Proxy Angular (`frontend/proxy.conf.json`) encaminha `/api` → backend.
+
+---
+
+## Docker Compose
+
+```bash
+cp .env.example .env
+docker compose up --build
+
+curl -sf http://localhost:3000/health
+curl -sf http://localhost:8080/
+```
+
+| Serviço | Porta |
+|---------|-------|
+| MongoDB | 27017 |
+| Backend | 3000 |
+| Frontend (nginx) | 8080 |
+
+---
 
 ## Variáveis de ambiente
 
-| Variável | Descrição | Obrigatório |
-|----------|-----------|-------------|
-| `DISCORD_TOKEN` | Token do bot Discord | Sim |
-| `DISCORD_GUILD_ID` | ID do servidor a monitorar (opcional; pode ser escolhido no dashboard) | Não |
-| `MONGODB_URI` | URI de conexão MongoDB | Sim |
-| `PORT` | Porta HTTP (default: 3000) | Não |
-| `IGNORED_CHANNELS` | Canais ignorados (nomes ou IDs, separados por vírgula) | Não |
-| `AFK_CHANNEL_NAMES` | Nomes de canais AFK | Não |
-| `LUNCH_CHANNEL_NAMES` | Nomes de canais de almoço | Não |
-| `API_KEYS` | Chaves de autenticação da API (separadas por vírgula) | Sim |
-| `TIMEZONE` | Timezone IANA para relatórios (default: `America/Sao_Paulo`) | Não |
-| `LOG_LEVEL` | Nível de log Pino | Não |
+Somente **infraestrutura** — config de negócio (bot, canais, guild) fica no banco via UI.
 
-## Autenticação da API
+| Variável | Descrição |
+|----------|-----------|
+| `MONGODB_URI` | Conexão MongoDB |
+| `ENCRYPTION_KEY` | AES-256-GCM para secrets no banco (32 bytes base64) |
+| `JWT_SECRET` | Assinatura dos tokens |
+| `VAPID_*` | Chaves Web Push |
+| `STRIPE_*` | Billing BRL |
+| `PORT`, `HOST`, `NODE_ENV`, `LOG_LEVEL` | Servidor |
 
-Todas as rotas exigem autenticação, **exceto** `/health` e `/health/details` (usados por Docker/PM2).
+Lista completa: [`.env.example`](.env.example)
 
-Formas de autenticação:
+**Proibido em produção:** `DISCORD_*`, regras de canal via env.
 
-```bash
-# Header Authorization Bearer
-curl -H "Authorization: Bearer sua_api_key" http://localhost:3000/stats
+---
 
-# Header X-API-Key
-curl -H "X-API-Key: sua_api_key" http://localhost:3000/reports/daily
+## API — visão geral
 
-# Dashboard web: acesse /login e informe a API key (cookie HttpOnly por 7 dias)
-```
+Prefixo: `/api/v1`. Autenticação: `Authorization: Bearer <access_token>`.
 
-Rotas públicas: `GET /health`, `GET /health/details`, `GET /login`, `POST /login`
+| Grupo | Prefixo | Auth |
+|-------|---------|------|
+| Auth | `/auth/*` | Público / refresh cookie |
+| Público | `/public/*`, `/health` | Público |
+| Colaborador | `/me/*` | JWT |
+| Tenant | `/org/:orgId/*` | JWT + tenant |
+| Super Admin | `/admin/*` | JWT + `isSuperAdmin` |
+| Stripe | `/webhooks/stripe` | Assinatura Stripe |
+| Realtime | `/ws/live` | JWT (query/header) |
 
-## Timezone
+Documentação interativa: **Swagger** em `/api/v1/docs`. Mapa detalhado: [backend/AGENTS.md](backend/AGENTS.md). Integrações webhook: [docs/integrations/webhooks.md](docs/integrations/webhooks.md).
 
-Relatórios diários e mensais usam a timezone configurada em `TIMEZONE` (padrão: **America/Sao_Paulo**).
-
-- Datas no formato `YYYY-MM-DD` são interpretadas como dia civil em São Paulo
-- Agregações de sessões respeitam meia-noite local (UTC-3)
-- O campo `timezone` aparece nas respostas de relatórios
-
-## Scripts npm
-
-| Script | Descrição |
-|--------|-----------|
-| `npm run dev` | Desenvolvimento com hot reload |
-| `npm run build` | Compila TypeScript |
-| `npm start` | Inicia em produção |
-| `npm test` | Testes unitários |
-| `npm run lint` | Verificação TypeScript |
-| `npm run pm2:start` | Inicia via PM2 |
-
-## API HTTP
-
-### Healthcheck
-
-```bash
-GET /health
-GET /health/details
-```
-
-Retorna `500` se Discord ou MongoDB estiverem indisponíveis.
-
-### Estatísticas
-
-```bash
-GET /stats
-```
-
-### Relatórios
-
-```bash
-GET /reports/daily/2026-06-19
-GET /reports/monthly/2026/6
-GET /reports/ranking?type=daily
-GET /reports/ranking?type=monthly&year=2026&month=6
-```
-
-### Métricas Prometheus
-
-```bash
-GET /metrics
-```
-
-### Dashboard
-
-```bash
-GET /
-```
-
-## Docker
-
-```bash
-# Configure .env antes
-docker compose up -d --build
-
-# Verificar saúde
-curl http://localhost:3000/health
-```
-
-## PM2
-
-```bash
-mkdir -p logs
-npm run build
-npm run pm2:start
-
-# Monitorar
-pm2 logs discord-tracker
-pm2 monit
-```
-
-## Estrutura do projeto
-
-```
-src/
-├── api/              # Servidor Koa e rotas
-├── bot/              # Cliente Discord, eventos e recovery
-├── config/           # Configuração via env
-├── dashboard/        # Views EJS
-├── db/               # Conexão e models Mongoose
-├── logger/           # Pino
-├── metrics/          # Prometheus
-├── repositories/     # Acesso a dados
-├── services/         # Lógica de negócio
-└── index.ts          # Entry point
-```
-
-## Collections MongoDB
-
-| Collection | Descrição |
-|------------|-----------|
-| `users` | Usuários Discord rastreados |
-| `voice_sessions` | Sessões de voz com duração e tipo |
-| `presence_sessions` | Sessões de presença por status |
-| `daily_reports` | Relatórios diários agregados |
-| `system_logs` | Logs de auditoria persistidos |
-
-## Recuperação após falhas
-
-Ao reiniciar, o bot executa automaticamente:
-
-1. Busca todas sessões abertas (`endedAt: null`)
-2. Fecha sessões órfãs com timestamp do reinício
-3. Valida estado atual de cada membro no Discord
-4. Reabre sessões de voz/presença conforme estado real
-5. Registra log em `system_logs`
-
-Isso garante que reinícios não percam histórico nem criem sessões duplicadas indefinidamente.
-
-## Segurança
-
-- **Não** armazena mensagens ou conteúdo de conversas
-- Apenas metadados de presença e voz (IDs, nomes de canal, timestamps, status)
+---
 
 ## Testes
 
 ```bash
-npm test
+npm test                                    # todos os workspaces
+npm run test:coverage --workspace=backend   # Vitest — threshold 80%
+npm run test:coverage --workspace=frontend  # Karma — threshold 70%
+npm run test:e2e --workspace=frontend       # Playwright smoke
+npm run build                               # build completo
 ```
+
+---
+
+## CI/CD
+
+- **CI** (`.github/workflows/ci.yml`): lint + testes + cobertura + build em PR/push para `main`/`dev`
+- **Deploy** (`.github/workflows/deploy.yml`): SSH automático em `main`
+
+Secrets: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `DEPLOY_PATH`.
+
+---
+
+## Privacidade
+
+- **Não** armazena conteúdo de mensagens, áudio ou DMs
+- Texto: apenas metadados (`channelId`, `messageId`, timestamp)
+- Exportação LGPD no portal `/me`
+- Terminologia UI: **colaboração**, nunca “produtividade”
+
+---
+
+## Roadmap
+
+| Item | Status |
+|------|--------|
+| Dashboard ao vivo + WebSocket | Implementado |
+| Categorias + membros rastreados | Implementado |
+| Gamificação (config + ranking + badges + streaks) | Implementado (MVP on-read) |
+| Painel Super Admin (planos, users, orgs, discord) | Implementado |
+| `superAdminGuard` | Implementado |
+| UI tenant Discord + canais | Implementado |
+| Limiares inatividade na UI | Implementado |
+| Relatório ausências dedicado | Implementado |
+| Sync Stripe ao editar plano no admin | Pendente |
+| `RoleGuard` por papel tenant no frontend | Implementado |
+| Email digest semanal + push intraday | Implementado |
+| PTO self-service (colaborador solicita) | Implementado |
+| Landing expandida + plano Business + cases | Implementado |
+| Docs webhooks (`docs/integrations/webhooks.md`) | Implementado |
+| E2E jornada signup → dashboard alerta | Implementado |
+| Push automático quinta (meta &lt; 50%) | Lógica pronta; worker pendente |
+| Preview ao vivo na tela de gamificação | Pendente |
+| Persistência histórica de badges (worker) | Pendente |
+| Seletor visual de canais Discord | Implementado (settings + onboarding) |
+| Filtros ranking por role Discord | Pendente |
+| SSO Google Workspace | Pendente (v1.1+) |
+| Multi-moeda | v1.1+ |
+
+---
 
 ## Licença
 

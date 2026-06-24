@@ -1,0 +1,51 @@
+<section class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
+  <header class="mb-8 text-center">
+    <h2 class="text-2xl font-semibold text-gray-900 sm:text-3xl dark:text-white">Planos em BRL para o mercado brasileiro</h2>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+      Escolha o plano ideal para acompanhar colaboração e agir antes que alguém suma.
+    </p>
+  </header>
+
+  <p *ngIf="loading" class="mb-6 text-center text-sm text-gray-500 dark:text-gray-400">Carregando planos...</p>
+
+  <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <article
+      *ngFor="let plan of plans"
+      class="rounded-2xl border bg-white p-6 shadow-sm dark:bg-gray-900"
+      [class.border-brand-400]="plan.featured"
+      [class.ring-2]="plan.featured"
+      [class.ring-brand-200]="plan.featured"
+      [class.dark:border-brand-600]="plan.featured"
+      [class.border-gray-200]="!plan.featured"
+      [class.dark:border-gray-700]="!plan.featured"
+    >
+      <p *ngIf="plan.featured" class="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-300">
+        Mais popular
+      </p>
+      <p class="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ plan.name }}</p>
+      <p class="mt-3 text-4xl font-bold text-gray-900 dark:text-white">{{ plan.priceBrlMonthly }}</p>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-300">por mês</p>
+
+      <p class="mt-4 text-sm text-gray-700 dark:text-gray-200">{{ plan.description }}</p>
+      <p class="mt-4 text-sm text-gray-600 dark:text-gray-300">
+        Até {{ plan.maxTrackedMembers }} membros rastreados.
+      </p>
+
+      <ul class="mt-4 space-y-1 text-sm text-gray-600 dark:text-gray-300">
+        <li *ngFor="let highlight of plan.highlights">• {{ highlight }}</li>
+      </ul>
+
+      <a
+        class="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 py-2 text-sm font-medium text-white transition"
+        [class.bg-brand-500]="plan.featured"
+        [class.hover:bg-brand-600]="plan.featured"
+        [class.bg-gray-800]="!plan.featured"
+        [class.hover:bg-gray-900]="!plan.featured"
+        [class.dark:bg-gray-700]="!plan.featured"
+        routerLink="/signup"
+      >
+        Começar agora
+      </a>
+    </article>
+  </div>
+</section>

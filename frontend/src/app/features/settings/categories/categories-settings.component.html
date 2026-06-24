@@ -1,0 +1,147 @@
+<section class="space-y-6">
+  <header class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Categorias do time</h2>
+    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+      Crie categorias como Dev, Suporte e Comercial para organizar metas e relatórios por grupo.
+    </p>
+  </header>
+
+  <section *ngIf="!hasGuild" class="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-500/10">
+    <p class="text-sm text-gray-700 dark:text-gray-200">Configure o Discord antes de criar categorias.</p>
+    <a routerLink="/app/settings/discord" class="mt-3 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+      Configurar Discord
+    </a>
+  </section>
+
+  <section *ngIf="hasGuild" class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <p class="text-sm text-gray-600 dark:text-gray-300">Servidor: <strong>{{ guildName }}</strong></p>
+    <button type="button" class="min-h-11 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60" (click)="loadCategories()" [disabled]="loading">
+      {{ loading ? 'Carregando...' : 'Atualizar categorias' }}
+    </button>
+  </section>
+
+  <ng-container *ngIf="hasGuild">
+    <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Nova categoria</h3>
+      <div class="grid gap-3 md:grid-cols-3">
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Nome
+          <input class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="createForm.name" placeholder="Ex.: Dev" />
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Slug (opcional)
+          <input class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="createForm.slug" placeholder="dev" />
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Cor
+          <input type="color" class="h-11 rounded-lg border border-gray-300 px-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="createForm.color" />
+        </label>
+      </div>
+      <button type="button" class="min-h-11 rounded-lg bg-success-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-success-700 disabled:opacity-60" (click)="createCategory()" [disabled]="saving">
+        {{ saving ? 'Salvando...' : 'Criar categoria' }}
+      </button>
+    </section>
+
+    <section *ngIf="editingCategoryId" class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Editar categoria</h3>
+      <div class="grid gap-3 md:grid-cols-3">
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Nome
+          <input class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="editForm.name" />
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Slug
+          <input class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="editForm.slug" />
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Cor
+          <input type="color" class="h-11 rounded-lg border border-gray-300 px-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="editForm.color" />
+        </label>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <button type="button" class="min-h-11 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600" (click)="updateCategory()" [disabled]="saving">Salvar</button>
+        <button type="button" class="min-h-11 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100" (click)="cancelEdit()">Cancelar</button>
+      </div>
+    </section>
+
+    <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Categorias cadastradas</h3>
+      <p *ngIf="categories.length === 0" class="text-sm text-gray-500 dark:text-gray-400">
+        Nenhuma categoria criada ainda. Adicione a primeira acima para usar em metas e relatórios.
+      </p>
+      <ul *ngIf="categories.length > 0" class="space-y-3">
+        <li *ngFor="let category of categories" class="flex flex-col gap-3 rounded-xl border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-700">
+          <div class="flex items-center gap-3">
+            <span class="inline-block h-4 w-4 rounded-full" [style.backgroundColor]="category.color || '#94a3b8'"></span>
+            <div>
+              <p class="font-semibold text-gray-800 dark:text-white/90">{{ category.name }}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">{{ category.slug }}</p>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:text-gray-100" (click)="startEdit(category)">Editar</button>
+            <button type="button" class="min-h-11 rounded-lg border border-error-300 px-3 py-2 text-sm text-error-600" (click)="deleteCategory(category._id)">Excluir</button>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Membros por categoria</h3>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Atribua cada colaborador a uma categoria para metas diárias e relatórios por grupo.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="min-h-11 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-100"
+          (click)="syncMembers()"
+          [disabled]="syncingMembers"
+        >
+          {{ syncingMembers ? 'Sincronizando...' : 'Sincronizar membros' }}
+        </button>
+      </div>
+
+      <p *ngIf="members.length === 0" class="text-sm text-gray-500 dark:text-gray-400">
+        Nenhum membro rastreado. Sincronize os membros do Discord antes de atribuir categorias.
+      </p>
+
+      <div *ngIf="members.length > 0" class="space-y-3">
+        <article
+          *ngFor="let member of members"
+          class="grid gap-3 rounded-xl border border-gray-200 p-4 md:grid-cols-[1fr_220px] md:items-center dark:border-gray-700"
+        >
+          <div>
+            <p class="font-medium text-gray-800 dark:text-white/90">{{ member.displayName }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400">{{ member.username }}</p>
+          </div>
+          <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+            Categoria
+            <select
+              class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+              [(ngModel)]="memberCategoryById[member.id]"
+              [disabled]="assigning || categories.length === 0"
+            >
+              <option value="">Sem categoria</option>
+              <option *ngFor="let category of categories" [value]="category._id">{{ category.name }}</option>
+            </select>
+          </label>
+        </article>
+
+        <button
+          type="button"
+          class="min-h-11 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
+          (click)="saveMemberCategories()"
+          [disabled]="assigning || categories.length === 0"
+        >
+          {{ assigning ? 'Salvando...' : 'Salvar categorias dos membros' }}
+        </button>
+      </div>
+    </section>
+
+    <p *ngIf="successMessage" class="rounded-lg border border-success-300 bg-success-50 px-3 py-2 text-sm text-success-700">{{ successMessage }}</p>
+    <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">{{ errorMessage }}</p>
+  </ng-container>
+</section>

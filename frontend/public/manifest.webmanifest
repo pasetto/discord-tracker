@@ -1,0 +1,19 @@
+{
+  "name": "Syntra",
+  "short_name": "Syntra",
+  "description": "Syntra - analytics de colaboracao no Discord com foco em quem sumiu.",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "lang": "pt-BR",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

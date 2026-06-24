@@ -1,0 +1,92 @@
+<section class="space-y-4">
+  <section *ngIf="!hasGuild" class="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-500/10">
+    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Configure o Discord primeiro</h3>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">Selecione um servidor para ver o relatório de metas.</p>
+    <a routerLink="/app/settings/discord" class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+      Configurar Discord
+    </a>
+  </section>
+
+  <section *ngIf="hasGuild" class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <p class="text-sm text-gray-600 dark:text-gray-300">Servidor: <strong>{{ guildName }}</strong></p>
+    <button
+      type="button"
+      class="min-h-11 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
+      (click)="loadReport()"
+      [disabled]="loading"
+    >
+      {{ loading ? 'Carregando...' : 'Atualizar relatório' }}
+    </button>
+  </section>
+
+  <section *ngIf="hasGuild && loading && !report" class="rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
+    Carregando relatório de metas...
+  </section>
+
+  <section
+    *ngIf="report"
+    class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]"
+  >
+    <div class="flex flex-col gap-1 text-sm text-gray-600 dark:text-gray-300">
+      <p><strong>Período:</strong> {{ report.periodStart | date: 'dd/MM/yyyy' }} - {{ report.periodEnd | date: 'dd/MM/yyyy' }}</p>
+      <p><strong>Gerado em:</strong> {{ report.generatedAt | date: 'dd/MM/yyyy HH:mm' }}</p>
+    </div>
+
+    <div *ngIf="report.entries.length === 0" class="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-gray-700 dark:border-brand-900 dark:bg-brand-500/10 dark:text-gray-200">
+      <p class="font-medium">Nenhuma meta individual configurada para esta semana.</p>
+      <p class="mt-2">
+        As metas são definidas por colaborador (horas semanais e mínimo diário). Sem meta aplicada, o relatório mostra
+        apenas horas realizadas quando houver dados de colaboração.
+      </p>
+      <a
+        routerLink="/app/settings/goals"
+        class="mt-3 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
+      >
+        Configurar metas individuais
+      </a>
+    </div>
+
+    <div *ngIf="report.entries.length > 0" class="space-y-6">
+      <section *ngFor="let group of entriesByCategory" class="space-y-3">
+        <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
+          {{ group.categoryName }}
+          <span class="text-sm font-normal text-gray-500 dark:text-gray-400">({{ group.entries.length }} colaborador(es))</span>
+        </h3>
+
+        <article
+          *ngFor="let entry of group.entries"
+          class="rounded-xl border border-gray-200 p-4 dark:border-gray-700"
+        >
+          <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <h4 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ entry.displayName }}</h4>
+            <span class="text-xs text-gray-500 dark:text-gray-400">{{ entry.discordId }}</span>
+          </div>
+
+          <div class="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+            <div
+              class="h-full rounded-full bg-brand-500 transition-all"
+              [style.width.%]="getProgressBarWidth(entry)"
+            ></div>
+          </div>
+
+          <div class="mt-3 grid gap-2 text-sm text-gray-600 dark:text-gray-300 md:grid-cols-3">
+            <p><strong>Progresso:</strong> {{ entry.progressPercent }}%</p>
+            <p><strong>Meta/realizado:</strong> {{ getProgressText(entry) }}</p>
+            <p><strong>Mínimo diário:</strong> {{ entry.dailyMinimumHours ?? '-' }}h</p>
+          </div>
+
+          <p
+            *ngIf="entry.shouldAlertLowProgress"
+            class="mt-3 rounded-lg border border-warning-300 bg-warning-50 px-3 py-2 text-xs text-warning-700"
+          >
+            Progresso abaixo do esperado para esta semana.
+          </p>
+        </article>
+      </section>
+    </div>
+  </section>
+
+  <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">
+    {{ errorMessage }}
+  </p>
+</section>

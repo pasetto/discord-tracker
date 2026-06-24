@@ -1,0 +1,149 @@
+<section [ngClass]="embedded ? 'space-y-4' : 'space-y-6'">
+  <header *ngIf="!embedded" class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Canais colaborativos</h2>
+    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+      Marque quais canais entram na colaboração e quais devem ser ignorados (AFK, almoço, etc.).
+    </p>
+  </header>
+
+  <section *ngIf="!hasGuild" class="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-500/10">
+    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Configure o Discord primeiro</h3>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">Selecione um servidor em Configurações → Discord.</p>
+    <a routerLink="/app/settings/discord" class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+      Configurar Discord
+    </a>
+  </section>
+
+  <ng-container *ngIf="hasGuild">
+    <div [ngClass]="embedded ? 'flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]' : 'flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]'">
+      <p class="text-sm text-gray-600 dark:text-gray-300">Servidor: <strong>{{ guildName }}</strong></p>
+      <div class="flex flex-col gap-2 sm:flex-row">
+        <button type="button" class="min-h-11 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-200" (click)="loadChannelData()" [disabled]="loading || saving">
+          {{ loading ? 'Carregando...' : 'Recarregar canais' }}
+        </button>
+        <button type="button" class="min-h-11 rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white hover:bg-success-600 disabled:opacity-60" (click)="saveRules()" [disabled]="loading || saving">
+          {{ saving ? 'Salvando...' : 'Salvar regras' }}
+        </button>
+      </div>
+    </div>
+
+    <section [ngClass]="embedded ? 'rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]' : 'rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]'">
+      <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Canais de voz</h3>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Canais ignorados não entram no cálculo de colaboração. AFK e almoço também são excluídos.
+      </p>
+
+      <p *ngIf="!loading && voiceChannels.length === 0" class="mt-4 text-sm text-gray-500 dark:text-gray-400">
+        Nenhum canal de voz encontrado neste servidor.
+      </p>
+
+      <div *ngIf="voiceChannels.length > 0" class="mt-4 overflow-x-auto">
+        <table class="w-full min-w-[720px] text-left text-sm">
+          <thead>
+            <tr class="border-b border-gray-200 dark:border-gray-700">
+              <th class="px-2 py-2">Canal</th>
+              <th class="px-2 py-2 text-center">Ignorado</th>
+              <th class="px-2 py-2 text-center">AFK</th>
+              <th class="px-2 py-2 text-center">Almoço</th>
+              <th class="px-2 py-2 text-center">Colaborativo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let channel of voiceChannels" class="border-b border-gray-100 dark:border-gray-800">
+              <td class="px-2 py-3">
+                <p class="font-medium text-gray-800 dark:text-white/90">{{ channel.channelName }}</p>
+                <p *ngIf="channel.parentName" class="text-xs text-gray-500">{{ channel.parentName }}</p>
+              </td>
+              <td class="px-2 py-3 text-center">
+                <input
+                  type="checkbox"
+                  class="size-4 rounded border-gray-300"
+                  [checked]="getSelection(channel.channelId).ignored"
+                  (change)="toggleVoice(channel, 'ignored', $any($event.target).checked)"
+                />
+              </td>
+              <td class="px-2 py-3 text-center">
+                <input
+                  type="checkbox"
+                  class="size-4 rounded border-gray-300"
+                  [checked]="getSelection(channel.channelId).afk"
+                  (change)="toggleVoice(channel, 'afk', $any($event.target).checked)"
+                />
+              </td>
+              <td class="px-2 py-3 text-center">
+                <input
+                  type="checkbox"
+                  class="size-4 rounded border-gray-300"
+                  [checked]="getSelection(channel.channelId).lunch"
+                  (change)="toggleVoice(channel, 'lunch', $any($event.target).checked)"
+                />
+              </td>
+              <td class="px-2 py-3 text-center">
+                <input
+                  type="checkbox"
+                  class="size-4 rounded border-gray-300"
+                  [checked]="getSelection(channel.channelId).productiveVoice"
+                  (change)="toggleVoice(channel, 'productiveVoice', $any($event.target).checked)"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section [ngClass]="embedded ? 'rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]' : 'rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]'">
+      <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Canais de texto</h3>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Marque canais colaborativos para sinais de atividade e quais devem ser ignorados.
+      </p>
+
+      <p *ngIf="!loading && textChannels.length === 0" class="mt-4 text-sm text-gray-500 dark:text-gray-400">
+        Nenhum canal de texto encontrado neste servidor.
+      </p>
+
+      <div *ngIf="textChannels.length > 0" class="mt-4 overflow-x-auto">
+        <table class="w-full min-w-[520px] text-left text-sm">
+          <thead>
+            <tr class="border-b border-gray-200 dark:border-gray-700">
+              <th class="px-2 py-2">Canal</th>
+              <th class="px-2 py-2 text-center">Ignorado</th>
+              <th class="px-2 py-2 text-center">Colaborativo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let channel of textChannels" class="border-b border-gray-100 dark:border-gray-800">
+              <td class="px-2 py-3">
+                <p class="font-medium text-gray-800 dark:text-white/90">#{{ channel.channelName }}</p>
+                <p *ngIf="channel.parentName" class="text-xs text-gray-500">{{ channel.parentName }}</p>
+              </td>
+              <td class="px-2 py-3 text-center">
+                <input
+                  type="checkbox"
+                  class="size-4 rounded border-gray-300"
+                  [checked]="getSelection(channel.channelId).ignoredText"
+                  (change)="toggleText(channel, 'ignoredText', $any($event.target).checked)"
+                />
+              </td>
+              <td class="px-2 py-3 text-center">
+                <input
+                  type="checkbox"
+                  class="size-4 rounded border-gray-300"
+                  [checked]="getSelection(channel.channelId).productiveText"
+                  (change)="toggleText(channel, 'productiveText', $any($event.target).checked)"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <p *ngIf="successMessage" class="rounded-lg border border-success-300 bg-success-50 px-3 py-2 text-sm text-success-700">
+      {{ successMessage }}
+    </p>
+    <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">
+      {{ errorMessage }}
+    </p>
+  </ng-container>
+</section>

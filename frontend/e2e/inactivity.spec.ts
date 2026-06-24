@@ -1,0 +1,25 @@
+import { expect, test } from '@playwright/test';
+
+test.describe('Smoke de relatório de inatividade', () => {
+  test('landing menciona quem sumiu', async ({ page }) => {
+    await page.goto('/landing');
+    await expect(page.getByRole('heading', { name: /quem sumiu/i })).toBeVisible();
+  });
+
+  test('landing exibe blocos principais informativos', async ({ page }) => {
+    await page.goto('/landing');
+    await expect(page.getByTestId('landing-problem')).toBeVisible();
+    await expect(page.getByTestId('landing-how')).toBeVisible();
+    await expect(page.getByTestId('landing-privacy')).toBeVisible();
+  });
+
+  test('rota de relatório exige autenticação', async ({ page }) => {
+    await page.goto('/app/reports/inactivity');
+    await expect(page).toHaveURL(/\/login/);
+  });
+
+  test('rota de ausências ativas exige autenticação', async ({ page }) => {
+    await page.goto('/app/reports/absences');
+    await expect(page).toHaveURL(/\/login/);
+  });
+});

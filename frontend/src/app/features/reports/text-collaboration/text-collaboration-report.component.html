@@ -1,0 +1,70 @@
+<section class="space-y-4">
+  <section *ngIf="!hasGuild" class="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-500/10">
+    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Configure o Discord primeiro</h3>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+      Selecione um servidor para visualizar os sinais de texto colaborativo.
+    </p>
+    <a routerLink="/app/settings/discord" class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+      Configurar Discord
+    </a>
+  </section>
+
+  <section *ngIf="hasGuild" class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <p class="text-sm text-gray-600 dark:text-gray-300">Servidor: <strong>{{ guildName }}</strong></p>
+    <button
+      type="button"
+      class="min-h-11 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
+      (click)="loadReport()"
+      [disabled]="loading"
+    >
+      {{ loading ? 'Carregando...' : 'Atualizar relatório' }}
+    </button>
+  </section>
+
+  <section *ngIf="hasGuild && loading && !report" class="rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
+    Carregando sinais de texto...
+  </section>
+
+  <section
+    *ngIf="report"
+    class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]"
+  >
+    <div class="grid gap-2 text-sm text-gray-600 dark:text-gray-300 md:grid-cols-2">
+      <p><strong>Período:</strong> {{ report.from | date: 'dd/MM/yyyy' }} - {{ report.to | date: 'dd/MM/yyyy' }}</p>
+      <p><strong>Gerado em:</strong> {{ report.generatedAt | date: 'dd/MM/yyyy HH:mm' }}</p>
+      <p><strong>Colaboradores com sinais:</strong> {{ report.entries.length }}</p>
+      <p><strong>Total de sinais:</strong> {{ totalEvents }}</p>
+    </div>
+
+    <div *ngIf="report.entries.length === 0" class="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-gray-700 dark:border-brand-900 dark:bg-brand-500/10 dark:text-gray-200">
+      Nenhum sinal de texto registrado no período selecionado.
+    </div>
+
+    <div *ngIf="report.entries.length > 0" class="overflow-x-auto">
+      <table class="w-full min-w-[720px] table-auto text-left text-sm">
+        <thead>
+          <tr class="border-b border-gray-200 dark:border-gray-700">
+            <th class="px-2 py-2">Colaborador</th>
+            <th class="px-2 py-2">Discord</th>
+            <th class="px-2 py-2">Categoria</th>
+            <th class="px-2 py-2">Sinais</th>
+            <th class="px-2 py-2">Último sinal</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let entry of report.entries" class="border-b border-gray-100 dark:border-gray-800">
+            <td class="px-2 py-2 font-medium">{{ entry.displayName }}</td>
+            <td class="px-2 py-2">{{ entry.discordId }}</td>
+            <td class="px-2 py-2">{{ entry.categoryId ?? '-' }}</td>
+            <td class="px-2 py-2">{{ entry.eventsCount }}</td>
+            <td class="px-2 py-2">{{ entry.lastOccurredAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">
+    {{ errorMessage }}
+  </p>
+</section>
