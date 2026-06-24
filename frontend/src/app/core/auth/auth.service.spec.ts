@@ -55,6 +55,7 @@ describe('AuthService', () => {
       expect(service.getToken()).toBe('access-token');
       expect(service.getDisplayName()).toBe('Eduardo');
       expect(localStorage.getItem('syntra.orgId')).toBe('org-1');
+      expect(service.getActiveOrganizations().length).toBe(1);
     });
 
     const req = httpMock.expectOne('/api/v1/auth/login');
@@ -65,9 +66,49 @@ describe('AuthService', () => {
         id: 'user-1',
         email: 'owner@test.com',
         displayName: 'Eduardo',
-        memberships: [{ organizationId: 'org-1', role: 'owner' }],
+        memberships: [{ organizationId: 'org-1', role: 'owner', status: 'active' }],
       },
       organization: { id: 'org-1', name: 'Econdos', slug: 'econdos' },
+      organizations: [{ id: 'org-1', name: 'Econdos', slug: 'econdos', role: 'owner', status: 'active' }],
+    });
+
+    httpMock.expectOne('/api/v1/org/org-1/discord/status').flush({
+      botConnected: false,
+      activeConnection: null,
+    });
+  });
+
+  it('troca organização ativa', () => {
+    service.saveToken('token');
+    localStorage.setItem('syntra.orgId', 'org-1');
+
+    service.switchOrganization('org-2').subscribe(() => {
+      expect(localStorage.getItem('syntra.orgId')).toBe('org-2');
+    });
+
+    const req = httpMock.expectOne('/api/v1/auth/switch-organization');
+    expect(req.request.body).toEqual({ organizationId: 'org-2' });
+    req.flush({
+      accessToken: 'token-2',
+      user: {
+        id: 'user-1',
+        email: 'owner@test.com',
+        displayName: 'Eduardo',
+        memberships: [
+          { organizationId: 'org-1', role: 'owner', status: 'active' },
+          { organizationId: 'org-2', role: 'admin', status: 'active' },
+        ],
+      },
+      organization: { id: 'org-2', name: 'Outra Org', slug: 'outra-org' },
+      organizations: [
+        { id: 'org-1', name: 'Econdos', slug: 'econdos', role: 'owner', status: 'active' },
+        { id: 'org-2', name: 'Outra Org', slug: 'outra-org', role: 'admin', status: 'active' },
+      ],
+    });
+
+    httpMock.expectOne('/api/v1/org/org-2/discord/status').flush({
+      botConnected: false,
+      activeConnection: null,
     });
   });
 });

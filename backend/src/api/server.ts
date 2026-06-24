@@ -8,7 +8,7 @@ import { corsMiddleware } from './middleware/cors';
 import { authMiddleware } from './middleware/auth';
 import { jwtAuth } from './middleware/jwtAuth';
 import { tenantMiddleware } from './middleware/tenant';
-import { authRouter } from './routes/auth';
+import { authRouter, authSessionRouter } from './routes/auth';
 import { publicRouter as publicRoutesRouter } from './routes/public';
 import { healthRouter } from './routes/health';
 import { statsRouter } from './routes/stats';
@@ -37,6 +37,7 @@ import { trackedUsersRouter } from './routes/trackedUsers';
 import { superAdminMiddleware } from './middleware/superAdmin';
 import { stripeWebhookRouter } from './routes/webhooks/stripe';
 import { getOpenApiSpec } from './swagger';
+import { organizationTeamRouter, assertTeamManagerAccess } from './routes/organizationTeam';
 import { attachLiveActivityWebSocket } from './websocket/liveActivitySocket';
 
 const swaggerUi = require('koa-swagger-ui').ui as (
@@ -79,6 +80,7 @@ export function createApp(): Koa {
   legacyProtectedRouter.use(reportsRouter.routes());
   legacyProtectedRouter.use(metricsRouter.routes());
   apiV1ProtectedRouter.use(jwtAuth);
+  apiV1ProtectedRouter.use(authSessionRouter.routes(), authSessionRouter.allowedMethods());
   apiV1ProtectedRouter.use(
     '/org/:organizationId',
     tenantMiddleware,
@@ -105,6 +107,13 @@ export function createApp(): Koa {
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, trackedUsersRouter.routes(), trackedUsersRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, dashboardRouter.routes(), dashboardRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, discordSettingsRouter.routes(), discordSettingsRouter.allowedMethods());
+  apiV1ProtectedRouter.use(
+    '/org/:orgId',
+    tenantMiddleware,
+    assertTeamManagerAccess,
+    organizationTeamRouter.routes(),
+    organizationTeamRouter.allowedMethods(),
+  );
   apiV1ProtectedRouter.use(meRouter.routes(), meRouter.allowedMethods());
   apiV1ProtectedRouter.use(
     superAdminMiddleware,

@@ -21,6 +21,30 @@
         <span class="mt-1 block text-theme-xs text-gray-400">{{ organizationName }}</span>
       </div>
 
+      @if (organizations.length > 1) {
+        <div class="mt-4 border-t border-gray-200 pt-3 dark:border-gray-800">
+          <p class="px-3 text-theme-xs font-medium uppercase tracking-wide text-gray-400">Organizações</p>
+          <ul class="mt-2 flex flex-col gap-1">
+            @for (organization of organizations; track organization.id) {
+              <li>
+                <button
+                  type="button"
+                  class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-white/5"
+                  [class.font-semibold]="organization.id === activeOrganizationId"
+                  [class.text-brand-600]="organization.id === activeOrganizationId"
+                  (click)="switchOrganization(organization.id)"
+                >
+                  <span>{{ organization.name }}</span>
+                  @if (organization.id === activeOrganizationId) {
+                    <span class="text-theme-xs text-brand-500">Ativa</span>
+                  }
+                </button>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+
       <ul class="mt-4 flex flex-col gap-1 border-t border-gray-200 pt-3 dark:border-gray-800">
         <li>
           <a routerLink="/app/me" (click)="closeDropdown()"
@@ -44,6 +68,18 @@
           </a>
         </li>
         }
+        <li>
+          <a routerLink="/app/join" (click)="closeDropdown()"
+            class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5">
+            Entrar com código
+          </a>
+        </li>
+        <li>
+          <a routerLink="/app/settings/team" (click)="closeDropdown()"
+            class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5">
+            Time e convites
+          </a>
+        </li>
         <li>
           <a routerLink="/app/settings/discord" (click)="closeDropdown()"
             class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5">

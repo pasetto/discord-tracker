@@ -18,6 +18,14 @@ describe('assertOrgMembership', () => {
 
     expect(() => assertOrgMembership(user, 'org-b')).not.toThrow();
   });
+
+  it('lança 403 quando membership está pendente', () => {
+    const user = {
+      memberships: [{ organizationId: 'org-a', role: 'admin', status: 'pending' as const }],
+    };
+
+    expect(() => assertOrgMembership(user, 'org-a')).toThrow(/pending approval/);
+  });
 });
 
 describe('tenantMiddleware', () => {
@@ -56,7 +64,10 @@ describe('tenantMiddleware', () => {
 
     const next: Next = async () => {};
 
-    await expect(tenantMiddleware(ctx, next)).rejects.toThrow(/400/);
+    await tenantMiddleware(ctx, next);
+
+    expect(ctx.status).toBe(400);
+    expect(ctx.body).toEqual({ error: 'Bad Request: organizationId is required' });
   });
 
   it('lança 403 quando user não pertence à organizationId', async () => {
@@ -72,6 +83,9 @@ describe('tenantMiddleware', () => {
 
     const next: Next = async () => {};
 
-    await expect(tenantMiddleware(ctx, next)).rejects.toThrow(/403/);
+    await tenantMiddleware(ctx, next);
+
+    expect(ctx.status).toBe(403);
+    expect(ctx.body).toEqual({ error: 'Forbidden: user is not member of this organization' });
   });
 });

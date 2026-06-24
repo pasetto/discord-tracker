@@ -59,6 +59,7 @@ export class AppSidebarComponent implements OnInit, OnDestroy {
         { name: 'Quem sumiu (limiares)', path: '/app/settings/inactivity' },
         { name: 'Cadastrar PTO', path: '/app/settings/absences' },
         { name: 'Time', sectionHeader: true },
+        { name: 'Convites e membros', path: '/app/settings/team' },
         { name: 'Categorias', path: '/app/settings/categories' },
         { name: 'Metas', path: '/app/settings/goals' },
         { name: 'Gamificação', path: '/app/settings/gamification' },

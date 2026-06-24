@@ -94,6 +94,16 @@ const loadDiscordSettings = () =>
     (module) => module.DiscordSettingsComponent,
   );
 
+const loadTeamSettings = () =>
+  import('./features/settings/team/team-settings.component').then(
+    (module) => module.TeamSettingsComponent,
+  );
+
+const loadJoinOrganization = () =>
+  import('./features/organization/join-organization.component').then(
+    (module) => module.JoinOrganizationComponent,
+  );
+
 const loadDiscordAdmin = () =>
   import('./features/admin/discord/discord-admin.component').then((module) => module.DiscordAdminComponent);
 
@@ -183,6 +193,12 @@ const featureRoutes: Routes = [
     data: page('Meu portal', 'Meu portal'),
   },
   {
+    path: 'join',
+    loadComponent: loadJoinOrganization,
+    title: 'Entrar em organização | Syntra',
+    data: page('Entrar em organização', 'Convite'),
+  },
+  {
     path: 'settings',
     title: 'Configurações | Syntra',
     data: page('Configurações', 'Configurações'),
@@ -231,6 +247,11 @@ const featureRoutes: Routes = [
         path: 'gamification',
         loadComponent: loadGamificationSettings,
         title: 'Gamificação | Syntra',
+      },
+      {
+        path: 'team',
+        loadComponent: loadTeamSettings,
+        title: 'Time e convites | Syntra',
       },
     ],
   },

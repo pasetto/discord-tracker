@@ -6,6 +6,7 @@ import { Context, Next } from 'koa';
 interface JwtMembership {
   organizationId: string;
   role: string;
+  status?: 'active' | 'pending';
 }
 
 /**
@@ -62,13 +63,33 @@ function extractOrganizationId(ctx: Context): string | undefined {
  * );
  */
 export function assertOrgMembership(user: JwtUser, organizationId: string): void {
-  const hasMembership = user.memberships.some(
-    (membership) => membership.organizationId === organizationId,
-  );
+  const membership = user.memberships.find((item) => item.organizationId === organizationId);
 
-  if (!hasMembership) {
+  if (!membership) {
     throw createHttpError(403, 'Forbidden: user is not member of this organization');
   }
+
+  if (membership.status === 'pending') {
+    throw createHttpError(403, 'Forbidden: membership pending approval');
+  }
+}
+
+/**
+ * Converte erros HTTP gerados por `createHttpError` em resposta Koa.
+ * @param ctx Contexto da requisição
+ * @param error Erro capturado
+ * @returns `true` quando o status HTTP foi aplicado
+ */
+function applyHttpError(ctx: Context, error: unknown): boolean {
+  const message = (error as Error).message ?? '';
+  const statusMatch = message.match(/^(\d{3})\s/);
+  if (!statusMatch) {
+    return false;
+  }
+
+  ctx.status = Number(statusMatch[1]);
+  ctx.body = { error: message.replace(/^\d{3}\s/, '') };
+  return true;
 }
 
 /**
@@ -76,23 +97,26 @@ export function assertOrgMembership(user: JwtUser, organizationId: string): void
  * @param ctx Contexto da requisição Koa
  * @param next Próximo middleware da cadeia
  * @returns {Promise<void>} Promise resolvida após processamento
- * @throws {Error} 400 quando organizationId está ausente
- * @throws {Error} 401 quando usuário JWT não está disponível
- * @throws {Error} 403 quando usuário não pertence à organização
  */
 export async function tenantMiddleware(ctx: Context, next: Next): Promise<void> {
-  const organizationId = extractOrganizationId(ctx);
-  if (!organizationId) {
-    throw createHttpError(400, 'Bad Request: organizationId is required');
+  try {
+    const organizationId = extractOrganizationId(ctx);
+    if (!organizationId) {
+      throw createHttpError(400, 'Bad Request: organizationId is required');
+    }
+
+    const user = ctx.state.user as JwtUser | undefined;
+    if (!user || !Array.isArray(user.memberships)) {
+      throw createHttpError(401, 'Unauthorized: JWT user memberships not found');
+    }
+
+    assertOrgMembership(user, organizationId);
+    ctx.state.organizationId = organizationId;
+
+    await next();
+  } catch (error) {
+    if (!applyHttpError(ctx, error)) {
+      throw error;
+    }
   }
-
-  const user = ctx.state.user as JwtUser | undefined;
-  if (!user || !Array.isArray(user.memberships)) {
-    throw createHttpError(401, 'Unauthorized: JWT user memberships not found');
-  }
-
-  assertOrgMembership(user, organizationId);
-  ctx.state.organizationId = organizationId;
-
-  await next();
 }

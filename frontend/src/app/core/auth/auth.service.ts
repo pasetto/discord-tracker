@@ -3,13 +3,14 @@ import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, catchError, finalize, map, of, shareReplay, tap } from 'rxjs';
 import { AuthApiService, type AuthSessionResponse, type LoginRequest, type RegisterRequest } from './auth-api.service';
-import type { AuthOrganizationSession, AuthUserSession } from './auth-session.model';
+import type { AuthOrganizationOption, AuthOrganizationSession, AuthUserSession } from './auth-session.model';
 import { TenantContextService } from '../tenant/tenant-context.service';
 
 const AUTH_TOKEN_STORAGE_KEY = 'syntra.auth.token';
 const ORG_ID_STORAGE_KEY = 'syntra.orgId';
 const USER_SESSION_STORAGE_KEY = 'syntra.auth.user';
 const ORG_SESSION_STORAGE_KEY = 'syntra.auth.organization';
+const ORGANIZATIONS_STORAGE_KEY = 'syntra.auth.organizations';
 
 /**
  * Encapsula operações de autenticação do frontend.
@@ -48,6 +49,7 @@ export class AuthService {
     localStorage.removeItem(ORG_ID_STORAGE_KEY);
     localStorage.removeItem(USER_SESSION_STORAGE_KEY);
     localStorage.removeItem(ORG_SESSION_STORAGE_KEY);
+    localStorage.removeItem(ORGANIZATIONS_STORAGE_KEY);
     this.tenantContextService.clear();
   }
 
@@ -89,6 +91,31 @@ export class AuthService {
    */
   getOrganizationId(): string {
     return this.getOrganization()?.id ?? localStorage.getItem(ORG_ID_STORAGE_KEY) ?? '';
+  }
+
+  /**
+   * Lista organizações vinculadas ao usuário autenticado.
+   * @returns Organizações ativas e pendentes
+   */
+  getOrganizations(): AuthOrganizationOption[] {
+    const raw = localStorage.getItem(ORGANIZATIONS_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      return JSON.parse(raw) as AuthOrganizationOption[];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Organizações ativas disponíveis para troca rápida.
+   * @returns Apenas organizações aprovadas
+   */
+  getActiveOrganizations(): AuthOrganizationOption[] {
+    return this.getOrganizations().filter((organization) => organization.status === 'active');
   }
 
   /**
@@ -259,11 +286,61 @@ export class AuthService {
           slug: session.organization.slug,
         } satisfies AuthOrganizationSession),
       );
+      void this.tenantContextService.refresh().subscribe();
     } else {
       localStorage.removeItem(ORG_ID_STORAGE_KEY);
       localStorage.removeItem(ORG_SESSION_STORAGE_KEY);
       this.tenantContextService.clear();
     }
+
+    if (session.organizations) {
+      localStorage.setItem(ORGANIZATIONS_STORAGE_KEY, JSON.stringify(session.organizations));
+    }
+  }
+
+  /**
+   * Troca organização ativa e recarrega contexto do tenant.
+   * @param organizationId ID da organização aprovada
+   * @returns Observable da sessão atualizada
+   */
+  switchOrganization(organizationId: string): Observable<AuthSessionResponse> {
+    return this.authApiService.switchOrganization(organizationId).pipe(
+      tap((session) => {
+        this.persistSession(session);
+      }),
+    );
+  }
+
+  /**
+   * Solicita entrada em organização via código de convite.
+   * @param inviteCode Código de 8 caracteres
+   * @returns Observable da sessão atualizada
+   */
+  joinOrganization(inviteCode: string): Observable<AuthSessionResponse> {
+    return this.authApiService.joinOrganization(inviteCode).pipe(
+      tap((session) => {
+        this.persistSession(session);
+      }),
+    );
+  }
+
+  /**
+   * Sincroniza organizações vinculadas com a API.
+   * @returns Observable da sessão sem novo access token
+   */
+  syncSession(): Observable<void> {
+    return this.authApiService.getSession().pipe(
+      tap((session) => {
+        if (session.organization) {
+          localStorage.setItem(ORG_ID_STORAGE_KEY, session.organization.id);
+          localStorage.setItem(ORG_SESSION_STORAGE_KEY, JSON.stringify(session.organization));
+        }
+        if (session.organizations) {
+          localStorage.setItem(ORGANIZATIONS_STORAGE_KEY, JSON.stringify(session.organizations));
+        }
+      }),
+      map(() => undefined),
+    );
   }
 
   /**

@@ -16,3 +16,14 @@ export interface AuthOrganizationSession {
   name: string;
   slug: string;
 }
+
+/**
+ * Organização disponível para troca no seletor.
+ */
+export interface AuthOrganizationOption {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+  status: 'active' | 'pending';
+}

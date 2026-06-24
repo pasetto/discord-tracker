@@ -3,11 +3,21 @@ import {
   REFRESH_COOKIE_NAME,
   REFRESH_TOKEN_TTL_SECONDS,
 } from '../../services/authService';
-import { loginPlatformUser, refreshPlatformUserSession, registerPlatformUser } from '../../services/platformAuthService';
+import {
+  getPlatformAuthSession,
+  loginPlatformUser,
+  refreshPlatformUserSession,
+  registerPlatformUser,
+  switchPlatformOrganization,
+} from '../../services/platformAuthService';
+import { requestOrganizationJoin } from '../../services/organizationTeamService';
 import { config } from '../../config/env';
 
 /** Rotas públicas de autenticação com email e senha. */
 export const authRouter = new Router();
+
+/** Rotas autenticadas de sessão e organizações do usuário. */
+export const authSessionRouter = new Router();
 
 /**
  * Define se o cookie de refresh deve usar flag `secure`.
@@ -70,6 +80,7 @@ authRouter.post('/auth/register', async (ctx) => {
       accessToken: result.accessToken,
       user: result.user,
       organization: result.organization,
+      organizations: result.organizations,
     };
   } catch (error) {
     ctx.status = 400;
@@ -102,6 +113,7 @@ authRouter.post('/auth/login', async (ctx) => {
       accessToken: result.accessToken,
       user: result.user,
       organization: result.organization,
+      organizations: result.organizations,
     };
   } catch (error) {
     ctx.status = 401;
@@ -140,6 +152,7 @@ authRouter.post('/auth/refresh', async (ctx) => {
       accessToken: result.accessToken,
       user: result.user,
       organization: result.organization,
+      organizations: result.organizations,
     };
   } catch {
     ctx.status = 401;
@@ -167,4 +180,100 @@ authRouter.post('/auth/logout', async (ctx) => {
     secure: shouldUseSecureCookie(ctx),
   });
   ctx.status = 204;
+});
+
+/**
+ * @openapi
+ * /auth/me:
+ *   get:
+ *     tags:
+ *       - Auth
+ *     summary: Retorna sessão atual e organizações do usuário
+ */
+authSessionRouter.get('/auth/me', async (ctx) => {
+  const user = ctx.state.user as { id?: string } | undefined;
+  if (!user?.id) {
+    ctx.status = 401;
+    ctx.body = { error: 'Não autorizado' };
+    return;
+  }
+
+  try {
+    const result = await getPlatformAuthSession(user.id);
+    ctx.body = {
+      user: result.user,
+      organization: result.organization,
+      organizations: result.organizations,
+    };
+  } catch (error) {
+    ctx.status = 400;
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /auth/join-organization:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Solicita entrada em organização via código de convite
+ */
+authSessionRouter.post('/auth/join-organization', async (ctx) => {
+  const user = ctx.state.user as { id?: string } | undefined;
+  const payload = ctx.request.body as { inviteCode?: string } | undefined;
+
+  if (!user?.id) {
+    ctx.status = 401;
+    ctx.body = { error: 'Não autorizado' };
+    return;
+  }
+
+  try {
+    await requestOrganizationJoin(user.id, payload?.inviteCode ?? '');
+    const result = await getPlatformAuthSession(user.id);
+    setRefreshCookie(ctx, result.refreshToken);
+    ctx.body = {
+      accessToken: result.accessToken,
+      user: result.user,
+      organization: result.organization,
+      organizations: result.organizations,
+    };
+  } catch (error) {
+    ctx.status = 400;
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /auth/switch-organization:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Define organização ativa no cliente
+ */
+authSessionRouter.post('/auth/switch-organization', async (ctx) => {
+  const user = ctx.state.user as { id?: string } | undefined;
+  const payload = ctx.request.body as { organizationId?: string } | undefined;
+
+  if (!user?.id) {
+    ctx.status = 401;
+    ctx.body = { error: 'Não autorizado' };
+    return;
+  }
+
+  try {
+    const result = await switchPlatformOrganization(user.id, payload?.organizationId ?? '');
+    setRefreshCookie(ctx, result.refreshToken);
+    ctx.body = {
+      accessToken: result.accessToken,
+      user: result.user,
+      organization: result.organization,
+      organizations: result.organizations,
+    };
+  } catch (error) {
+    ctx.status = 400;
+    ctx.body = { error: (error as Error).message };
+  }
 });

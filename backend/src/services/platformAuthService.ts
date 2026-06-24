@@ -4,6 +4,10 @@ import { OrganizationModel } from '../db/models/Organization';
 import { PlanModel } from '../db/models/Plan';
 import { PlatformUserModel, type IPlatformUser } from '../db/models/PlatformUser';
 import {
+  createUniqueOrganizationInviteCode,
+  listUserOrganizations,
+} from './organizationTeamService';
+import {
   type AuthMembership,
   type AuthUserPayload,
   signAccessToken,
@@ -53,6 +57,13 @@ export interface PlatformAuthResult {
     name: string;
     slug: string;
   } | null;
+  organizations: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    role: string;
+    status: 'active' | 'pending';
+  }>;
 }
 
 /**
@@ -105,6 +116,7 @@ export function buildAuthPayloadFromPlatformUser(user: IPlatformUser): AuthUserP
     memberships: user.memberships.map((membership) => ({
       organizationId: String(membership.organizationId),
       role: membership.role,
+      status: membership.acceptedAt ? 'active' : 'pending',
     })),
   };
 }
@@ -202,9 +214,11 @@ export async function registerPlatformUser(input: RegisterPlatformUserInput): Pr
 
   const plan = await findOrCreateStarterPlan();
   const slug = await createUniqueOrganizationSlug(input.organizationName);
+  const inviteCode = await createUniqueOrganizationInviteCode();
   const organization = await OrganizationModel.create({
     name: input.organizationName.trim(),
     slug,
+    inviteCode,
     subscription: {
       planId: plan._id,
       stripeCustomerId: `dev_${new Types.ObjectId().toHexString()}`,
@@ -287,24 +301,69 @@ export async function refreshPlatformUserSession(refreshToken: string): Promise<
 }
 
 /**
+ * Retorna sessão autenticada atual do usuário.
+ * @param userId ID do usuário da plataforma
+ * @returns Tokens e organizações vinculadas
+ */
+export async function getPlatformAuthSession(userId: string): Promise<PlatformAuthResult> {
+  const user = await PlatformUserModel.findById(userId).exec();
+  if (!user) {
+    throw new Error('Usuário não encontrado');
+  }
+
+  return buildPlatformAuthResult(user);
+}
+
+/**
+ * Define organização ativa na resposta de sessão (sem reemitir memberships).
+ * @param userId ID do usuário autenticado
+ * @param organizationId Organização que deve ficar ativa no cliente
+ * @returns Sessão com organização ativa validada
+ */
+export async function switchPlatformOrganization(
+  userId: string,
+  organizationId: string,
+): Promise<PlatformAuthResult> {
+  const user = await PlatformUserModel.findById(userId).exec();
+  if (!user) {
+    throw new Error('Usuário não encontrado');
+  }
+
+  const membership = user.memberships.find(
+    (item) => String(item.organizationId) === organizationId && item.acceptedAt,
+  );
+  if (!membership) {
+    throw new Error('Organização indisponível para este usuário');
+  }
+
+  return buildPlatformAuthResult(user, organizationId);
+}
+
+/**
  * Monta resposta de sessão a partir do usuário autenticado.
  * @param user Documento do usuário
+ * @param preferredOrganizationId Organização ativa preferida, quando informada
  * @returns Tokens e contexto para o cliente
  */
-async function buildPlatformAuthResult(user: IPlatformUser): Promise<PlatformAuthResult> {
+async function buildPlatformAuthResult(
+  user: IPlatformUser,
+  preferredOrganizationId?: string,
+): Promise<PlatformAuthResult> {
   const authPayload = buildAuthPayloadFromPlatformUser(user);
-  const primaryMembership = user.memberships[0];
+  const organizations = await listUserOrganizations(String(user._id));
+  const activeOrganizations = organizations.filter((organization) => organization.status === 'active');
+  const preferredOrganization = preferredOrganizationId
+    ? activeOrganizations.find((organization) => organization.id === preferredOrganizationId)
+    : undefined;
+  const primaryOrganization = preferredOrganization ?? activeOrganizations[0];
   let organization: PlatformAuthResult['organization'] = null;
 
-  if (primaryMembership) {
-    const org = await OrganizationModel.findById(primaryMembership.organizationId).exec();
-    if (org) {
-      organization = {
-        id: String(org._id),
-        name: org.name,
-        slug: org.slug,
-      };
-    }
+  if (primaryOrganization) {
+    organization = {
+      id: primaryOrganization.id,
+      name: primaryOrganization.name,
+      slug: primaryOrganization.slug,
+    };
   }
 
   return {
@@ -318,5 +377,6 @@ async function buildPlatformAuthResult(user: IPlatformUser): Promise<PlatformAut
       memberships: authPayload.memberships,
     },
     organization,
+    organizations,
   };
 }

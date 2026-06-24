@@ -1,8 +1,9 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { map, Observable } from 'rxjs';
 import { AuthService } from '../../../../core/auth/auth.service';
+import type { AuthOrganizationOption } from '../../../../core/auth/auth-session.model';
 import { OnboardingProgressService } from '../../../../core/onboarding/onboarding-progress.service';
 
 /**
@@ -16,6 +17,7 @@ import { OnboardingProgressService } from '../../../../core/onboarding/onboardin
 export class UserDropdownComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly onboardingProgressService = inject(OnboardingProgressService);
+  private readonly router = inject(Router);
 
   /** Controla exibição do link de configuração inicial no menu. */
   readonly showOnboardingLink$: Observable<boolean>;
@@ -40,6 +42,20 @@ export class UserDropdownComponent implements OnInit {
    */
   get email(): string {
     return this.authService.getUser()?.email ?? '';
+  }
+
+  /**
+   * Organizações ativas disponíveis para troca.
+   */
+  get organizations(): AuthOrganizationOption[] {
+    return this.authService.getActiveOrganizations();
+  }
+
+  /**
+   * ID da organização ativa no momento.
+   */
+  get activeOrganizationId(): string {
+    return this.authService.getOrganizationId();
   }
 
   /**
@@ -71,7 +87,27 @@ export class UserDropdownComponent implements OnInit {
    * Carrega progresso do onboarding para decidir links do menu.
    */
   ngOnInit(): void {
-    this.onboardingProgressService.load(this.authService.getOrganizationId()).subscribe();
+    this.authService.syncSession().subscribe(() => {
+      this.onboardingProgressService.load(this.authService.getOrganizationId()).subscribe();
+    });
+  }
+
+  /**
+   * Troca organização ativa e recarrega o app no dashboard.
+   * @param organizationId ID da organização selecionada
+   */
+  switchOrganization(organizationId: string): void {
+    if (organizationId === this.activeOrganizationId) {
+      this.closeDropdown();
+      return;
+    }
+
+    this.authService.switchOrganization(organizationId).subscribe({
+      next: () => {
+        this.closeDropdown();
+        void this.router.navigateByUrl('/app/dashboard');
+      },
+    });
   }
 
   /**

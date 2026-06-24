@@ -8,6 +8,18 @@ import { Observable } from 'rxjs';
 export interface AuthMembershipDto {
   organizationId: string;
   role: string;
+  status?: 'active' | 'pending';
+}
+
+/**
+ * Organização vinculada ao usuário autenticado.
+ */
+export interface AuthOrganizationOptionDto {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+  status: 'active' | 'pending';
 }
 
 /**
@@ -37,6 +49,7 @@ export interface AuthSessionResponse {
   accessToken: string;
   user: AuthUserDto;
   organization: AuthOrganizationDto | null;
+  organizations?: AuthOrganizationOptionDto[];
 }
 
 /**
@@ -90,5 +103,39 @@ export class AuthApiService {
    */
   refresh(): Observable<AuthSessionResponse> {
     return this.http.post<AuthSessionResponse>('/api/v1/auth/refresh', {}, this.authRequestOptions);
+  }
+
+  /**
+   * Retorna sessão atual com organizações vinculadas.
+   * @returns Dados do usuário e organizações
+   */
+  getSession(): Observable<Omit<AuthSessionResponse, 'accessToken'>> {
+    return this.http.get<Omit<AuthSessionResponse, 'accessToken'>>('/api/v1/auth/me', this.authRequestOptions);
+  }
+
+  /**
+   * Solicita entrada em organização via código de convite.
+   * @param inviteCode Código de 8 caracteres
+   * @returns Sessão atualizada
+   */
+  joinOrganization(inviteCode: string): Observable<AuthSessionResponse> {
+    return this.http.post<AuthSessionResponse>(
+      '/api/v1/auth/join-organization',
+      { inviteCode },
+      this.authRequestOptions,
+    );
+  }
+
+  /**
+   * Define organização ativa no cliente.
+   * @param organizationId ID da organização
+   * @returns Sessão com organização ativa
+   */
+  switchOrganization(organizationId: string): Observable<AuthSessionResponse> {
+    return this.http.post<AuthSessionResponse>(
+      '/api/v1/auth/switch-organization',
+      { organizationId },
+      this.authRequestOptions,
+    );
   }
 }

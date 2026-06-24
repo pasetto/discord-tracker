@@ -21,6 +21,8 @@ export const REFRESH_COOKIE_NAME = 'syntra_refresh';
 export interface AuthMembership {
   organizationId: string;
   role: string;
+  /** Omitido em tokens legados; tratar como `active`. */
+  status?: 'active' | 'pending';
 }
 
 /**
