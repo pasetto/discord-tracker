@@ -68,6 +68,8 @@ export interface RegisterRequest {
 export interface LoginRequest {
   email: string;
   password: string;
+  /** Quando `false`, sessão expira ao fechar o navegador (cookie + storage de sessão). */
+  rememberMe?: boolean;
 }
 
 /**
@@ -137,5 +139,13 @@ export class AuthApiService {
       { organizationId },
       this.authRequestOptions,
     );
+  }
+
+  /**
+   * Encerra sessão no servidor removendo cookie de refresh.
+   * @returns Observable vazio (204)
+   */
+  logout(): Observable<void> {
+    return this.http.post<void>('/api/v1/auth/logout', {}, this.authRequestOptions);
   }
 }

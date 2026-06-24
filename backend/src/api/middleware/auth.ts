@@ -9,7 +9,7 @@ const log = createLogger('auth');
 const AUTH_COOKIE_NAME = 'tracker_api_key';
 
 /** Rotas públicas que não exigem autenticação. */
-export const PUBLIC_PATHS = new Set(['/health', '/health/details']);
+export const PUBLIC_PATHS = new Set(['/health', '/health/live', '/health/ready', '/health/details']);
 
 /**
  * Faz parse do header Cookie.

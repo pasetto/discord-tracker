@@ -27,8 +27,9 @@ interface LiveSocketState {
 /**
  * Anexa servidor WebSocket de atividade ao vivo no HTTP server existente.
  * @param server Servidor HTTP compartilhado com Koa
+ * @returns Função para encerrar conexões WebSocket no shutdown gracioso
  */
-export function attachLiveActivityWebSocket(server: Server): void {
+export function attachLiveActivityWebSocket(server: Server): () => void {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on('upgrade', (request, socket, head) => {
@@ -47,6 +48,13 @@ export function attachLiveActivityWebSocket(server: Server): void {
   });
 
   log.info({ path: WS_PATH }, 'WebSocket de atividade ao vivo registrado');
+
+  return () => {
+    for (const client of wss.clients) {
+      client.close();
+    }
+    wss.close();
+  };
 }
 
 /**

@@ -1,10 +1,24 @@
+/**
+ * Configuração PM2 para produção em modo cluster.
+ *
+ * - `wait_ready` + `process.send('ready')` no bootstrap após HTTP escutar
+ * - `shutdown_with_message` para reload gracioso sem derrubar conexões abruptamente
+ * - Instância `0` executa bot Discord + crons (ver `clusterRole.ts`)
+ *
+ * Uso:
+ *   npm run build && pm2 start ecosystem.config.js
+ *   PM2_INSTANCES=4 pm2 reload ecosystem.config.js
+ */
+const instances = process.env.PM2_INSTANCES ?? 'max';
+
 module.exports = {
   apps: [
     {
-      name: 'discord-tracker',
+      name: 'syntra',
       script: 'dist/index.js',
-      instances: 1,
-      exec_mode: 'fork',
+      cwd: __dirname,
+      instances,
+      exec_mode: 'cluster',
       autorestart: true,
       watch: false,
       max_memory_restart: '512M',
@@ -16,10 +30,10 @@ module.exports = {
       log_file: 'logs/pm2-combined.log',
       time: true,
       merge_logs: true,
-      listen_timeout: 10000,
-      kill_timeout: 5000,
-      // Health check via PM2 plus module ou script externo
-      wait_ready: false,
+      wait_ready: true,
+      listen_timeout: 30_000,
+      kill_timeout: 10_000,
+      shutdown_with_message: true,
     },
   ],
 };

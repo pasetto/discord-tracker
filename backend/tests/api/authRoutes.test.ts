@@ -65,6 +65,31 @@ describe('auth routes', () => {
     expect(response.status).toBe(200);
     expect(response.body.accessToken).toBe('access-token');
     expect(response.body.organization.id).toBe('org-1');
+    expect(response.headers['set-cookie']?.[0]).toContain('syntra_refresh');
+  });
+
+  it('usa cookie de sessão quando rememberMe é false no login', async () => {
+    platformAuthMocks.loginPlatformUser.mockResolvedValue({
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      user: {
+        id: 'user-1',
+        email: 'owner@test.com',
+        displayName: 'Owner',
+        memberships: [{ organizationId: 'org-1', role: 'owner' }],
+      },
+      organization: { id: 'org-1', name: 'Test Org', slug: 'test-org' },
+    });
+
+    const app = createApp();
+    const response = await request(app.callback())
+      .post('/api/v1/auth/login')
+      .send({ email: 'owner@test.com', password: 'senha-segura', rememberMe: false });
+
+    expect(response.status).toBe(200);
+    const cookieHeader = response.headers['set-cookie']?.[0] ?? '';
+    expect(cookieHeader).toContain('syntra_refresh');
+    expect(cookieHeader.toLowerCase()).not.toContain('max-age');
   });
 
   it('retorna 401 para credenciais inválidas', async () => {

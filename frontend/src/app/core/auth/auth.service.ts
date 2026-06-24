@@ -12,6 +12,15 @@ const USER_SESSION_STORAGE_KEY = 'syntra.auth.user';
 const ORG_SESSION_STORAGE_KEY = 'syntra.auth.organization';
 const ORGANIZATIONS_STORAGE_KEY = 'syntra.auth.organizations';
 
+/** Chaves de sessão sincronizadas entre localStorage e sessionStorage. */
+const AUTH_STORAGE_KEYS = [
+  AUTH_TOKEN_STORAGE_KEY,
+  ORG_ID_STORAGE_KEY,
+  USER_SESSION_STORAGE_KEY,
+  ORG_SESSION_STORAGE_KEY,
+  ORGANIZATIONS_STORAGE_KEY,
+] as const;
+
 /**
  * Shape mínimo do payload JWT necessário para resolver role atual.
  */
@@ -38,31 +47,113 @@ export class AuthService {
   ) {}
 
   /**
-   * Salva o token de autenticação no armazenamento local.
+   * Salva o token de autenticação no armazenamento da sessão ativa.
    * @param token Token JWT retornado pelo backend
    */
   saveToken(token: string): void {
-    localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+    this.getAuthStorage().setItem(AUTH_TOKEN_STORAGE_KEY, token);
   }
 
   /**
-   * Recupera o token salvo no armazenamento local.
+   * Recupera o token salvo no armazenamento da sessão ativa.
    * @returns Token salvo ou `null` quando ausente
    */
   getToken(): string | null {
-    return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+    return this.getAuthStorage().getItem(AUTH_TOKEN_STORAGE_KEY);
   }
 
   /**
-   * Remove o token atual do armazenamento local.
+   * Remove tokens e dados de sessão de ambos os storages.
    */
   clearToken(): void {
-    localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
-    localStorage.removeItem(ORG_ID_STORAGE_KEY);
-    localStorage.removeItem(USER_SESSION_STORAGE_KEY);
-    localStorage.removeItem(ORG_SESSION_STORAGE_KEY);
-    localStorage.removeItem(ORGANIZATIONS_STORAGE_KEY);
+    this.clearAuthStorage(localStorage);
+    this.clearAuthStorage(sessionStorage);
     this.tenantContextService.clear();
+  }
+
+  /**
+   * Lê JSON da sessão ativa (sessionStorage tem prioridade sobre localStorage).
+   * @param key Chave do item
+   * @returns Valor parseado ou null
+   */
+  private readSessionJson<T>(key: string): T | null {
+    const raw = sessionStorage.getItem(key) ?? localStorage.getItem(key);
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Retorna o storage onde a sessão atual está persistida.
+   * @param fallback Storage padrão quando ainda não há sessão
+   * @returns localStorage ou sessionStorage
+   */
+  private getAuthStorage(fallback: Storage = localStorage): Storage {
+    for (const storage of [sessionStorage, localStorage]) {
+      if (storage.getItem(AUTH_TOKEN_STORAGE_KEY) || storage.getItem(USER_SESSION_STORAGE_KEY)) {
+        return storage;
+      }
+    }
+
+    return fallback;
+  }
+
+  /**
+   * Remove todas as chaves de autenticação de um storage específico.
+   * @param storage Destino (local ou sessão)
+   */
+  private clearAuthStorage(storage: Storage): void {
+    for (const key of AUTH_STORAGE_KEYS) {
+      storage.removeItem(key);
+    }
+  }
+
+  /**
+   * Persiste dados de sessão no storage alvo, limpando o storage oposto.
+   * @param storage Destino da persistência
+   * @param session Resposta da API
+   */
+  private writeSessionToStorage(storage: Storage, session: AuthSessionResponse): void {
+    const otherStorage = storage === localStorage ? sessionStorage : localStorage;
+    this.clearAuthStorage(otherStorage);
+
+    storage.setItem(AUTH_TOKEN_STORAGE_KEY, session.accessToken);
+    storage.setItem(
+      USER_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        id: session.user.id,
+        email: session.user.email,
+        displayName: session.user.displayName,
+        isSuperAdmin: Boolean(session.user.isSuperAdmin),
+      } satisfies AuthUserSession),
+    );
+
+    if (session.organization) {
+      storage.setItem(ORG_ID_STORAGE_KEY, session.organization.id);
+      storage.setItem(
+        ORG_SESSION_STORAGE_KEY,
+        JSON.stringify({
+          id: session.organization.id,
+          name: session.organization.name,
+          slug: session.organization.slug,
+        } satisfies AuthOrganizationSession),
+      );
+      void this.tenantContextService.refresh().subscribe();
+    } else {
+      storage.removeItem(ORG_ID_STORAGE_KEY);
+      storage.removeItem(ORG_SESSION_STORAGE_KEY);
+      this.tenantContextService.clear();
+    }
+
+    if (session.organizations) {
+      storage.setItem(ORGANIZATIONS_STORAGE_KEY, JSON.stringify(session.organizations));
+    }
   }
 
   /**
@@ -70,15 +161,7 @@ export class AuthService {
    * @returns Dados do usuário ou null
    */
   getUser(): AuthUserSession | null {
-    const raw = localStorage.getItem(USER_SESSION_STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-    try {
-      return JSON.parse(raw) as AuthUserSession;
-    } catch {
-      return null;
-    }
+    return this.readSessionJson<AuthUserSession>(USER_SESSION_STORAGE_KEY);
   }
 
   /**
@@ -86,15 +169,7 @@ export class AuthService {
    * @returns Dados da organização ou null
    */
   getOrganization(): AuthOrganizationSession | null {
-    const raw = localStorage.getItem(ORG_SESSION_STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-    try {
-      return JSON.parse(raw) as AuthOrganizationSession;
-    } catch {
-      return null;
-    }
+    return this.readSessionJson<AuthOrganizationSession>(ORG_SESSION_STORAGE_KEY);
   }
 
   /**
@@ -102,7 +177,10 @@ export class AuthService {
    * @returns ID da organização ou string vazia
    */
   getOrganizationId(): string {
-    return this.getOrganization()?.id ?? localStorage.getItem(ORG_ID_STORAGE_KEY) ?? '';
+    return this.getOrganization()?.id
+      ?? sessionStorage.getItem(ORG_ID_STORAGE_KEY)
+      ?? localStorage.getItem(ORG_ID_STORAGE_KEY)
+      ?? '';
   }
 
   /**
@@ -110,16 +188,7 @@ export class AuthService {
    * @returns Organizações ativas e pendentes
    */
   getOrganizations(): AuthOrganizationOption[] {
-    const raw = localStorage.getItem(ORGANIZATIONS_STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-
-    try {
-      return JSON.parse(raw) as AuthOrganizationOption[];
-    } catch {
-      return [];
-    }
+    return this.readSessionJson<AuthOrganizationOption[]>(ORGANIZATIONS_STORAGE_KEY) ?? [];
   }
 
   /**
@@ -143,10 +212,11 @@ export class AuthService {
   }
 
   /**
-   * Encerra sessão local e redireciona para login.
+   * Encerra sessão local, invalida refresh no servidor e redireciona para login.
    */
   logout(): void {
     this.clearToken();
+    this.authApiService.logout().subscribe({ error: () => undefined });
     void this.router.navigate(['/login']);
   }
 
@@ -322,43 +392,16 @@ export class AuthService {
   /**
    * Persiste contexto de sessão retornado pela API.
    * @param session Resposta de login/cadastro
+   * @param rememberMe Quando `false`, usa sessionStorage e cookie de sessão no backend
    */
-  persistSession(session: AuthSessionResponse): void {
+  persistSession(session: AuthSessionResponse, rememberMe?: boolean): void {
     if (!session.accessToken?.trim()) {
       return;
     }
 
-    this.saveToken(session.accessToken);
-    localStorage.setItem(
-      USER_SESSION_STORAGE_KEY,
-      JSON.stringify({
-        id: session.user.id,
-        email: session.user.email,
-        displayName: session.user.displayName,
-        isSuperAdmin: Boolean(session.user.isSuperAdmin),
-      } satisfies AuthUserSession),
-    );
-
-    if (session.organization) {
-      localStorage.setItem(ORG_ID_STORAGE_KEY, session.organization.id);
-      localStorage.setItem(
-        ORG_SESSION_STORAGE_KEY,
-        JSON.stringify({
-          id: session.organization.id,
-          name: session.organization.name,
-          slug: session.organization.slug,
-        } satisfies AuthOrganizationSession),
-      );
-      void this.tenantContextService.refresh().subscribe();
-    } else {
-      localStorage.removeItem(ORG_ID_STORAGE_KEY);
-      localStorage.removeItem(ORG_SESSION_STORAGE_KEY);
-      this.tenantContextService.clear();
-    }
-
-    if (session.organizations) {
-      localStorage.setItem(ORGANIZATIONS_STORAGE_KEY, JSON.stringify(session.organizations));
-    }
+    const storage =
+      rememberMe === undefined ? this.getAuthStorage() : rememberMe ? localStorage : sessionStorage;
+    this.writeSessionToStorage(storage, session);
   }
 
   /**
@@ -394,12 +437,13 @@ export class AuthService {
   syncSession(): Observable<void> {
     return this.authApiService.getSession().pipe(
       tap((session) => {
+        const storage = this.getAuthStorage();
         if (session.organization) {
-          localStorage.setItem(ORG_ID_STORAGE_KEY, session.organization.id);
-          localStorage.setItem(ORG_SESSION_STORAGE_KEY, JSON.stringify(session.organization));
+          storage.setItem(ORG_ID_STORAGE_KEY, session.organization.id);
+          storage.setItem(ORG_SESSION_STORAGE_KEY, JSON.stringify(session.organization));
         }
         if (session.organizations) {
-          localStorage.setItem(ORGANIZATIONS_STORAGE_KEY, JSON.stringify(session.organizations));
+          storage.setItem(ORGANIZATIONS_STORAGE_KEY, JSON.stringify(session.organizations));
         }
       }),
       map(() => undefined),
@@ -408,11 +452,15 @@ export class AuthService {
 
   /**
    * Realiza login com email e senha.
-   * @param payload Credenciais do usuário
+   * @param payload Credenciais do usuário (inclui `rememberMe` para persistência)
    * @returns Observable da sessão autenticada
    */
   login(payload: LoginRequest): Observable<AuthSessionResponse> {
-    return this.authApiService.login(payload).pipe(tap((session) => this.persistSession(session)));
+    const rememberMe = payload.rememberMe !== false;
+
+    return this.authApiService.login(payload).pipe(
+      tap((session) => this.persistSession(session, rememberMe)),
+    );
   }
 
   /**

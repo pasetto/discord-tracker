@@ -40,7 +40,9 @@ backend/src/
 |---------|---------|-------|
 | `/auth/*` | `auth.ts` | login, register, refresh |
 | `/public/*` | `public.ts` | config pública |
-| `/health` | `health.ts` | healthcheck |
+| `/health` | `health.ts` | healthcheck legado |
+| `/health/live` | `health.ts` | liveness (processo vivo) |
+| `/health/ready` | `health.ts` | readiness (PM2 `wait_ready`, Docker, LB) |
 | `/webhooks/stripe` | `webhooks/stripe.ts` | Stripe events |
 | `/admin/discord/bootstrap` | `adminDiscord.ts` | só dev — primeiro cadastro bot |
 
@@ -163,18 +165,33 @@ npm run test:coverage     # threshold 80%
 
 **Sempre testar:** tenant isolation, plan feature enforcement, channel rules sem env.
 
+## PM2 cluster (produção)
+
+```bash
+npm run build
+npm run start:pm2   # ecosystem.config.js — cluster + wait_ready
+```
+
+- **Cluster:** `exec_mode: cluster`, instâncias via `PM2_INSTANCES` (padrão `max`).
+- **Ready:** após HTTP escutar, `process.send('ready')` — requer `wait_ready: true`.
+- **Unhealthy:** Mongo desconectado → IPC `syntra:health` + `/health/ready` retorna 503.
+- **Bot/crons:** só na instância `0` (ou `SYNTA_ENABLE_BACKGROUND_JOBS=true`).
+- **Reload gracioso:** `shutdown_with_message` + handler `shutdown` no processo.
+- **WebSocket:** em cluster, usar sticky sessions no load balancer.
+
 ## Scripts
 
 ```bash
 npm run dev               # tsx watch — API + bot
 npm run build             # tsc
+npm run start:pm2         # PM2 cluster produção
 npm run seed:plans        # catálogo Starter/Team
 npm run seed:discord-app  # bot + super admin dev
 ```
 
 ## Variáveis de ambiente (somente infra)
 
-`MONGODB_URI`, `ENCRYPTION_KEY`, `JWT_SECRET`, `VAPID_*`, `STRIPE_*`, `PORT`, `NODE_ENV`, `LOG_LEVEL`.
+`MONGODB_URI`, `ENCRYPTION_KEY`, `JWT_SECRET`, `VAPID_*`, `STRIPE_*`, `PORT`, `NODE_ENV`, `LOG_LEVEL`, `PM2_INSTANCES`, `SYNTA_ENABLE_BACKGROUND_JOBS`.
 
 **Proibido em produção:** `DISCORD_*`, regras de canal via env.
 

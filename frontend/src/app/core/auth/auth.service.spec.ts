@@ -12,6 +12,7 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
 
     TestBed.configureTestingModule({
       providers: [
@@ -31,6 +32,7 @@ describe('AuthService', () => {
   afterEach(() => {
     httpMock.verify();
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   it('salva, recupera e limpa token no localStorage', () => {
@@ -50,15 +52,17 @@ describe('AuthService', () => {
   });
 
   it('persiste sessão após login', () => {
-    service.login({ email: 'owner@test.com', password: 'senha-segura' }).subscribe((session) => {
+    service.login({ email: 'owner@test.com', password: 'senha-segura', rememberMe: true }).subscribe((session) => {
       expect(session.accessToken).toBe('access-token');
       expect(service.getToken()).toBe('access-token');
       expect(service.getDisplayName()).toBe('Eduardo');
       expect(localStorage.getItem('syntra.orgId')).toBe('org-1');
+      expect(sessionStorage.getItem('syntra.auth.token')).toBeNull();
       expect(service.getActiveOrganizations().length).toBe(1);
     });
 
     const req = httpMock.expectOne('/api/v1/auth/login');
+    expect(req.request.body.rememberMe).toBeTrue();
     expect(req.request.method).toBe('POST');
     req.flush({
       accessToken: 'access-token',
@@ -75,6 +79,27 @@ describe('AuthService', () => {
     httpMock.expectOne('/api/v1/org/org-1/discord/status').flush({
       botConnected: false,
       activeConnection: null,
+    });
+  });
+
+  it('persiste sessão em sessionStorage quando rememberMe é false', () => {
+    service.login({ email: 'owner@test.com', password: 'senha-segura', rememberMe: false }).subscribe(() => {
+      expect(sessionStorage.getItem('syntra.auth.token')).toBe('access-token');
+      expect(localStorage.getItem('syntra.auth.token')).toBeNull();
+    });
+
+    const req = httpMock.expectOne('/api/v1/auth/login');
+    expect(req.request.body.rememberMe).toBeFalse();
+    req.flush({
+      accessToken: 'access-token',
+      user: {
+        id: 'user-1',
+        email: 'owner@test.com',
+        displayName: 'Eduardo',
+        memberships: [{ organizationId: 'org-1', role: 'owner', status: 'active' }],
+      },
+      organization: { id: 'org-1', name: 'Econdos', slug: 'econdos' },
+      organizations: [{ id: 'org-1', name: 'Econdos', slug: 'econdos', role: 'owner', status: 'active' }],
     });
   });
 

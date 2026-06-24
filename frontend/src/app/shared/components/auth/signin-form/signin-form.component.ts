@@ -28,7 +28,7 @@ import { AuthService } from '../../../../core/auth/auth.service';
 })
 export class SigninFormComponent {
   showPassword = false;
-  isChecked = false;
+  isChecked = true;
   loading = false;
   errorMessage = '';
 
@@ -64,7 +64,13 @@ export class SigninFormComponent {
 
     this.loading = true;
 
-    this.authService.login({ email: this.email.trim(), password: this.password }).subscribe({
+    this.authService
+      .login({
+        email: this.email.trim(),
+        password: this.password,
+        rememberMe: this.isChecked,
+      })
+      .subscribe({
       next: () => {
         this.loading = false;
         void this.router.navigate(['/app/dashboard']);

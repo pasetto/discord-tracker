@@ -82,6 +82,7 @@ export class CheckboxComponent {
 
   onChange(event: Event) {
     const input = event.target as HTMLInputElement;
-    this.checkedChange.emit(input.checked);
+    this.checked = input.checked;
+    this.checkedChange.emit(this.checked);
   }
 }

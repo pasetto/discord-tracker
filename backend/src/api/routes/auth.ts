@@ -39,13 +39,20 @@ function shouldUseSecureCookie(ctx: Router.RouterContext): boolean {
  * Define cookie HttpOnly de refresh token na resposta.
  * @param ctx Contexto Koa
  * @param refreshToken Token de renovação
+ * @param options Opções de persistência (`rememberMe: false` = cookie de sessão do navegador)
  */
-function setRefreshCookie(ctx: Router.RouterContext, refreshToken: string): void {
+function setRefreshCookie(
+  ctx: Router.RouterContext,
+  refreshToken: string,
+  options?: { rememberMe?: boolean },
+): void {
+  const rememberMe = options?.rememberMe !== false;
+
   ctx.cookies.set(REFRESH_COOKIE_NAME, refreshToken, {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
-    maxAge: REFRESH_TOKEN_TTL_SECONDS * 1000,
+    ...(rememberMe ? { maxAge: REFRESH_TOKEN_TTL_SECONDS * 1000 } : {}),
     secure: shouldUseSecureCookie(ctx),
   });
 }
@@ -100,6 +107,7 @@ authRouter.post('/auth/login', async (ctx) => {
   const payload = ctx.request.body as {
     email?: string;
     password?: string;
+    rememberMe?: boolean;
   };
 
   try {
@@ -108,7 +116,7 @@ authRouter.post('/auth/login', async (ctx) => {
       password: payload.password ?? '',
     });
 
-    setRefreshCookie(ctx, result.refreshToken);
+    setRefreshCookie(ctx, result.refreshToken, { rememberMe: payload.rememberMe !== false });
     ctx.body = {
       accessToken: result.accessToken,
       user: result.user,
