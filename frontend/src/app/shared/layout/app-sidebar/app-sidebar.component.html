@@ -108,19 +108,7 @@
                   <span class="menu-item-text">
                     {{ nav.name }}
                   </span>
-                  } 
-                  @if (nav.new && ((isExpanded$ | async) || (isHovered$ |
-                  async) || (isMobileOpen$ | async))) {
-                  <span
-                    class="ml-auto absolute right-10 menu-dropdown-badge"
-                    [ngClass]="{
-                      'menu-dropdown-badge-active': openSubmenu === 'main-' + i,
-                      'menu-dropdown-badge-inactive': openSubmenu !== 'main-' + i
-                    }"
-                  >
-                    new
-                  </span>
-                  } 
+                  }
                   @if ((isExpanded$ | async) || (isHovered$ | async) ||
                   (isMobileOpen$ | async)) {
                   <svg
@@ -161,6 +149,13 @@
                 >
                   <ul class="mt-2 space-y-1 ml-9">
                     @for (subItem of nav.subItems; track $index) {
+                    @if (subItem.sectionHeader) {
+                    <li class="pt-2 first:pt-0">
+                      <span class="block px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        {{ subItem.name }}
+                      </span>
+                    </li>
+                    } @else if (subItem.path) {
                     <li>
                       <a
                         [routerLink]="subItem.path"
@@ -168,45 +163,14 @@
                         (click)="onSubmenuClick()"
                         class="menu-dropdown-item"
                         [ngClass]="{
-                              'menu-dropdown-item-inactive': !isActive(subItem.path),
-                              'menu-dropdown-item-active': isActive(subItem.path),
+                              'menu-dropdown-item-inactive': !isSubItemActive(subItem.path),
+                              'menu-dropdown-item-active': isSubItemActive(subItem.path),
                             }"
                       >
                         {{ subItem.name }}
-                        <span class="flex items-center gap-1 ml-auto">
-                          @if (subItem.new) {
-                          <span
-                            class="menu-dropdown-badge"
-                            [ngClass]="{
-                              'menu-dropdown-badge-active': isActive(
-                                subItem.path
-                              ),
-                              'menu-dropdown-badge-inactive': !isActive(
-                                subItem.path
-                              )
-                            }"
-                          >
-                            new
-                          </span>
-                          }
-                          @if (subItem.pro) {
-                          <span
-                            class="ml-auto menu-dropdown-badge-pro"
-                            [ngClass]="{
-                              'menu-dropdown-badge-pro-active': isActive(
-                                subItem.path
-                              ),
-                              'menu-dropdown-badge-pro-inactive': !isActive(
-                                subItem.path
-                              )
-                            }"
-                          >
-                            pro
-                          </span>
-                          }
-                        </span>
                       </a>
                     </li>
+                    }
                     }
                   </ul>
                 </div>
@@ -216,13 +180,13 @@
                   [routerLink]="nav.path"
                   routerLinkActive="menu-item-active"
                   class="menu-item group"
-                  [ngClass]="{ 'menu-item-inactive': !isActive(nav.path) }"
+                  [ngClass]="{ 'menu-item-inactive': !isActive(nav) }"
                 >
                   <span
                     class="menu-item-icon-size"
                     [ngClass]="{
-                      'menu-item-icon-active': isActive(nav.path),
-                      'menu-item-icon-inactive': !isActive(nav.path)
+                      'menu-item-icon-active': isActive(nav),
+                      'menu-item-icon-inactive': !isActive(nav)
                     }"
                     [innerHTML]="nav.icon | safeHtml"
                   >

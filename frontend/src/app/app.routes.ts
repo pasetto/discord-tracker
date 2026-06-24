@@ -1,82 +1,58 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/auth/auth.guard';
 
-/**
- * Carrega o dashboard com widget de ausências.
- * @returns {Promise<unknown>} Componente lazy do dashboard.
- */
+/** Metadados padrão de página para o header contextual. */
+const page = (title: string, breadcrumbLabel?: string) => ({
+  pageTitle: title,
+  ...(breadcrumbLabel ? { breadcrumbLabel } : {}),
+});
+
 const loadDashboardPlaceholder = () =>
   import('./features/dashboard/dashboard-placeholder.component').then(
     (module) => module.DashboardPlaceholderComponent,
   );
 
-/**
- * Carrega de forma lazy a tela de metas individuais em configurações.
- * @returns {Promise<unknown>} Componente lazy de metas.
- */
+const loadLiveTeam = () =>
+  import('./features/live/live-team.component').then((module) => module.LiveTeamComponent);
+
+const loadReportsHub = () =>
+  import('./features/reports/reports-hub.component').then((module) => module.ReportsHubComponent);
+
 const loadGoalsSettings = () =>
   import('./features/settings/goals/goals-settings.component').then(
     (module) => module.GoalsSettingsComponent,
   );
 
-/**
- * Carrega de forma lazy o wizard de onboarding de 8 passos.
- * @returns {Promise<unknown>} Componente lazy de onboarding.
- */
 const loadOnboardingWizard = () =>
   import('./features/onboarding/onboarding-wizard.component').then(
     (module) => module.OnboardingWizardComponent,
   );
 
-/**
- * Carrega de forma lazy o portal colaborador `/me`.
- * @returns {Promise<unknown>} Componente lazy do portal do colaborador.
- */
 const loadMePortal = () =>
   import('./features/collaborator/me/me-portal.component').then(
     (module) => module.MePortalComponent,
   );
 
-/**
- * Carrega de forma lazy o relatório de inatividade com botões de exportação.
- * @returns {Promise<unknown>} Componente lazy de relatório de inatividade.
- */
 const loadInactivityReport = () =>
   import('./features/reports/inactivity/inactivity-report.component').then(
     (module) => module.InactivityReportComponent,
   );
 
-/**
- * Carrega de forma lazy o relatório semanal de metas.
- * @returns {Promise<unknown>} Componente lazy de metas.
- */
 const loadGoalsReport = () =>
   import('./features/reports/goals/goals-report.component').then(
     (module) => module.GoalsReportComponent,
   );
 
-/**
- * Carrega de forma lazy o relatório de ausências ativas.
- * @returns {Promise<unknown>} Componente lazy de ausências ativas.
- */
 const loadAbsencesReport = () =>
   import('./features/reports/absences/absences-report.component').then(
     (module) => module.AbsencesReportComponent,
   );
 
-/**
- * Carrega de forma lazy a tela de calendário da organização.
- * @returns {Promise<unknown>} Componente lazy de calendário.
- */
 const loadCalendarSettings = () =>
   import('./features/settings/calendar/calendar-settings.component').then(
     (module) => module.CalendarSettingsComponent,
   );
 
-/**
- * Carrega de forma lazy a tela de ausências planejadas.
- * @returns {Promise<unknown>} Componente lazy de ausências.
- */
 const loadAbsencesSettings = () =>
   import('./features/settings/absences/absences-settings.component').then(
     (module) => module.AbsencesSettingsComponent,
@@ -87,10 +63,6 @@ const loadInactivitySettings = () =>
     (module) => module.InactivitySettingsComponent,
   );
 
-/**
- * Carrega de forma lazy a tela de gamificação por guild.
- * @returns {Promise<unknown>} Componente lazy de gamificação.
- */
 const loadGamificationSettings = () =>
   import('./features/settings/gamification/gamification-settings.component').then(
     (module) => module.GamificationSettingsComponent,
@@ -124,10 +96,19 @@ const featureRoutes: Routes = [
   {
     path: 'dashboard',
     loadComponent: loadDashboardPlaceholder,
-    title: 'Dashboard | Syntra',
+    title: 'Início | Syntra',
+    data: page('Início', 'Início'),
+  },
+  {
+    path: 'live',
+    loadComponent: loadLiveTeam,
+    title: 'Time ao vivo | Syntra',
+    data: page('Time ao vivo', 'Time ao vivo'),
   },
   {
     path: 'reports',
+    loadComponent: loadReportsHub,
+    data: page('Relatórios', 'Relatórios'),
     children: [
       {
         path: '',
@@ -137,34 +118,36 @@ const featureRoutes: Routes = [
       {
         path: 'inactivity',
         loadComponent: loadInactivityReport,
-        title: 'Relatório de inatividade | Syntra',
+        title: 'Quem sumiu | Syntra',
       },
       {
         path: 'goals',
         loadComponent: loadGoalsReport,
-        title: 'Relatório de metas | Syntra',
+        title: 'Metas semanais | Syntra',
       },
       {
         path: 'absences',
         loadComponent: loadAbsencesReport,
-        title: 'Ausências ativas | Syntra',
+        title: 'Ausências em andamento | Syntra',
       },
     ],
-    title: 'Relatórios | Syntra',
   },
   {
     path: 'onboarding',
     loadComponent: loadOnboardingWizard,
-    title: 'Onboarding | Syntra',
+    title: 'Configuração inicial | Syntra',
+    data: page('Configuração inicial', 'Setup'),
   },
   {
     path: 'me',
     loadComponent: loadMePortal,
     title: 'Meu portal | Syntra',
+    data: page('Meu portal', 'Meu portal'),
   },
   {
     path: 'settings',
     title: 'Configurações | Syntra',
+    data: page('Configurações', 'Configurações'),
     children: [
       {
         path: '',
@@ -199,12 +182,12 @@ const featureRoutes: Routes = [
       {
         path: 'absences',
         loadComponent: loadAbsencesSettings,
-        title: 'Ausências planejadas | Syntra',
+        title: 'Cadastrar PTO | Syntra',
       },
       {
         path: 'inactivity',
         loadComponent: loadInactivitySettings,
-        title: 'Inatividade | Syntra',
+        title: 'Limiares de inatividade | Syntra',
       },
       {
         path: 'gamification',

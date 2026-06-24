@@ -1,20 +1,21 @@
-import { Component } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { NavigationEnd, Router, RouterLink } from '@angular/router';
+import { filter, Subscription } from 'rxjs';
 
 /** Item de navegação inferior para mobile. */
 interface MobileNavItem {
   label: string;
   route: string;
-  icon: string;
+  matchPrefix?: string;
 }
 
 /**
- * Barra de navegação inferior visível apenas em telas pequenas.
+ * Barra de navegação inferior alinhada à IA principal do produto.
  */
 @Component({
   selector: 'app-mobile-bottom-nav',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink],
   template: `
     <nav
       class="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur lg:hidden dark:border-gray-800 dark:bg-gray-900/95"
@@ -25,11 +26,13 @@ interface MobileNavItem {
           <li class="flex-1">
             <a
               [routerLink]="item.route"
-              routerLinkActive="text-brand-600 dark:text-brand-400"
-              class="flex min-h-11 min-w-11 flex-col items-center justify-center gap-0.5 px-2 py-2 text-[10px] font-medium text-gray-600 dark:text-gray-300"
+              class="flex min-h-11 min-w-11 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px] font-medium"
+              [class.text-brand-600]="isActive(item)"
+              [class.dark:text-brand-400]="isActive(item)"
+              [class.text-gray-600]="!isActive(item)"
+              [class.dark:text-gray-300]="!isActive(item)"
             >
-              <span class="text-base leading-none" aria-hidden="true">{{ item.icon }}</span>
-              <span>{{ item.label }}</span>
+              <span class="text-[11px] font-semibold leading-none">{{ item.label }}</span>
             </a>
           </li>
         }
@@ -37,13 +40,43 @@ interface MobileNavItem {
     </nav>
   `,
 })
-export class MobileBottomNavComponent {
-  /** Links principais da aplicação em mobile. */
+export class MobileBottomNavComponent implements OnInit, OnDestroy {
+  /** Links principais alinhados ao sidebar desktop. */
   readonly items: MobileNavItem[] = [
-    { label: 'Início', route: '/app/dashboard', icon: '⌂' },
-    { label: 'Relatórios', route: '/app/reports', icon: '📊' },
-    { label: 'Onboarding', route: '/app/onboarding', icon: '✓' },
-    { label: 'Metas', route: '/app/settings/goals', icon: '🎯' },
-    { label: 'Meu portal', route: '/app/me', icon: '👤' },
+    { label: 'Início', route: '/app/dashboard' },
+    { label: 'Ao vivo', route: '/app/live' },
+    { label: 'Relatórios', route: '/app/reports/inactivity', matchPrefix: '/app/reports' },
+    { label: 'Config', route: '/app/settings/discord', matchPrefix: '/app/settings' },
   ];
+
+  currentUrl = '';
+
+  private subscription = new Subscription();
+
+  constructor(private readonly router: Router) {}
+
+  ngOnInit(): void {
+    this.currentUrl = this.router.url;
+    this.subscription.add(
+      this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe(() => {
+        this.currentUrl = this.router.url;
+      }),
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.subscription.unsubscribe();
+  }
+
+  /**
+   * Verifica rota ativa incluindo prefixos de hub.
+   * @param item Item de navegação mobile
+   * @returns true quando URL corresponde ao item
+   */
+  isActive(item: MobileNavItem): boolean {
+    if (item.matchPrefix) {
+      return this.currentUrl.startsWith(item.matchPrefix);
+    }
+    return this.currentUrl === item.route;
+  }
 }

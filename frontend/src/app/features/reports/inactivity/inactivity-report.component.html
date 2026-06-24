@@ -1,15 +1,4 @@
-<section class="space-y-6">
-  <header class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-    <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Relatório de inatividade</h2>
-    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-      Tabela completa de quem sumiu na semana, com exportação de CSV.
-    </p>
-    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
-      Lista colaboradores sem sinais recentes de presença, voz ou texto dentro do limite configurado para o servidor.
-      Ausências planejadas (férias/PTO) aparecem em seção separada quando aplicável.
-    </p>
-  </header>
-
+<section class="space-y-4">
   <section *ngIf="!hasGuild" class="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-500/10">
     <p class="text-sm text-gray-700 dark:text-gray-200">
       Conecte o Discord e escolha o servidor do time para ver o relatório de inatividade.
@@ -19,52 +8,51 @@
     </a>
   </section>
 
-  <section *ngIf="hasGuild" class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-    <label class="flex w-full flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 sm:w-auto sm:min-w-[220px]">
-      Filtrar por categoria
-      <select
-        class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-        [(ngModel)]="selectedCategoryId"
-        (ngModelChange)="onCategoryFilterChange()"
-      >
-        <option value="">Todas as categorias</option>
-        <option *ngFor="let category of categories" [value]="category._id">{{ category.name }}</option>
-      </select>
-    </label>
+  <section *ngIf="hasGuild" class="flex flex-col gap-3">
+    <div class="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+      <label class="flex w-full flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 sm:w-auto sm:min-w-[220px]">
+        Filtrar por categoria
+        <select
+          class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+          [(ngModel)]="selectedCategoryId"
+          (ngModelChange)="onCategoryFilterChange()"
+        >
+          <option value="">Todas as categorias</option>
+          <option *ngFor="let category of categories" [value]="category._id">{{ category.name }}</option>
+        </select>
+      </label>
 
-    <div class="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap">
-      <button
-        type="button"
-        class="min-h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-white/5 sm:w-auto"
-        (click)="syncMembersAndReload()"
-        [disabled]="syncing"
-      >
-        {{ syncing ? 'Sincronizando...' : 'Sincronizar membros' }}
-      </button>
-      <button
-        type="button"
-        class="min-h-11 w-full rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60 sm:w-auto"
-        (click)="loadReport()"
-        [disabled]="loading"
-      >
-        {{ loading ? 'Carregando...' : 'Atualizar relatório' }}
-      </button>
-      <button
-        type="button"
-        class="min-h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-white/5 sm:w-auto"
-        (click)="onExportInactivityCsv()"
-        [disabled]="exporting"
-      >
-        Exportar CSV inatividade
-      </button>
-      <button
-        type="button"
-        class="min-h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-white/5 sm:w-auto"
-        (click)="onExportCollaborationCsv()"
-        [disabled]="exporting"
-      >
-        Exportar CSV colaboração
-      </button>
+      <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+        <button
+          type="button"
+          class="min-h-11 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
+          (click)="loadReport()"
+          [disabled]="loading"
+        >
+          {{ loading ? 'Carregando...' : 'Atualizar' }}
+        </button>
+        <button
+          type="button"
+          class="min-h-11 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-white/5"
+          (click)="syncMembersAndReload()"
+          [disabled]="syncing"
+        >
+          {{ syncing ? 'Sincronizando...' : 'Sincronizar membros' }}
+        </button>
+        <details class="relative">
+          <summary class="flex min-h-11 cursor-pointer list-none items-center rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100">
+            Exportar CSV
+          </summary>
+          <div class="absolute right-0 z-10 mt-1 min-w-[200px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+            <button type="button" class="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-white/5" (click)="onExportInactivityCsv()" [disabled]="exporting">
+              Inatividade semanal
+            </button>
+            <button type="button" class="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-white/5" (click)="onExportCollaborationCsv()" [disabled]="exporting">
+              Resumo colaboração
+            </button>
+          </div>
+        </details>
+      </div>
     </div>
   </section>
 

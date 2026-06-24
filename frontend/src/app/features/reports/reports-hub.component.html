@@ -1,0 +1,27 @@
+<section class="space-y-6">
+  <header class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Relatórios</h2>
+    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+      Histórico e exportação de colaboração, inatividade e ausências do time.
+    </p>
+  </header>
+
+  <nav
+    class="flex gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-800 dark:bg-gray-900/50"
+    aria-label="Abas de relatórios"
+  >
+    @for (tab of tabs; track tab.path) {
+      <a
+        [routerLink]="tab.path"
+        routerLinkActive="bg-white text-brand-600 shadow-sm dark:bg-gray-800 dark:text-brand-400"
+        [routerLinkActiveOptions]="{ exact: false }"
+        class="min-h-11 shrink-0 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-600 transition hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+        [attr.aria-current]="null"
+      >
+        {{ tab.label }}
+      </a>
+    }
+  </nav>
+
+  <router-outlet />
+</section>
