@@ -36,8 +36,9 @@ describe('AbsencesReportComponent', () => {
 
   it('renderiza página de ausências ativas', () => {
     const textContent = (fixture.nativeElement.textContent as string).toLowerCase();
-    expect(textContent).toContain('ausências ativas');
-    expect(textContent).toContain('gerenciar ausências');
+    expect(textContent).toContain('ausência(s) ativa(s)');
+    expect(textContent).toContain('cadastrar pto');
+    expect(textContent).toContain('cadastrar ausência planejada');
   });
 
   it('exibe ausências retornadas pela API', () => {

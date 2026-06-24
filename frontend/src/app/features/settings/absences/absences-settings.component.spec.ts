@@ -34,10 +34,11 @@ describe('AbsencesSettingsComponent', () => {
     localStorage.clear();
   });
 
-  it('renderiza seção de ausências planejadas', () => {
+  it('renderiza seção de cadastro de PTO e ausências', () => {
     const textContent = (fixture.nativeElement.textContent as string).toLowerCase();
-    expect(textContent).toContain('ausências planejadas');
+    expect(textContent).toContain('cadastrar pto e ausências');
     expect(textContent).toContain('sincronizar membros');
+    expect(textContent).toContain('lista de ausências');
     expect(textContent).not.toContain('trackeduserid');
   });
 });

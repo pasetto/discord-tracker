@@ -19,8 +19,15 @@ describe('ReportsHubComponent', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('deve expor três abas de relatório', () => {
-    expect(fixture.componentInstance.tabs.length).toBe(3);
+  it('deve expor abas de relatório incluindo gamificação', () => {
+    expect(fixture.componentInstance.tabs.length).toBe(5);
     expect(fixture.componentInstance.tabs[0].label).toBe('Quem sumiu');
+    expect(fixture.componentInstance.tabs.map((tab) => tab.path)).toEqual([
+      'inactivity',
+      'goals',
+      'absences',
+      'ranking',
+      'achievements',
+    ]);
   });
 });

@@ -28,6 +28,7 @@ describe('GoalsReportComponent', () => {
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/goals').flush({
       report: { periodStart: '', periodEnd: '', generatedAt: '', entries: [] },
     });
+    fixture.detectChanges();
   });
 
   afterEach(() => {
@@ -35,8 +36,10 @@ describe('GoalsReportComponent', () => {
     httpMock.verify();
   });
 
-  it('renderiza título de relatório de metas', () => {
+  it('renderiza relatório de metas com estado vazio', () => {
     const textContent = (fixture.nativeElement.textContent as string).toLowerCase();
-    expect(textContent).toContain('relatório de metas');
+    expect(textContent).toContain('atualizar relatório');
+    expect(textContent).toContain('nenhuma meta individual configurada');
+    expect(textContent).toContain('configurar metas individuais');
   });
 });
