@@ -7,12 +7,14 @@ const USER_ID = '665f9312eb6f3a663b6f0002';
 const inactivityMocks = vi.hoisted(() => ({
   getWeeklyInactivityReport: vi.fn(),
   getIntradayInactivityReport: vi.fn(),
+  getInactivityHistory: vi.fn(),
   getInactivitySettings: vi.fn(),
   upsertInactivitySettings: vi.fn(),
 }));
 
 vi.mock('../../src/services/inactivityService', () => ({
   getWeeklyInactivityReport: inactivityMocks.getWeeklyInactivityReport,
+  getInactivityHistory: inactivityMocks.getInactivityHistory,
   getInactivityThresholdSettings: vi.fn(),
 }));
 
@@ -48,6 +50,7 @@ describe('inactivity routes', () => {
   beforeEach(() => {
     inactivityMocks.getWeeklyInactivityReport.mockReset();
     inactivityMocks.getIntradayInactivityReport.mockReset();
+    inactivityMocks.getInactivityHistory.mockReset();
     inactivityMocks.getInactivitySettings.mockReset();
     inactivityMocks.upsertInactivitySettings.mockReset();
   });
@@ -144,5 +147,22 @@ describe('inactivity routes', () => {
       .send({ lateStartThresholdPercent: 25 });
 
     expect(response.status).toBe(403);
+  });
+
+  it('retorna histórico por trackedUserId', async () => {
+    const app = createApp();
+    inactivityMocks.getInactivityHistory.mockResolvedValue({
+      trackedUserId: '665f9312eb6f3a663b6f0010',
+      discordId: '123',
+      displayName: 'Ana',
+      timeline: [{ status: 'missing', inactiveBusinessDays: 3 }],
+    });
+
+    const response = await request(app.callback())
+      .get(`/api/v1/org/${ORG_ID}/guilds/guild-1/reports/inactivity/history?trackedUserId=665f9312eb6f3a663b6f0010`)
+      .set('Authorization', buildAuthHeader([{ organizationId: ORG_ID, role: 'manager' }]));
+
+    expect(response.status).toBe(200);
+    expect(response.body.history.timeline).toHaveLength(1);
   });
 });

@@ -227,7 +227,7 @@ export async function notifyManagersAboutMissingMembers(
 
   const payload = JSON.stringify({
     title: 'Syntra - Quem sumiu',
-    body: `${input.missingMembers.length} membro(s) com status de inatividade "missing".`,
+    body: `${input.missingMembers.length} colaborador(es) sumiram esta semana.`,
     guildId: input.guildId,
     missingMembers: input.missingMembers,
     createdAt: new Date().toISOString(),

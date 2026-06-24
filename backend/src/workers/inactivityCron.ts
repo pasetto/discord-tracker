@@ -3,7 +3,9 @@ import { OrganizationModel } from '../db/models/Organization';
 import { WorkCalendarModel, createDefaultWorkWeek } from '../db/models/WorkCalendar';
 import { isBusinessDay } from '../services/workCalendarService';
 import { generateWeeklyInactivitySnapshot, listTrackedGuildIdsByOrganization } from '../services/inactivityService';
+import { getInactivitySettings } from '../services/inactivitySettingsService';
 import { notifyManagersAboutMissingMembers } from '../services/pushService';
+import { enqueueWebhookDeliveries } from '../services/webhookService';
 import { getZonedParts } from '../utils/timezone';
 
 const ONE_MINUTE_MS = 60_000;
@@ -100,11 +102,29 @@ export async function runInactivityCronTick(now: Date = new Date()): Promise<num
           displayName: entry.displayName,
           inactiveBusinessDays: entry.inactiveBusinessDays,
         }));
+
       if (missingMembers.length > 0) {
-        await notifyManagersAboutMissingMembers({
+        const settings = await getInactivitySettings(organizationId, guildId);
+
+        if (settings.notifyManagerPush) {
+          await notifyManagersAboutMissingMembers({
+            organizationId,
+            guildId,
+            missingMembers,
+          });
+        }
+
+        await enqueueWebhookDeliveries({
           organizationId,
-          guildId,
-          missingMembers,
+          event: 'member.inactivity.detected',
+          payload: {
+            guildId,
+            missingCount: missingMembers.length,
+            missingMembers,
+            periodStart: snapshot.periodStart.toISOString(),
+            periodEnd: snapshot.periodEnd.toISOString(),
+            detectedAt: now.toISOString(),
+          },
         });
       }
       lastExecutionByOrgAndGuild.set(executionKey, localDateKey);

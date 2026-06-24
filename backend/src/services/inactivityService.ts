@@ -68,6 +68,27 @@ export interface InactivityWeeklyReport {
 }
 
 /**
+ * Ponto da timeline de inatividade de um colaborador.
+ */
+export interface InactivityHistoryPoint {
+  periodStart: Date;
+  periodEnd: Date;
+  generatedAt: Date;
+  status: InactivityStatus;
+  inactiveBusinessDays: number;
+}
+
+/**
+ * Histórico semanal de status de inatividade por membro rastreado.
+ */
+export interface InactivityMemberHistory {
+  trackedUserId: Types.ObjectId;
+  discordId: string;
+  displayName: string;
+  timeline: InactivityHistoryPoint[];
+}
+
+/**
  * Trunca uma data para o início do dia em UTC.
  * @param value Data de referência
  * @returns Data normalizada para 00:00:00.000 UTC
@@ -153,6 +174,28 @@ export function computeInactivityStatus(input: ComputeInactivityStatusInput): In
   }
 
   return 'active';
+}
+
+/**
+ * Marca membro como `returned` quando estava `missing` na semana anterior e voltou.
+ * @param currentStatus Status calculado para a semana atual
+ * @param previousStatus Status persistido na semana anterior, se existir
+ * @returns Status final considerando retorno recente
+ * @example
+ * applyReturnedStatus('active', 'missing') // 'returned'
+ */
+export function applyReturnedStatus(
+  currentStatus: InactivityStatus,
+  previousStatus: InactivityStatus | undefined,
+): InactivityStatus {
+  if (
+    previousStatus === 'missing'
+    && (currentStatus === 'active' || currentStatus === 'low_voice_collaboration')
+  ) {
+    return 'returned';
+  }
+
+  return currentStatus;
 }
 
 /**
@@ -329,12 +372,24 @@ export async function generateWeeklyInactivitySnapshot(
   const coreUserIdByDiscordId = new Map(coreUsers.map((user) => [user.discordId, user._id as Types.ObjectId]));
   const coreUserIds = coreUsers.map((user) => user._id as Types.ObjectId);
 
-  const [lastTextByDiscordId, plannedAbsencesByDiscordId, categoryNamesById, lastVoiceByUserId] = await Promise.all([
+  const [lastTextByDiscordId, plannedAbsencesByDiscordId, categoryNamesById, lastVoiceByUserId, previousSnapshot] =
+    await Promise.all([
     getLastTextActivityByDiscordId(organizationObjectId, guildId, discordIds),
     getPlannedAbsencesByDiscordId(organizationObjectId, guildId, discordIds),
     getCategoryNamesById(organizationObjectId, guildId),
     voiceSessionRepository.getLastCollaborationAtByUserIds(coreUserIds),
+    InactivitySnapshotModel.findOne({
+      organizationId: organizationObjectId,
+      guildId,
+      periodStart: new Date(periodStart.getTime() - 7 * 24 * 60 * 60 * 1000),
+    })
+      .lean()
+      .exec(),
   ]);
+
+  const previousStatusByTrackedUserId = new Map(
+    (previousSnapshot?.entries ?? []).map((entry) => [String(entry.trackedUserId), entry.status]),
+  );
 
   const entries: InactivitySnapshotEntry[] = trackedUsers.map((trackedUser) => {
     const absences = plannedAbsencesByDiscordId.get(trackedUser.discordId) ?? [];
@@ -366,7 +421,7 @@ export async function generateWeeklyInactivitySnapshot(
     const onPlannedAbsence = isOnPlannedAbsence(absences, referenceDate);
     const hasRecentText = Boolean(lastTextActivityAt) && businessDaysInactive === 0;
     const hasRecentPresence = businessDaysInactive === 0;
-    const status = computeInactivityStatus({
+    const baseStatus = computeInactivityStatus({
       settings,
       businessDaysInactive,
       onPlannedAbsence,
@@ -374,6 +429,10 @@ export async function generateWeeklyInactivitySnapshot(
       hasRecentPresence,
       zeroVoiceDays,
     });
+    const status = applyReturnedStatus(
+      baseStatus,
+      previousStatusByTrackedUserId.get(String(trackedUser._id)),
+    );
 
     const activeAbsence = absences.find((absence) => isOnPlannedAbsence([absence], referenceDate));
     const categoryId = trackedUser.categoryId as Types.ObjectId | undefined;
@@ -479,4 +538,71 @@ export async function listTrackedGuildIdsByOrganization(organizationId: string):
   const organizationObjectId = parseObjectId(organizationId, 'organizationId');
   const guildIds = await TrackedUserModel.distinct('guildId', { organizationId: organizationObjectId } as FilterQuery<typeof TrackedUserModel>);
   return guildIds.filter((guildId): guildId is string => typeof guildId === 'string' && guildId.length > 0);
+}
+
+/**
+ * Retorna timeline de snapshots semanais para um membro rastreado.
+ * @param organizationId Identificador textual da organização
+ * @param guildId Identificador da guild no Discord
+ * @param trackedUserId Identificador do membro rastreado
+ * @param limit Quantidade máxima de semanas no histórico (default 12)
+ * @returns Histórico ordenado da semana mais recente para a mais antiga
+ * @throws {Error} Quando trackedUserId é inválido ou membro não pertence à guild
+ */
+export async function getInactivityHistory(
+  organizationId: string,
+  guildId: string,
+  trackedUserId: string,
+  limit = 12,
+): Promise<InactivityMemberHistory> {
+  const organizationObjectId = parseObjectId(organizationId, 'organizationId');
+  const trackedUserObjectId = parseObjectId(trackedUserId, 'trackedUserId');
+
+  const trackedUser = await TrackedUserModel.findOne({
+    _id: trackedUserObjectId,
+    organizationId: organizationObjectId,
+    guildId,
+  })
+    .select({ _id: 1, discordId: 1, displayName: 1 })
+    .lean()
+    .exec();
+
+  if (!trackedUser) {
+    throw new Error('Membro rastreado não encontrado nesta guild');
+  }
+
+  const snapshots = await InactivitySnapshotModel.find({
+    organizationId: organizationObjectId,
+    guildId,
+    'entries.trackedUserId': trackedUserObjectId,
+  })
+    .sort({ periodStart: -1 })
+    .limit(Math.min(Math.max(limit, 1), 52))
+    .lean()
+    .exec();
+
+  const timeline: InactivityHistoryPoint[] = [];
+  for (const snapshot of snapshots) {
+    const entry = snapshot.entries.find(
+      (item) => String(item.trackedUserId) === String(trackedUserObjectId),
+    );
+    if (!entry) {
+      continue;
+    }
+
+    timeline.push({
+      periodStart: snapshot.periodStart,
+      periodEnd: snapshot.periodEnd,
+      generatedAt: snapshot.generatedAt,
+      status: entry.status,
+      inactiveBusinessDays: entry.inactiveBusinessDays,
+    });
+  }
+
+  return {
+    trackedUserId: trackedUser._id as Types.ObjectId,
+    discordId: trackedUser.discordId,
+    displayName: trackedUser.displayName,
+    timeline,
+  };
 }

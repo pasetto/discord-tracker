@@ -5,6 +5,8 @@ const workCalendarFindOneMock = vi.hoisted(() => vi.fn());
 const listTrackedGuildIdsByOrganizationMock = vi.hoisted(() => vi.fn());
 const generateWeeklyInactivitySnapshotMock = vi.hoisted(() => vi.fn());
 const notifyManagersAboutMissingMembersMock = vi.hoisted(() => vi.fn());
+const getInactivitySettingsMock = vi.hoisted(() => vi.fn());
+const enqueueWebhookDeliveriesMock = vi.hoisted(() => vi.fn());
 const isBusinessDayMock = vi.hoisted(() => vi.fn());
 const getZonedPartsMock = vi.hoisted(() => vi.fn());
 const loggerInfoMock = vi.hoisted(() => vi.fn());
@@ -36,6 +38,14 @@ vi.mock('../../src/services/inactivityService', () => ({
 
 vi.mock('../../src/services/pushService', () => ({
   notifyManagersAboutMissingMembers: notifyManagersAboutMissingMembersMock,
+}));
+
+vi.mock('../../src/services/inactivitySettingsService', () => ({
+  getInactivitySettings: getInactivitySettingsMock,
+}));
+
+vi.mock('../../src/services/webhookService', () => ({
+  enqueueWebhookDeliveries: enqueueWebhookDeliveriesMock,
 }));
 
 vi.mock('../../src/services/workCalendarService', () => ({
@@ -89,12 +99,16 @@ describe('inactivityCron', () => {
     isBusinessDayMock.mockReturnValue(true);
     listTrackedGuildIdsByOrganizationMock.mockResolvedValue(['guild-1']);
     generateWeeklyInactivitySnapshotMock.mockResolvedValue({
+      periodStart: new Date('2026-06-15'),
+      periodEnd: new Date('2026-06-22'),
       entries: [
         { status: 'missing', discordId: '1', displayName: 'Alice', inactiveBusinessDays: 4 },
         { status: 'active', discordId: '2', displayName: 'Bob', inactiveBusinessDays: 0 },
       ],
     });
+    getInactivitySettingsMock.mockResolvedValue({ notifyManagerPush: true });
     notifyManagersAboutMissingMembersMock.mockResolvedValue(undefined);
+    enqueueWebhookDeliveriesMock.mockResolvedValue(1);
 
     const generated = await runInactivityCronTick(new Date('2026-06-22T11:00:00.000Z'));
 
@@ -105,6 +119,12 @@ describe('inactivityCron', () => {
       guildId: 'guild-1',
       missingMembers: [{ discordId: '1', displayName: 'Alice', inactiveBusinessDays: 4 }],
     });
+    expect(enqueueWebhookDeliveriesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: '507f1f77bcf86cd799439001',
+        event: 'member.inactivity.detected',
+      }),
+    );
     expect(loggerInfoMock).toHaveBeenCalledWith(
       { snapshotsGenerated: 1 },
       'Ciclo do cron de inatividade concluído',

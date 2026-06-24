@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   computeBusinessDaysBetween,
   computeInactivityStatus,
+  applyReturnedStatus,
   type ComputeInactivityStatusInput,
 } from '../../src/services/inactivityService';
 import type { WorkCalendar } from '../../src/db/models/WorkCalendar';
@@ -83,6 +84,19 @@ describe('computeInactivityStatus', () => {
     );
 
     expect(result).toBe('active');
+  });
+});
+
+describe('applyReturnedStatus', () => {
+  it('retorna returned quando membro estava missing e voltou', () => {
+    expect(applyReturnedStatus('active', 'missing')).toBe('returned');
+    expect(applyReturnedStatus('low_voice_collaboration', 'missing')).toBe('returned');
+  });
+
+  it('preserva status quando não houve retorno', () => {
+    expect(applyReturnedStatus('missing', 'missing')).toBe('missing');
+    expect(applyReturnedStatus('active', 'active')).toBe('active');
+    expect(applyReturnedStatus('active', undefined)).toBe('active');
   });
 });
 
