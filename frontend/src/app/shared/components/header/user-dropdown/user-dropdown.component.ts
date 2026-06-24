@@ -1,7 +1,9 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { map, Observable } from 'rxjs';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { OnboardingProgressService } from '../../../../core/onboarding/onboarding-progress.service';
 
 /**
  * Dropdown do usuário autenticado com nome, email e logout real.
@@ -11,10 +13,20 @@ import { AuthService } from '../../../../core/auth/auth.service';
   templateUrl: './user-dropdown.component.html',
   imports: [CommonModule, RouterLink],
 })
-export class UserDropdownComponent {
+export class UserDropdownComponent implements OnInit {
   private readonly authService = inject(AuthService);
+  private readonly onboardingProgressService = inject(OnboardingProgressService);
+
+  /** Controla exibição do link de configuração inicial no menu. */
+  readonly showOnboardingLink$: Observable<boolean>;
 
   isOpen = false;
+
+  constructor() {
+    this.showOnboardingLink$ = this.onboardingProgressService.progress$.pipe(
+      map((progress) => !(progress.completedAt || progress.completedSteps.includes(8))),
+    );
+  }
 
   /**
    * Nome exibido no header.
@@ -46,6 +58,13 @@ export class UserDropdownComponent {
       return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     }
     return this.displayName.slice(0, 2).toUpperCase();
+  }
+
+  /**
+   * Carrega progresso do onboarding para decidir links do menu.
+   */
+  ngOnInit(): void {
+    this.onboardingProgressService.load(this.authService.getOrganizationId()).subscribe();
   }
 
   /**

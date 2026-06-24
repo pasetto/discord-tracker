@@ -35,14 +35,26 @@ Monorepo **npm workspaces**: `backend/` (API + bot Discord) + `frontend/` (Angul
 
 ### Frontend
 - Landing com pricing BRL
-- Auth shell (OAuth Discord, guard, interceptor)
-- Onboarding wizard (8 passos)
-- Dashboard com widgets **Quem sumiu** e **Ausências**
-- Relatórios: inatividade (tabela + export CSV) e metas
-- Configurações: canais, calendário, ausências, metas, gamificação
-- Portal colaborador `/me` (transparência LGPD)
+- Auth shell (login email/senha + OAuth, guard, interceptor)
+- Onboarding wizard (8 passos) — banner + link no menu enquanto incompleto
+- **Início** (`/app/dashboard`) — alertas “Quem sumiu?” (hoje + semana)
+- **Time ao vivo** (`/app/live`) — presença, movimentação e ranking
+- **Relatórios** (`/app/reports`) — hub com abas: Quem sumiu · Metas · Ausências em andamento
+- Configurações agrupadas: Integração · Regras · Time · Gamificação
+- Portal colaborador `/me` (transparência LGPD) — acesso pelo menu do usuário
 - PWA + service worker
-- Layout responsivo (bottom nav mobile)
+- Layout responsivo (bottom nav: Início · Ao vivo · Relatórios · Config)
+
+#### Navegação principal (gestor)
+
+| Rota | Função |
+|------|--------|
+| `/app/dashboard` | Início — foco em quem sumiu hoje/semana |
+| `/app/live` | Time ao vivo no Discord |
+| `/app/reports/*` | Relatórios com abas (inatividade, metas, ausências) |
+| `/app/settings/*` | Configurações (Discord, canais, calendário, limiares, PTO, etc.) |
+| `/app/onboarding` | Setup inicial (8 passos) — fora da sidebar |
+| `/app/me` | Portal do colaborador |
 
 ---
 

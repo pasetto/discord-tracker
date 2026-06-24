@@ -24,14 +24,16 @@ frontend/src/app/
 │   ├── interceptors/
 │   └── models/
 ├── features/
-│   ├── onboarding/        # Wizard 7 passos
+│   ├── onboarding/        # Wizard 8 passos (fora da sidebar)
 │   ├── landing/
-│   ├── dashboard/         # Widget "Quem sumiu"
+│   ├── dashboard/         # Início — quem sumiu hoje/semana
+│   ├── live/              # Time ao vivo
 │   ├── reports/
+│   │   ├── reports-hub/   # Hub com abas
 │   │   ├── inactivity/    # CORE
-│   │   ├── goals/         # Metas individuais
-│   │   └── collaboration/
-│   ├── collaborator/      # Portal /me
+│   │   ├── goals/
+│   │   └── absences/
+│   ├── collaborator/      # Portal /me (menu usuário)
 │   ├── settings/
 │   └── admin/
 ├── shared/
@@ -58,12 +60,22 @@ ng add @angular/pwa
 
 | Tela | Prioridade |
 |------|------------|
-| `/onboarding` | Wizard 7 passos — TTV < 10 min |
-| `/reports/inactivity` | **Core** — quem sumiu esta semana |
-| `/reports/goals` | Meta vs realizado **por usuário** |
-| `/dashboard` | Widget inatividade no topo |
-| `/me` | Portal colaborador — só dados próprios |
-| `/settings/goals` | Metas individuais; template categoria aplica **por pessoa** |
+| `/app/dashboard` | **Início** — alertas quem sumiu (hoje + semana) |
+| `/app/live` | Time ao vivo (presença, ranking) |
+| `/app/reports/inactivity` | **Core** — relatório quem sumiu |
+| `/app/reports/goals` | Meta vs realizado por usuário |
+| `/app/onboarding` | Wizard 8 passos — banner + menu se incompleto |
+| `/app/me` | Portal colaborador — só dados próprios |
+| `/app/settings/goals` | Metas individuais |
+
+## Navegação (sidebar)
+
+1. **Início** → `/app/dashboard`
+2. **Time ao vivo** → `/app/live`
+3. **Relatórios** → `/app/reports` (abas)
+4. **Configurações** → `/app/settings` (Integração · Regras · Time)
+
+Onboarding e Meu portal ficam no banner/menu do usuário, não na sidebar.
 
 ## Responsividade (obrigatório)
 
