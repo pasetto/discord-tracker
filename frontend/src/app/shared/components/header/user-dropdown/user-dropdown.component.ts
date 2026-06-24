@@ -50,6 +50,13 @@ export class UserDropdownComponent implements OnInit {
   }
 
   /**
+   * Indica se o usuário logado é super admin da plataforma.
+   */
+  get isSuperAdmin(): boolean {
+    return this.authService.isSuperAdmin();
+  }
+
+  /**
    * Iniciais para avatar quando não há imagem.
    */
   get initials(): string {

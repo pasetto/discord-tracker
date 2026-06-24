@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/auth/auth.guard';
+import { superAdminGuard } from './core/auth/super-admin.guard';
 
 /** Metadados padrão de página para o header contextual. */
 const page = (title: string, breadcrumbLabel?: string) => ({
@@ -85,6 +86,23 @@ const loadDiscordSettings = () =>
 
 const loadDiscordAdmin = () =>
   import('./features/admin/discord/discord-admin.component').then((module) => module.DiscordAdminComponent);
+
+const loadAdminLayout = () =>
+  import('./features/admin/admin-layout.component').then((module) => module.AdminLayoutComponent);
+
+const loadAdminHome = () =>
+  import('./features/admin/admin-home.component').then((module) => module.AdminHomeComponent);
+
+const loadAdminPlans = () =>
+  import('./features/admin/plans/admin-plans.component').then((module) => module.AdminPlansComponent);
+
+const loadAdminUsers = () =>
+  import('./features/admin/users/admin-users.component').then((module) => module.AdminUsersComponent);
+
+const loadAdminOrganizations = () =>
+  import('./features/admin/organizations/admin-organizations.component').then(
+    (module) => module.AdminOrganizationsComponent,
+  );
 
 const loadSignIn = () =>
   import('./pages/auth-pages/sign-in/sign-in.component').then((module) => module.SignInComponent);
@@ -239,13 +257,14 @@ export const routes: Routes = [
   },
   {
     path: 'admin',
-    canActivate: [authGuard],
+    canActivate: [authGuard, superAdminGuard],
+    loadComponent: loadAdminLayout,
     children: [
-      {
-        path: 'discord',
-        loadComponent: loadDiscordAdmin,
-        title: 'Admin Discord | Syntra',
-      },
+      { path: '', pathMatch: 'full', loadComponent: loadAdminHome, title: 'Painel da plataforma | Syntra' },
+      { path: 'plans', loadComponent: loadAdminPlans, title: 'Planos | Admin Syntra' },
+      { path: 'users', loadComponent: loadAdminUsers, title: 'Usuários | Admin Syntra' },
+      { path: 'organizations', loadComponent: loadAdminOrganizations, title: 'Organizações | Admin Syntra' },
+      { path: 'discord', loadComponent: loadDiscordAdmin, title: 'Bot Discord | Admin Syntra' },
     ],
   },
   {

@@ -222,6 +222,14 @@ export class AuthService {
   }
 
   /**
+   * Indica se o usuário autenticado é super admin da plataforma.
+   * @returns `true` quando `isSuperAdmin` está na sessão local
+   */
+  isSuperAdmin(): boolean {
+    return Boolean(this.getUser()?.isSuperAdmin);
+  }
+
+  /**
    * Persiste contexto de sessão retornado pela API.
    * @param session Resposta de login/cadastro
    */
@@ -231,23 +239,31 @@ export class AuthService {
     }
 
     this.saveToken(session.accessToken);
-    localStorage.setItem(ORG_ID_STORAGE_KEY, session.organization.id);
     localStorage.setItem(
       USER_SESSION_STORAGE_KEY,
       JSON.stringify({
         id: session.user.id,
         email: session.user.email,
         displayName: session.user.displayName,
+        isSuperAdmin: Boolean(session.user.isSuperAdmin),
       } satisfies AuthUserSession),
     );
-    localStorage.setItem(
-      ORG_SESSION_STORAGE_KEY,
-      JSON.stringify({
-        id: session.organization.id,
-        name: session.organization.name,
-        slug: session.organization.slug,
-      } satisfies AuthOrganizationSession),
-    );
+
+    if (session.organization) {
+      localStorage.setItem(ORG_ID_STORAGE_KEY, session.organization.id);
+      localStorage.setItem(
+        ORG_SESSION_STORAGE_KEY,
+        JSON.stringify({
+          id: session.organization.id,
+          name: session.organization.name,
+          slug: session.organization.slug,
+        } satisfies AuthOrganizationSession),
+      );
+    } else {
+      localStorage.removeItem(ORG_ID_STORAGE_KEY);
+      localStorage.removeItem(ORG_SESSION_STORAGE_KEY);
+      this.tenantContextService.clear();
+    }
   }
 
   /**

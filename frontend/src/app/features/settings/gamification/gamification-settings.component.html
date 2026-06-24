@@ -3,6 +3,7 @@
     <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Gamificação e ranking</h2>
     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
       Configure gamificação por guild respeitando os recursos disponíveis no plano da organização.
+      <span class="mt-1 block text-xs text-gray-400">Plano atual: <strong>{{ planInfo.name }}</strong> ({{ planInfo.slug }})</span>
     </p>
   </header>
 
@@ -46,7 +47,7 @@
       </p>
 
       <p *ngIf="isRankingLockedByPlan()" class="text-sm text-warning-600">
-        Ranking indisponível para o plano atual (upgrade para Team).
+        {{ rankingPlanLockMessage }}
       </p>
 
       <label class="flex min-h-11 items-center justify-between gap-4 rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-700">

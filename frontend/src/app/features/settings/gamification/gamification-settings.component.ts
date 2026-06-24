@@ -23,6 +23,11 @@ interface GamificationPlanFeaturesDto {
   ranking: boolean;
 }
 
+interface GamificationPlanInfoDto {
+  name: string;
+  slug: string;
+}
+
 /**
  * Shape de resposta do endpoint de gamificação.
  */
@@ -34,6 +39,7 @@ interface GamificationSettingsResponseDto {
     streaks: { enabled: boolean };
   };
   planFeatures: GamificationPlanFeaturesDto;
+  plan: GamificationPlanInfoDto;
 }
 
 /**
@@ -56,6 +62,7 @@ export class GamificationSettingsComponent implements OnInit {
     gamification: true,
     ranking: true,
   };
+  planInfo: GamificationPlanInfoDto = { name: '—', slug: '—' };
   loading = false;
   saving = false;
   errorMessage = '';
@@ -159,6 +166,13 @@ export class GamificationSettingsComponent implements OnInit {
   }
 
   /**
+   * Mensagem contextual quando ranking está bloqueado pelo plano.
+   */
+  get rankingPlanLockMessage(): string {
+    return `Ranking indisponível no plano ${this.planInfo.name} — habilite "ranking" nas features do plano no painel admin.`;
+  }
+
+  /**
    * Verifica se toggle de ranking deve ficar bloqueado pelo plano.
    * @returns {boolean} `true` quando ranking não está habilitado no plano.
    */
@@ -180,6 +194,7 @@ export class GamificationSettingsComponent implements OnInit {
    */
   private applySettingsResponse(response: GamificationSettingsResponseDto): void {
     this.planFeatures = response.planFeatures;
+    this.planInfo = response.plan;
     this.toggles = {
       enabled: response.settings.enabled,
       rankingEnabled: response.settings.ranking.enabled,

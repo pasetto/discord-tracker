@@ -17,6 +17,7 @@ export interface AuthUserDto {
   id: string;
   email: string;
   displayName: string;
+  isSuperAdmin?: boolean;
   memberships: AuthMembershipDto[];
 }
 
@@ -35,7 +36,7 @@ export interface AuthOrganizationDto {
 export interface AuthSessionResponse {
   accessToken: string;
   user: AuthUserDto;
-  organization: AuthOrganizationDto;
+  organization: AuthOrganizationDto | null;
 }
 
 /**

@@ -45,13 +45,14 @@ export interface PlatformAuthResult {
     id: string;
     email: string;
     displayName: string;
+    isSuperAdmin: boolean;
     memberships: AuthMembership[];
   };
   organization: {
     id: string;
     name: string;
     slug: string;
-  };
+  } | null;
 }
 
 /**
@@ -234,22 +235,7 @@ export async function registerPlatformUser(input: RegisterPlatformUserInput): Pr
     ],
   });
 
-  const authPayload = buildAuthPayloadFromPlatformUser(user);
-  return {
-    accessToken: signAccessToken(authPayload),
-    refreshToken: signRefreshToken(authPayload),
-    user: {
-      id: authPayload.id,
-      email: authPayload.email,
-      displayName: user.displayName,
-      memberships: authPayload.memberships,
-    },
-    organization: {
-      id: String(organization._id),
-      name: organization.name,
-      slug: organization.slug,
-    },
-  };
+  return buildPlatformAuthResult(user);
 }
 
 /**
@@ -273,32 +259,11 @@ export async function loginPlatformUser(input: LoginPlatformUserInput): Promise<
     throw new Error('Credenciais inválidas');
   }
 
-  const primaryMembership = user.memberships[0];
-  if (!primaryMembership) {
+  if (!user.isSuperAdmin && user.memberships.length === 0) {
     throw new Error('Usuário sem organização vinculada');
   }
 
-  const organization = await OrganizationModel.findById(primaryMembership.organizationId).exec();
-  if (!organization) {
-    throw new Error('Organização vinculada não encontrada');
-  }
-
-  const authPayload = buildAuthPayloadFromPlatformUser(user);
-  return {
-    accessToken: signAccessToken(authPayload),
-    refreshToken: signRefreshToken(authPayload),
-    user: {
-      id: authPayload.id,
-      email: authPayload.email,
-      displayName: user.displayName,
-      memberships: authPayload.memberships,
-    },
-    organization: {
-      id: String(organization._id),
-      name: organization.name,
-      slug: organization.slug,
-    },
-  };
+  return buildPlatformAuthResult(user);
 }
 
 /**
@@ -314,17 +279,34 @@ export async function refreshPlatformUserSession(refreshToken: string): Promise<
     throw new Error('Usuário não encontrado');
   }
 
-  const primaryMembership = user.memberships[0];
-  if (!primaryMembership) {
+  if (!user.isSuperAdmin && user.memberships.length === 0) {
     throw new Error('Usuário sem organização vinculada');
   }
 
-  const organization = await OrganizationModel.findById(primaryMembership.organizationId).exec();
-  if (!organization) {
-    throw new Error('Organização vinculada não encontrada');
+  return buildPlatformAuthResult(user);
+}
+
+/**
+ * Monta resposta de sessão a partir do usuário autenticado.
+ * @param user Documento do usuário
+ * @returns Tokens e contexto para o cliente
+ */
+async function buildPlatformAuthResult(user: IPlatformUser): Promise<PlatformAuthResult> {
+  const authPayload = buildAuthPayloadFromPlatformUser(user);
+  const primaryMembership = user.memberships[0];
+  let organization: PlatformAuthResult['organization'] = null;
+
+  if (primaryMembership) {
+    const org = await OrganizationModel.findById(primaryMembership.organizationId).exec();
+    if (org) {
+      organization = {
+        id: String(org._id),
+        name: org.name,
+        slug: org.slug,
+      };
+    }
   }
 
-  const authPayload = buildAuthPayloadFromPlatformUser(user);
   return {
     accessToken: signAccessToken(authPayload),
     refreshToken: signRefreshToken(authPayload),
@@ -332,12 +314,9 @@ export async function refreshPlatformUserSession(refreshToken: string): Promise<
       id: authPayload.id,
       email: authPayload.email,
       displayName: user.displayName,
+      isSuperAdmin: user.isSuperAdmin,
       memberships: authPayload.memberships,
     },
-    organization: {
-      id: String(organization._id),
-      name: organization.name,
-      slug: organization.slug,
-    },
+    organization,
   };
 }

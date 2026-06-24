@@ -36,6 +36,14 @@
           </a>
         </li>
         }
+        @if (isSuperAdmin) {
+        <li>
+          <a routerLink="/admin" (click)="closeDropdown()"
+            class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-500/10">
+            Painel da plataforma
+          </a>
+        </li>
+        }
         <li>
           <a routerLink="/app/settings/discord" (click)="closeDropdown()"
             class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5">

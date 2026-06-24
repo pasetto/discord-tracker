@@ -12,11 +12,20 @@ export interface GamificationPlanFeatures {
 }
 
 /**
+ * Metadados do plano ativo da organização.
+ */
+export interface GamificationPlanInfo {
+  name: string;
+  slug: string;
+}
+
+/**
  * Resultado de leitura das configurações de gamificação.
  */
 export interface GamificationSettingsResult {
   settings: IGamificationSettings;
   planFeatures: GamificationPlanFeatures;
+  plan: GamificationPlanInfo;
 }
 
 /**
@@ -80,12 +89,14 @@ function parseObjectId(value: string, label: string): Types.ObjectId {
 }
 
 /**
- * Resolve features do plano ativo da organização.
+ * Resolve features e metadados do plano ativo da organização.
  * @param {Types.ObjectId} organizationId Organização que está sendo consultada
- * @returns {Promise<GamificationPlanFeatures>} Flags de recurso da assinatura
+ * @returns Flags de recurso e identificação do plano
  * @throws {Error} Quando organização/plano não existir
  */
-async function getOrganizationPlanFeatures(organizationId: Types.ObjectId): Promise<GamificationPlanFeatures> {
+async function getOrganizationPlanContext(
+  organizationId: Types.ObjectId,
+): Promise<GamificationPlanFeatures & GamificationPlanInfo> {
   const organization = await OrganizationModel.findById(organizationId)
     .select({ 'subscription.planId': 1 })
     .lean()
@@ -96,7 +107,7 @@ async function getOrganizationPlanFeatures(organizationId: Types.ObjectId): Prom
   }
 
   const plan = await PlanModel.findById(organization.subscription.planId)
-    .select({ 'features.gamification': 1, 'features.ranking': 1 })
+    .select({ name: 1, slug: 1, 'features.gamification': 1, 'features.ranking': 1 })
     .lean()
     .exec();
 
@@ -105,6 +116,8 @@ async function getOrganizationPlanFeatures(organizationId: Types.ObjectId): Prom
   }
 
   return {
+    name: plan.name,
+    slug: plan.slug,
     gamification: Boolean(plan.features.gamification),
     ranking: Boolean(plan.features.ranking),
   };
@@ -157,6 +170,18 @@ function createDefaultSettings(
 }
 
 /**
+ * Converte subdocumento Mongoose em objeto plano para merge seguro.
+ * @param value Valor possivelmente hidratado pelo Mongoose
+ * @returns Objeto plano serializável
+ */
+function toPlainSubdocument<T extends Record<string, unknown>>(value: T): T {
+  if (value && typeof value === 'object' && 'toObject' in value && typeof value.toObject === 'function') {
+    return value.toObject() as T;
+  }
+  return { ...value };
+}
+
+/**
  * Aplica merge controlado de patch parcial sobre documento base.
  * @param {IGamificationSettings} base Documento base atual
  * @param {UpsertGamificationSettingsInput['patch']} patch Alterações parciais recebidas da API
@@ -166,24 +191,29 @@ function mergeSettingsPatch(
   base: IGamificationSettings,
   patch: GamificationSettingsPatch,
 ): Pick<IGamificationSettings, 'enabled' | 'ranking' | 'badges' | 'streaks' | 'teamGoals'> {
+  const baseRanking = toPlainSubdocument(base.ranking as unknown as Record<string, unknown>);
+  const baseBadges = toPlainSubdocument(base.badges as unknown as Record<string, unknown>);
+  const baseStreaks = toPlainSubdocument(base.streaks as unknown as Record<string, unknown>);
+  const baseTeamGoals = toPlainSubdocument(base.teamGoals as unknown as Record<string, unknown>);
+
   return {
     enabled: patch.enabled ?? base.enabled,
     ranking: {
-      ...base.ranking,
+      ...baseRanking,
       ...(patch.ranking ?? {}),
-    },
+    } as IGamificationSettings['ranking'],
     badges: {
-      ...base.badges,
+      ...baseBadges,
       ...(patch.badges ?? {}),
-    },
+    } as IGamificationSettings['badges'],
     streaks: {
-      ...base.streaks,
+      ...baseStreaks,
       ...(patch.streaks ?? {}),
-    },
+    } as IGamificationSettings['streaks'],
     teamGoals: {
-      ...base.teamGoals,
+      ...baseTeamGoals,
       ...(patch.teamGoals ?? {}),
-    },
+    } as IGamificationSettings['teamGoals'],
   };
 }
 
@@ -219,7 +249,11 @@ function enforceRankingFeature(features: GamificationPlanFeatures, settings: Pic
  */
 export async function getGamificationSettings(input: GetGamificationSettingsInput): Promise<GamificationSettingsResult> {
   const organizationId = parseObjectId(input.organizationId, 'organizationId');
-  const planFeatures = await getOrganizationPlanFeatures(organizationId);
+  const planContext = await getOrganizationPlanContext(organizationId);
+  const planFeatures: GamificationPlanFeatures = {
+    gamification: planContext.gamification,
+    ranking: planContext.ranking,
+  };
   enforceGamificationFeature(planFeatures);
 
   const settings =
@@ -234,6 +268,7 @@ export async function getGamificationSettings(input: GetGamificationSettingsInpu
   return {
     settings,
     planFeatures,
+    plan: { name: planContext.name, slug: planContext.slug },
   };
 }
 
@@ -245,7 +280,11 @@ export async function getGamificationSettings(input: GetGamificationSettingsInpu
 export async function upsertGamificationSettings(input: UpsertGamificationSettingsInput): Promise<GamificationSettingsResult> {
   const organizationId = parseObjectId(input.organizationId, 'organizationId');
   const updatedBy = parseObjectId(input.updatedBy, 'updatedBy');
-  const planFeatures = await getOrganizationPlanFeatures(organizationId);
+  const planContext = await getOrganizationPlanContext(organizationId);
+  const planFeatures: GamificationPlanFeatures = {
+    gamification: planContext.gamification,
+    ranking: planContext.ranking,
+  };
   enforceGamificationFeature(planFeatures);
 
   const currentSettings =
@@ -287,5 +326,6 @@ export async function upsertGamificationSettings(input: UpsertGamificationSettin
   return {
     settings,
     planFeatures,
+    plan: { name: planContext.name, slug: planContext.slug },
   };
 }

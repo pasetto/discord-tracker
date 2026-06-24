@@ -28,6 +28,9 @@ import { pushRouter } from './routes/push';
 import { webhooksRouter } from './routes/webhooks';
 import { meRouter } from './routes/me';
 import { adminDiscordBootstrapRouter, adminDiscordRouter } from './routes/adminDiscord';
+import { adminPlansRouter } from './routes/adminPlans';
+import { adminUsersRouter } from './routes/adminUsers';
+import { adminOrganizationsRouter } from './routes/adminOrganizations';
 import { discordSettingsRouter } from './routes/discordSettings';
 import { dashboardRouter } from './routes/dashboard';
 import { trackedUsersRouter } from './routes/trackedUsers';
@@ -103,7 +106,17 @@ export function createApp(): Koa {
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, dashboardRouter.routes(), dashboardRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, discordSettingsRouter.routes(), discordSettingsRouter.allowedMethods());
   apiV1ProtectedRouter.use(meRouter.routes(), meRouter.allowedMethods());
-  apiV1ProtectedRouter.use(superAdminMiddleware, adminDiscordRouter.routes(), adminDiscordRouter.allowedMethods());
+  apiV1ProtectedRouter.use(
+    superAdminMiddleware,
+    adminDiscordRouter.routes(),
+    adminDiscordRouter.allowedMethods(),
+    adminPlansRouter.routes(),
+    adminPlansRouter.allowedMethods(),
+    adminUsersRouter.routes(),
+    adminUsersRouter.allowedMethods(),
+    adminOrganizationsRouter.routes(),
+    adminOrganizationsRouter.allowedMethods(),
+  );
 
   app.use(async (ctx, next) => {
     try {

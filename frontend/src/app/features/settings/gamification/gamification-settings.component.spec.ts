@@ -33,6 +33,7 @@ describe('GamificationSettingsComponent', () => {
         streaks: { enabled: true },
       },
       planFeatures: { gamification: true, ranking: true },
+      plan: { name: 'Team', slug: 'team' },
     });
     fixture.detectChanges();
   });

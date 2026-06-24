@@ -234,6 +234,34 @@ Secrets de deploy: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `DEPLOY_PATH`.
 
 ---
 
+## Painel Super Admin (`/admin`)
+
+Acesso restrito a usuários com `isSuperAdmin: true` em `PlatformUser` (não é role de tenant).
+
+| Rota UI | API | Função |
+|---------|-----|--------|
+| `/admin` | — | Visão geral e atalhos |
+| `/admin/plans` | `GET/POST/PATCH /api/v1/admin/plans` | Catálogo de planos (preço, limites, features) |
+| `/admin/users` | `GET/PATCH /api/v1/admin/users` | Listar contas; promover/revogar super admin |
+| `/admin/organizations` | `GET /api/v1/admin/organizations` | Tenants, plano e status de assinatura |
+| `/admin/discord` | `/api/v1/admin/discord/*` | Bot compartilhado da plataforma |
+
+**Como promover o primeiro super admin (dev):**
+
+```bash
+# Via seed (cria admin@syntra.dev com isSuperAdmin)
+npm run seed:discord-app --workspace=backend
+
+# Ou manualmente no MongoDB
+db.platformusers.updateOne({ email: "ula@ula.com" }, { $set: { isSuperAdmin: true } })
+```
+
+Após login/refresh, o menu do usuário exibe **Painel da plataforma** e as rotas `/admin/*` ficam acessíveis.
+
+**Fase 2 (pendente):** sync Stripe ao editar plano, métricas globais, audit log, feature flags.
+
+---
+
 ## Roadmap (v1.1)
 
 Itens previstos no spec mas **fora do MVP atual**:
@@ -246,7 +274,7 @@ Itens previstos no spec mas **fora do MVP atual**:
 | `/settings/inactivity` — limiares configuráveis na UI | Implementado (semanal + intraday) |
 | `/reports/absences` — página dedicada de ausências | Implementado |
 | Push automático na quinta quando meta &lt; 50% | Lógica pronta; worker pendente |
-| Guards `SuperAdminGuard` / `RoleGuard` no frontend | Pendente |
+| Guards `SuperAdminGuard` / `RoleGuard` no frontend | SuperAdminGuard implementado; RoleGuard pendente |
 | E2E completo: signup → onboarding → relatório | Smoke apenas |
 | Email digest, SSO, multi-moeda, PTO self-service | v1.1+ |
 

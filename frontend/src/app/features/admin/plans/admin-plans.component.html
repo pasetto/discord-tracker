@@ -1,0 +1,133 @@
+<section class="space-y-4">
+  <header class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-950">
+    <div>
+      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Planos</h2>
+      <p class="text-sm text-gray-500">Catálogo comercial — preços, limites e features</p>
+    </div>
+    <button type="button" (click)="startCreate()" class="min-h-11 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white">
+      Novo plano
+    </button>
+  </header>
+
+  @if (errorMessage) {
+    <p class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ errorMessage }}</p>
+  }
+  @if (successMessage) {
+    <p class="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{{ successMessage }}</p>
+  }
+
+  @if (editingId) {
+    <form class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-950" (ngSubmit)="save()">
+      <h3 class="font-semibold text-gray-900 dark:text-white">{{ editingId === 'new' ? 'Novo plano' : 'Editar plano' }}</h3>
+
+      <div class="grid gap-3 sm:grid-cols-2">
+        <label class="block text-sm">
+          <span class="text-gray-600">Nome</span>
+          <input class="mt-1 w-full rounded-lg border px-3 py-2" [(ngModel)]="form.name" name="name" required />
+        </label>
+        <label class="block text-sm">
+          <span class="text-gray-600">Slug</span>
+          <input class="mt-1 w-full rounded-lg border px-3 py-2" [(ngModel)]="form.slug" name="slug" required />
+        </label>
+        <label class="block text-sm sm:col-span-2">
+          <span class="text-gray-600">Descrição</span>
+          <textarea class="mt-1 w-full rounded-lg border px-3 py-2" rows="2" [(ngModel)]="form.description" name="description"></textarea>
+        </label>
+        <label class="block text-sm">
+          <span class="text-gray-600">Preço (centavos)</span>
+          <input type="number" class="mt-1 w-full rounded-lg border px-3 py-2" [(ngModel)]="form.priceCents" name="priceCents" />
+        </label>
+        <label class="block text-sm">
+          <span class="text-gray-600">Intervalo</span>
+          <select class="mt-1 w-full rounded-lg border px-3 py-2" [(ngModel)]="form.billingInterval" name="billingInterval">
+            <option value="month">Mensal</option>
+            <option value="year">Anual</option>
+          </select>
+        </label>
+        <label class="block text-sm">
+          <span class="text-gray-600">maxGuilds</span>
+          <input type="number" class="mt-1 w-full rounded-lg border px-3 py-2" [(ngModel)]="form.limits.maxGuilds" name="maxGuilds" />
+        </label>
+        <label class="block text-sm">
+          <span class="text-gray-600">maxTrackedMembers</span>
+          <input type="number" class="mt-1 w-full rounded-lg border px-3 py-2" [(ngModel)]="form.limits.maxTrackedMembers" name="maxTrackedMembers" />
+        </label>
+        <label class="block text-sm">
+          <span class="text-gray-600">Dias retenção</span>
+          <input type="number" class="mt-1 w-full rounded-lg border px-3 py-2" [(ngModel)]="form.limits.dataRetentionDays" name="dataRetentionDays" />
+        </label>
+        <label class="block text-sm">
+          <span class="text-gray-600">Trial (dias)</span>
+          <input type="number" class="mt-1 w-full rounded-lg border px-3 py-2" [(ngModel)]="form.trialDays" name="trialDays" />
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" [(ngModel)]="form.isActive" name="isActive" /> Ativo
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" [(ngModel)]="form.isPublic" name="isPublic" /> Público (landing)
+        </label>
+      </div>
+
+      <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+        <h4 class="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">Features do plano</h4>
+        <div class="grid gap-2 sm:grid-cols-2">
+          @for (key of featureKeys; track key) {
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" [(ngModel)]="form.features[key]" [name]="'feature-' + key" />
+              {{ featureLabels[key] }}
+            </label>
+          }
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button type="submit" [disabled]="saving" class="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white disabled:opacity-50">
+          {{ saving ? 'Salvando…' : 'Salvar' }}
+        </button>
+        <button type="button" (click)="cancelEdit()" class="rounded-lg border px-4 py-2 text-sm">Cancelar</button>
+      </div>
+    </form>
+  }
+
+  <div class="overflow-x-auto rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
+    @if (loading) {
+      <p class="p-5 text-sm text-gray-500">Carregando…</p>
+    } @else {
+      <table class="min-w-full text-left text-sm">
+        <thead class="border-b border-gray-200 text-gray-500 dark:border-gray-800">
+          <tr>
+            <th class="px-4 py-3">Nome</th>
+            <th class="px-4 py-3">Preço</th>
+            <th class="px-4 py-3">Limites</th>
+            <th class="px-4 py-3">Features</th>
+            <th class="px-4 py-3">Status</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (plan of plans; track plan.id) {
+            <tr class="border-b border-gray-100 dark:border-gray-800">
+              <td class="px-4 py-3">
+                <p class="font-medium text-gray-900 dark:text-white">{{ plan.name }}</p>
+                <p class="text-xs text-gray-500">{{ plan.slug }}</p>
+              </td>
+              <td class="px-4 py-3">{{ formatPrice(plan.priceCents) }}/{{ plan.billingInterval === 'month' ? 'mês' : 'ano' }}</td>
+              <td class="px-4 py-3 text-xs text-gray-500">
+                {{ plan.limits.maxTrackedMembers }} membros · {{ plan.limits.maxGuilds }} servidor(es)
+              </td>
+              <td class="px-4 py-3 text-xs text-gray-500">
+                @if (plan.features['ranking']) { ranking · } @if (plan.features['gamification']) { gamificação }
+              </td>
+              <td class="px-4 py-3">
+                <span [class]="plan.isActive ? 'text-green-600' : 'text-gray-400'">{{ plan.isActive ? 'Ativo' : 'Inativo' }}</span>
+              </td>
+              <td class="px-4 py-3 text-right">
+                <button type="button" (click)="startEdit(plan)" class="text-sm text-brand-600 hover:underline">Editar</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</section>

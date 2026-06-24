@@ -5,6 +5,7 @@ export interface AuthUserSession {
   id: string;
   email: string;
   displayName: string;
+  isSuperAdmin?: boolean;
 }
 
 /**
