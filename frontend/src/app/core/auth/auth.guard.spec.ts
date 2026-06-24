@@ -11,6 +11,7 @@ describe('authGuard', () => {
         {
           provide: AuthService,
           useValue: {
+            isTokenValid: () => false,
             hasToken: () => false,
           },
         },

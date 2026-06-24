@@ -1,6 +1,7 @@
 import Koa from 'koa';
 import Router from '@koa/router';
 import bodyParser from 'koa-bodyparser';
+import http from 'http';
 import { config } from '../config/env';
 import { createLogger } from '../logger';
 import { corsMiddleware } from './middleware/cors';
@@ -28,9 +29,12 @@ import { webhooksRouter } from './routes/webhooks';
 import { meRouter } from './routes/me';
 import { adminDiscordBootstrapRouter, adminDiscordRouter } from './routes/adminDiscord';
 import { discordSettingsRouter } from './routes/discordSettings';
+import { dashboardRouter } from './routes/dashboard';
+import { trackedUsersRouter } from './routes/trackedUsers';
 import { superAdminMiddleware } from './middleware/superAdmin';
 import { stripeWebhookRouter } from './routes/webhooks/stripe';
 import { getOpenApiSpec } from './swagger';
+import { attachLiveActivityWebSocket } from './websocket/liveActivitySocket';
 
 const swaggerUi = require('koa-swagger-ui').ui as (
   document: object,
@@ -48,6 +52,7 @@ export const processStartTime = Date.now();
  */
 export function createApp(): Koa {
   const app = new Koa();
+  app.proxy = config.nodeEnv === 'production';
   const publicRouter = new Router();
   const legacyProtectedRouter = new Router();
   const apiV1PublicRouter = new Router({ prefix: '/api/v1' });
@@ -70,6 +75,7 @@ export function createApp(): Koa {
   legacyProtectedRouter.use(statsRouter.routes());
   legacyProtectedRouter.use(reportsRouter.routes());
   legacyProtectedRouter.use(metricsRouter.routes());
+  apiV1ProtectedRouter.use(jwtAuth);
   apiV1ProtectedRouter.use(
     '/org/:organizationId',
     tenantMiddleware,
@@ -93,6 +99,8 @@ export function createApp(): Koa {
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, billingRouter.routes(), billingRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, pushRouter.routes(), pushRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, webhooksRouter.routes(), webhooksRouter.allowedMethods());
+  apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, trackedUsersRouter.routes(), trackedUsersRouter.allowedMethods());
+  apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, dashboardRouter.routes(), dashboardRouter.allowedMethods());
   apiV1ProtectedRouter.use('/org/:orgId', tenantMiddleware, discordSettingsRouter.routes(), discordSettingsRouter.allowedMethods());
   apiV1ProtectedRouter.use(meRouter.routes(), meRouter.allowedMethods());
   apiV1ProtectedRouter.use(superAdminMiddleware, adminDiscordRouter.routes(), adminDiscordRouter.allowedMethods());
@@ -117,7 +125,6 @@ export function createApp(): Koa {
   app.use(legacyProtectedRouter.routes());
   app.use(legacyProtectedRouter.allowedMethods());
 
-  app.use(jwtAuth);
   app.use(apiV1ProtectedRouter.routes());
   app.use(apiV1ProtectedRouter.allowedMethods());
 
@@ -125,16 +132,18 @@ export function createApp(): Koa {
 }
 
 /**
- * Inicia o servidor HTTP Koa.
- * @returns Promise resolvida após bind da porta
+ * Inicia o servidor HTTP Koa com WebSocket de atividade ao vivo.
+ * @returns Servidor HTTP para shutdown gracioso
  */
-export async function startServer(): Promise<void> {
+export async function startServer(): Promise<http.Server> {
   const app = createApp();
+  const server = http.createServer(app.callback());
+  attachLiveActivityWebSocket(server);
 
   return new Promise((resolve) => {
-    app.listen(config.port, config.host, () => {
+    server.listen(config.port, config.host, () => {
       log.info({ port: config.port, host: config.host }, 'Servidor HTTP iniciado');
-      resolve();
+      resolve(server);
     });
   });
 }

@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TenantContextService } from '../../../core/tenant/tenant-context.service';
 
 /**
  * Chaves válidas de dias da semana para configuração do calendário.
@@ -67,7 +68,6 @@ interface WorkWeekUiItem {
   templateUrl: './calendar-settings.component.html',
 })
 export class CalendarSettingsComponent implements OnInit {
-  orgId = localStorage.getItem('syntra.orgId') ?? '';
   calendar: WorkCalendarDto | null = null;
   loading = false;
   saving = false;
@@ -85,19 +85,22 @@ export class CalendarSettingsComponent implements OnInit {
     { key: 'sunday', label: 'Domingo' },
   ];
 
-  constructor(private readonly httpClient: HttpClient) {}
+  constructor(
+    private readonly httpClient: HttpClient,
+    private readonly tenantContext: TenantContextService,
+  ) {}
 
   /**
    * Carrega calendário da organização no bootstrap da página.
-   * @returns {void} Não retorna valor.
    */
   ngOnInit(): void {
-    if (!this.orgId) {
-      this.errorMessage = 'Preencha organizationId para carregar o calendário.';
-      return;
-    }
-
-    this.loadCalendar();
+    this.tenantContext.refresh().subscribe(() => {
+      if (this.tenantContext.orgId) {
+        this.loadCalendar();
+      } else {
+        this.errorMessage = 'Organização não encontrada. Faça login novamente.';
+      }
+    });
   }
 
   /**
@@ -105,12 +108,11 @@ export class CalendarSettingsComponent implements OnInit {
    * @returns {void} Não retorna valor.
    */
   loadCalendar(): void {
-    if (!this.orgId) {
-      this.errorMessage = 'organizationId é obrigatório.';
+    if (!this.tenantContext.orgId) {
+      this.errorMessage = 'Organização não encontrada.';
       return;
     }
 
-    localStorage.setItem('syntra.orgId', this.orgId);
     this.loading = true;
     this.errorMessage = '';
     this.successMessage = '';
@@ -230,6 +232,6 @@ export class CalendarSettingsComponent implements OnInit {
    * @returns {string} Prefixo das rotas de organização.
    */
   private getBaseUrl(): string {
-    return `/api/v1/org/${this.orgId}`;
+    return this.tenantContext.getOrgApiBaseUrl();
   }
 }

@@ -1,8 +1,13 @@
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { config } from '../config/env';
 
-/** Tempo de expiração do access token em segundos (15 minutos). */
-export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
+/** Tempo de expiração do access token em segundos (padrão: 15 min prod, 8 h dev). */
+const DEFAULT_ACCESS_TOKEN_TTL_SECONDS =
+  (process.env.NODE_ENV ?? 'development') === 'development' ? 8 * 60 * 60 : 15 * 60;
+
+export const ACCESS_TOKEN_TTL_SECONDS = Number(
+  process.env.JWT_ACCESS_TTL_SECONDS ?? DEFAULT_ACCESS_TOKEN_TTL_SECONDS,
+);
 
 /** Tempo de expiração do refresh token em segundos (7 dias). */
 export const REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;

@@ -1,0 +1,176 @@
+<section class="space-y-6">
+  <header class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+    <p class="text-sm text-gray-500 dark:text-gray-400">{{ organizationName }}</p>
+    <h1 class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">Olá, {{ displayName }}</h1>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+      Veja quem está online agora, onde está no Discord e há quanto tempo.
+    </p>
+    <p *ngIf="guildName" class="mt-2 text-xs text-gray-500">Servidor monitorado: <strong>{{ guildName }}</strong></p>
+  </header>
+
+  <section *ngIf="!hasGuild" class="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-500/10">
+    <h2 class="text-base font-semibold text-gray-900 dark:text-white">Configure o Discord para começar</h2>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+      Cadastre seu bot, adicione-o ao servidor e escolha qual servidor monitorar.
+    </p>
+    <a routerLink="/app/settings/discord" class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+      Configurar Discord
+    </a>
+  </section>
+
+  <ng-container *ngIf="hasGuild">
+    <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+      <div>
+        <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ activeMembers.length }} membros ativos agora</p>
+        <p *ngIf="lastUpdatedAt" class="text-xs text-gray-500">Atualizado em {{ lastUpdatedAt | date: 'dd/MM/yyyy HH:mm:ss' }}</p>
+        <p class="text-xs" [class.text-success-600]="liveConnected" [class.text-gray-500]="!liveConnected">
+          {{ liveConnected ? 'Tempo real conectado' : 'Reconectando tempo real...' }}
+        </p>
+      </div>
+      <button
+        type="button"
+        class="min-h-11 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-200"
+        (click)="loadDashboardData()"
+        [disabled]="liveLoading"
+      >
+        {{ liveLoading ? 'Conectando...' : 'Reconectar' }}
+      </button>
+    </div>
+
+    <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Quem está online agora</h2>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Status, canal de voz e localização atual no servidor.</p>
+
+      <p *ngIf="!liveLoading && activeMembers.length === 0" class="mt-4 text-sm text-gray-500 dark:text-gray-400">
+        Ninguém online no momento (ou o bot ainda não recebeu presença dos membros).
+      </p>
+
+      <div *ngIf="activeMembers.length > 0" class="mt-4 space-y-3 md:hidden">
+        <article *ngFor="let member of activeMembers" class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+          <div class="flex items-start justify-between gap-2">
+            <p class="font-semibold text-gray-800 dark:text-white/90">{{ member.displayName }}</p>
+            <span class="rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="getStatusBadgeClass(member.status)">
+              {{ formatPresenceStatus(member.status) }}
+            </span>
+          </div>
+          <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ getLocationLabel(member) }}</p>
+          <p class="mt-1 text-xs text-gray-500">Online há {{ formatDuration(member.onlineSeconds) }}</p>
+        </article>
+      </div>
+
+      <div *ngIf="activeMembers.length > 0" class="mt-4 hidden overflow-x-auto md:block">
+        <table class="w-full min-w-[760px] text-left text-sm">
+          <thead>
+            <tr class="border-b border-gray-200 dark:border-gray-700">
+              <th class="px-2 py-2">Membro</th>
+              <th class="px-2 py-2">Status</th>
+              <th class="px-2 py-2">Onde está</th>
+              <th class="px-2 py-2">Online hoje</th>
+              <th class="px-2 py-2">Colaboração hoje</th>
+              <th class="px-2 py-2">Inativo hoje</th>
+              <th class="px-2 py-2">Salas hoje</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let member of activeMembers" class="border-b border-gray-100 dark:border-gray-800">
+              <td class="px-2 py-3 font-medium text-gray-800 dark:text-white/90">{{ member.displayName }}</td>
+              <td class="px-2 py-3">
+                <span class="rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="getStatusBadgeClass(member.status)">
+                  {{ formatPresenceStatus(member.status) }}
+                </span>
+              </td>
+              <td class="px-2 py-3 text-gray-600 dark:text-gray-300">{{ getLocationLabel(member) }}</td>
+              <td class="px-2 py-3 text-gray-600 dark:text-gray-300">{{ formatDuration(member.onlineSeconds) }}</td>
+              <td class="px-2 py-3 text-gray-600 dark:text-gray-300">{{ formatDuration(member.collaborationActiveSeconds) }}</td>
+              <td class="px-2 py-3 text-gray-600 dark:text-gray-300">{{ formatDuration(member.inactiveSeconds) }}</td>
+              <td class="px-2 py-3 text-xs text-gray-500">{{ member.channelsVisitedToday.join(' → ') || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Movimentação em tempo real</h2>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Entradas, saídas e trocas de canal (inclui salas ignoradas).</p>
+
+      <p *ngIf="recentTransitions.length === 0" class="mt-4 text-sm text-gray-500 dark:text-gray-400">
+        Nenhuma movimentação registrada ainda.
+      </p>
+
+      <ul *ngIf="recentTransitions.length > 0" class="mt-4 space-y-2">
+        <li
+          *ngFor="let transition of recentTransitions"
+          class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm dark:border-gray-700"
+        >
+          <div>
+            <p class="font-medium text-gray-800 dark:text-white/90">{{ transition.displayName }}</p>
+            <p class="text-gray-600 dark:text-gray-300">{{ formatTransitionLabel(transition) }}</p>
+          </div>
+          <div class="text-right text-xs text-gray-500">
+            <p>{{ transition.occurredAt | date: 'HH:mm:ss' }}</p>
+            <p *ngIf="transition.countsAsCollaboration" class="text-success-600">Colaboração</p>
+            <p *ngIf="transition.toIgnored || transition.fromIgnored" class="text-warning-600">Canal ignorado</p>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Ranking de colaboração hoje</h2>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Horas acumuladas hoje — permanecem mesmo após sair do canal.</p>
+
+      <p *ngIf="!liveLoading && onlineRanking.length === 0" class="mt-4 text-sm text-gray-500 dark:text-gray-400">
+        Sem dados de ranking no momento.
+      </p>
+
+      <ol *ngIf="onlineRanking.length > 0" class="mt-4 space-y-2">
+        <li
+          *ngFor="let member of onlineRanking; let index = index"
+          class="flex items-center justify-between gap-3 rounded-xl border border-gray-200 px-4 py-3 dark:border-gray-700"
+        >
+          <div class="flex items-center gap-3">
+            <span class="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+              {{ index + 1 }}
+            </span>
+            <div>
+              <p class="font-medium text-gray-800 dark:text-white/90">{{ member.displayName }}</p>
+              <p class="text-xs text-gray-500">{{ getLocationLabel(member) }}</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <p class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ formatDuration(member.collaborationActiveSeconds) }}</p>
+            <p class="text-xs text-gray-500">Online hoje: {{ formatDuration(member.onlineSeconds) }}</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Ausências ativas</h2>
+        <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+          {{ activeAbsences.length }} ativas
+        </span>
+      </div>
+
+      <p *ngIf="activeAbsences.length === 0 && !loading" class="mt-3 text-sm text-gray-500 dark:text-gray-400">
+        Nenhuma ausência ativa no momento.
+      </p>
+
+      <div *ngIf="activeAbsences.length > 0" class="mt-4 space-y-3">
+        <article *ngFor="let absence of activeAbsences" class="rounded-xl border border-gray-200 p-4 text-sm dark:border-gray-700">
+          <div class="flex items-center justify-between gap-2">
+            <p class="font-semibold text-gray-800 dark:text-white/90">{{ absence.discordId }}</p>
+            <span class="rounded-full bg-brand-50 px-2 py-0.5 text-xs text-brand-700">{{ formatType(absence.type) }}</span>
+          </div>
+          <p class="mt-2 text-gray-600 dark:text-gray-300">
+            Retorno previsto: <strong>{{ absence.endDate | date: 'dd/MM/yyyy' }}</strong>
+          </p>
+        </article>
+      </div>
+    </section>
+  </ng-container>
+
+  <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">{{ errorMessage }}</p>
+</section>

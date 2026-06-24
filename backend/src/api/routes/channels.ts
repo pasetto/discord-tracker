@@ -1,9 +1,32 @@
 import Router from '@koa/router';
 import type { ChannelRuleSet } from '../../db/models/ChannelRule';
 import { channelRuleRepository } from '../../repositories/channelRuleRepository';
+import { listGuildDiscordChannels } from '../../services/discordGuildChannelService';
 
 /** Rotas de configuração de canais por organização e guild. */
 export const channelsRouter = new Router();
+
+/**
+ * GET /guilds/:guildId/channels/discord - Lista canais reais do servidor Discord.
+ */
+channelsRouter.get('/guilds/:guildId/channels/discord', async (ctx) => {
+  const organizationId = ctx.state.organizationId as string | undefined;
+  const guildId = ctx.params.guildId;
+
+  if (!organizationId) {
+    ctx.status = 400;
+    ctx.body = { error: 'organizationId ausente no contexto autenticado' };
+    return;
+  }
+
+  try {
+    const channels = listGuildDiscordChannels(guildId);
+    ctx.body = { channels };
+  } catch (error) {
+    ctx.status = 503;
+    ctx.body = { error: (error as Error).message };
+  }
+});
 
 /**
  * GET /guilds/:guildId/channels - Retorna regras de classificação de canais.

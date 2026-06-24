@@ -25,7 +25,7 @@ export class AppComponent implements OnInit {
    * @returns {void} Não retorna valor.
    */
   ngOnInit(): void {
-    const organizationId = localStorage.getItem('syntra.orgId') ?? '';
+    const organizationId = this.authService.getOrganizationId();
     if (!this.authService.hasToken() || !organizationId) {
       return;
     }

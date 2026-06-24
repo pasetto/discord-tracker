@@ -3,13 +3,20 @@ import { Types } from 'mongoose';
 import { createLogger } from '../logger';
 import { userRepository } from '../repositories/userRepository';
 import { voiceSessionRepository } from '../repositories/voiceSessionRepository';
+import { voiceChannelTransitionRepository } from '../repositories/voiceChannelTransitionRepository';
 import { systemLogRepository } from '../repositories/systemLogRepository';
 import { classifyVoiceChannel } from './channelClassifier';
 import { VoiceEventType } from '../config/env';
 import { setActiveSessions } from '../metrics/prometheus';
 import { presenceSessionRepository } from '../repositories/presenceSessionRepository';
-import { guildService } from './guildService';
 import { channelRuleRepository } from '../repositories/channelRuleRepository';
+import { isMonitoredGuild, resolveMonitoredGuild } from './guildMonitoringService';
+import {
+  liveActivityBroadcaster,
+  publishLiveGuildSnapshot,
+  type LiveVoiceTransitionEvent,
+} from './liveActivityBroadcaster';
+import { upsertTrackedUser } from './trackedUserService';
 
 const log = createLogger('voice');
 
@@ -123,7 +130,12 @@ export const voiceService = {
    */
   async handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceState): Promise<void> {
     const guildId = newState.guild?.id ?? oldState.guild?.id;
-    if (!guildService.isMonitoredGuild(guildId)) {
+    if (!(await isMonitoredGuild(guildId))) {
+      return;
+    }
+
+    const monitored = await resolveMonitoredGuild(guildId);
+    if (!monitored) {
       return;
     }
 
@@ -136,11 +148,70 @@ export const voiceService = {
       return;
     }
 
-    const userId = await this.ensureUser(newState.member ? newState : oldState);
+    const voiceState = newState.member ? newState : oldState;
+    const userId = await this.ensureUser(voiceState);
     const now = new Date();
+    const displayName =
+      voiceState.member?.displayName ?? voiceState.member?.user.username ?? voiceState.id;
+
+    await upsertTrackedUser({
+      organizationId: monitored.organizationId,
+      guildId: monitored.guildId,
+      discordId: voiceState.id,
+      username: voiceState.member?.user.username ?? voiceState.id,
+      displayName,
+      seenAt: now,
+    });
 
     const fromChannel = oldState.channel;
     const toChannel = newState.channel;
+    const rules = await channelRuleRepository.getByGuildId(monitored.guildId);
+    const fromClassification = fromChannel
+      ? classifyVoiceChannel(fromChannel.id, fromChannel.name, rules)
+      : null;
+    const toClassification = toChannel
+      ? classifyVoiceChannel(toChannel.id, toChannel.name, rules)
+      : null;
+    const countsAsCollaboration =
+      toClassification !== null && !toClassification.isIgnored && toClassification.sessionType === 'VOICE';
+
+    await voiceChannelTransitionRepository.create({
+      organizationId: monitored.organizationId,
+      guildId: monitored.guildId,
+      userId,
+      discordId: voiceState.id,
+      displayName,
+      eventType,
+      fromChannelId: fromChannel?.id,
+      fromChannelName: fromChannel?.name,
+      toChannelId: toChannel?.id,
+      toChannelName: toChannel?.name,
+      fromSessionType: fromClassification?.sessionType,
+      toSessionType: toClassification?.sessionType,
+      fromIgnored: fromClassification?.isIgnored ?? false,
+      toIgnored: toClassification?.isIgnored ?? false,
+      countsAsCollaboration,
+      occurredAt: now,
+    });
+
+    const transitionEvent: LiveVoiceTransitionEvent = {
+      organizationId: monitored.organizationId,
+      guildId: monitored.guildId,
+      discordId: voiceState.id,
+      displayName,
+      eventType,
+      fromChannelName: fromChannel?.name,
+      toChannelName: toChannel?.name,
+      fromIgnored: fromClassification?.isIgnored ?? false,
+      toIgnored: toClassification?.isIgnored ?? false,
+      countsAsCollaboration,
+      occurredAt: now.toISOString(),
+    };
+    liveActivityBroadcaster.publishTransition(
+      monitored.organizationId,
+      monitored.guildId,
+      transitionEvent,
+    );
 
     switch (eventType) {
       case 'JOIN':
@@ -208,6 +279,7 @@ export const voiceService = {
     });
 
     await this.refreshMetrics();
+    void publishLiveGuildSnapshot(monitored.organizationId, monitored.guildId);
   },
 
   /**

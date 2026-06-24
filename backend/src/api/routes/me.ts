@@ -1,12 +1,15 @@
 import Router from '@koa/router';
 import { Types } from 'mongoose';
 import { TrackedUserModel } from '../../db/models/TrackedUser';
+import { PlatformUserModel } from '../../db/models/PlatformUser';
 import { User } from '../../db/models/User';
 import { VoiceSession } from '../../db/models/VoiceSession';
 import { PresenceSession } from '../../db/models/PresenceSession';
 import { TextActivityEventModel } from '../../db/models/TextActivityEvent';
 import { PlannedAbsenceModel, PlannedAbsenceStatus, PlannedAbsenceType } from '../../db/models/PlannedAbsence';
 import { AuditTrailExportEntry, listAuditTrailExportStub } from '../../services/auditLogService';
+import { signAccessToken } from '../../services/authService';
+import { buildAuthPayloadFromPlatformUser } from '../../services/platformAuthService';
 
 const VIEWER_ROLES = new Set(['owner', 'admin', 'manager', 'viewer']);
 
@@ -73,19 +76,133 @@ interface MeAuditTrailExportStub {
 export const meRouter = new Router();
 
 /**
+ * @openapi
+ * /me/discord-link:
+ *   put:
+ *     tags:
+ *       - Me
+ *     summary: Vincula o usuário da plataforma a um perfil Discord rastreado
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - discordId
+ *             properties:
+ *               discordId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Vínculo criado e novo access token emitido
+ *       404:
+ *         description: Perfil Discord não encontrado entre membros rastreados
+ */
+meRouter.put('/me/discord-link', async (ctx) => {
+  try {
+    const user = ctx.state.user as JwtUserShape | undefined;
+    const userId = user?.id?.trim();
+    if (!userId) {
+      ctx.status = 401;
+      ctx.body = { error: 'Sessão inválida' };
+      return;
+    }
+
+    const payload = ctx.request.body as { discordId?: string };
+    const discordId = payload.discordId?.trim();
+    if (!discordId) {
+      ctx.status = 400;
+      ctx.body = { error: 'discordId é obrigatório' };
+      return;
+    }
+
+    const memberships = user?.memberships ?? [];
+    if (memberships.length === 0) {
+      ctx.status = 400;
+      ctx.body = { error: 'Nenhuma organização vinculada ao usuário autenticado' };
+      return;
+    }
+
+    const requestedOrgId = typeof ctx.query.organizationId === 'string' ? ctx.query.organizationId.trim() : '';
+    const membership = requestedOrgId
+      ? memberships.find((item) => item.organizationId === requestedOrgId)
+      : memberships[0];
+
+    if (!membership?.organizationId) {
+      ctx.status = 400;
+      ctx.body = { error: 'organizationId inválido para o usuário autenticado' };
+      return;
+    }
+
+    const trackedProfile = await TrackedUserModel.findOne({
+      organizationId: new Types.ObjectId(membership.organizationId),
+      discordId,
+    })
+      .select('displayName')
+      .lean()
+      .exec();
+
+    if (!trackedProfile) {
+      ctx.status = 404;
+      ctx.body = {
+        error:
+          'Perfil Discord não encontrado entre os membros rastreados desta organização. Sincronize os membros primeiro.',
+      };
+      return;
+    }
+
+    const platformUser = await PlatformUserModel.findByIdAndUpdate(
+      userId,
+      { $set: { discordId } },
+      { new: true },
+    ).exec();
+
+    if (!platformUser) {
+      ctx.status = 404;
+      ctx.body = { error: 'Usuário da plataforma não encontrado' };
+      return;
+    }
+
+    const authPayload = buildAuthPayloadFromPlatformUser(platformUser);
+    ctx.body = {
+      accessToken: signAccessToken(authPayload),
+      discordId,
+      displayName: trackedProfile.displayName,
+    };
+  } catch (error) {
+    const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
+    ctx.status = status;
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
  * Resolve organização ativa para endpoints `/me`.
  * @param ctx Contexto Koa da requisição
  * @returns Identidade autenticada com organizationId e discordId
  * @throws {Error} Quando JWT estiver incompleto ou sem membership válido
  */
-function resolveMeIdentity(ctx: Router.RouterContext): MeRequestIdentity {
+async function resolveMeIdentity(ctx: Router.RouterContext): Promise<MeRequestIdentity> {
   const user = ctx.state.user as JwtUserShape | undefined;
-  const discordId = user?.discordId?.trim();
+  const userId = user?.id?.trim();
+  let discordId = user?.discordId?.trim();
   const memberships = user?.memberships ?? [];
   const requestedOrgId = typeof ctx.query.organizationId === 'string' ? ctx.query.organizationId.trim() : '';
 
+  if (!discordId && userId) {
+    const platformUser = await PlatformUserModel.findById(userId).select('discordId').lean().exec();
+    discordId = platformUser?.discordId?.trim();
+  }
+
   if (!discordId) {
-    throw new Error('Usuário autenticado inválido');
+    const error = new Error(
+      'Conta não vinculada a um perfil Discord. Vincule seu Discord em Meu portal ou peça ao gestor.',
+    ) as Error & { status?: number };
+    error.status = 422;
+    throw error;
   }
 
   if (memberships.length === 0) {
@@ -313,7 +430,7 @@ async function buildAuditTrailExportStub(
  */
 meRouter.get('/me/collaboration', async (ctx) => {
   try {
-    const identity = resolveMeIdentity(ctx);
+    const identity = await resolveMeIdentity(ctx);
     const trackedProfiles = await listTrackedProfiles(identity);
     const coreUserId = await findCoreUserIdByDiscordId(identity.discordId);
 
@@ -375,7 +492,7 @@ meRouter.get('/me/collaboration', async (ctx) => {
  */
 meRouter.get('/me/absences', async (ctx) => {
   try {
-    const identity = resolveMeIdentity(ctx);
+    const identity = await resolveMeIdentity(ctx);
     const trackedProfiles = await listTrackedProfiles(identity);
     const absences = await listOwnPlannedAbsences(identity, trackedProfiles);
 
@@ -402,7 +519,7 @@ meRouter.get('/me/absences', async (ctx) => {
  */
 meRouter.get('/me/data-export', async (ctx) => {
   try {
-    const identity = resolveMeIdentity(ctx);
+    const identity = await resolveMeIdentity(ctx);
     const trackedProfiles = await listTrackedProfiles(identity);
     const coreUserId = await findCoreUserIdByDiscordId(identity.discordId);
 

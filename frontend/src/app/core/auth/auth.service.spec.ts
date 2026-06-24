@@ -1,8 +1,10 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { AuthApiService } from './auth-api.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -12,7 +14,14 @@ describe('AuthService', () => {
     localStorage.clear();
 
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting(), AuthService, AuthApiService],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        AuthService,
+        AuthApiService,
+        TenantContextService,
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+      ],
     });
 
     service = TestBed.inject(AuthService);
@@ -34,15 +43,17 @@ describe('AuthService', () => {
     expect(service.hasToken()).toBeFalse();
   });
 
-  it('considera token vazio como ausente', () => {
-    localStorage.setItem('syntra.auth.token', '   ');
-    expect(service.hasToken()).toBeFalse();
+  it('invalida token expirado em isTokenValid', () => {
+    const expiredPayload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 60 }));
+    service.saveToken(`header.${expiredPayload}.signature`);
+    expect(service.isTokenValid()).toBeFalse();
   });
 
   it('persiste sessão após login', () => {
     service.login({ email: 'owner@test.com', password: 'senha-segura' }).subscribe((session) => {
       expect(session.accessToken).toBe('access-token');
       expect(service.getToken()).toBe('access-token');
+      expect(service.getDisplayName()).toBe('Eduardo');
       expect(localStorage.getItem('syntra.orgId')).toBe('org-1');
     });
 
@@ -53,10 +64,10 @@ describe('AuthService', () => {
       user: {
         id: 'user-1',
         email: 'owner@test.com',
-        displayName: 'Owner',
+        displayName: 'Eduardo',
         memberships: [{ organizationId: 'org-1', role: 'owner' }],
       },
-      organization: { id: 'org-1', name: 'Test Org', slug: 'test-org' },
+      organization: { id: 'org-1', name: 'Econdos', slug: 'econdos' },
     });
   });
 });

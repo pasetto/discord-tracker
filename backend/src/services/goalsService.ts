@@ -1,6 +1,8 @@
 import { Types } from 'mongoose';
 import { CategoryGoalTemplateModel } from '../db/models/CategoryGoalTemplate';
+import { MemberCategoryModel } from '../db/models/MemberCategory';
 import { TrackedUserModel } from '../db/models/TrackedUser';
+import { User } from '../db/models/User';
 import { UserCollaborationGoalModel } from '../db/models/UserCollaborationGoal';
 import { VoiceSession } from '../db/models/VoiceSession';
 
@@ -40,6 +42,7 @@ export interface GoalWeeklyReportEntry {
   discordId: string;
   displayName: string;
   categoryId?: Types.ObjectId;
+  categoryName?: string;
   weeklyGoalHours: number | null;
   dailyMinimumHours: number | null;
   realizedHours: number;
@@ -169,6 +172,52 @@ export async function applyCategoryGoalsToTrackedUsers(input: ApplyCategoryGoals
 }
 
 /**
+ * Aplica templates salvos para todas as categorias do servidor.
+ * @param input Dados do tenant, guild e usuário executor
+ * @returns Totais agregados e resultado por categoria
+ */
+export async function applyAllCategoryGoalsToTrackedUsers(
+  input: Omit<ApplyCategoryGoalsInput, 'categoryId'>,
+): Promise<{
+  totalMatchedTrackedUsers: number;
+  totalAppliedCount: number;
+  categories: Array<{ categoryId: string; matchedTrackedUsers: number; appliedCount: number }>;
+}> {
+  const organizationId = parseObjectId(input.organizationId, 'organizationId');
+  const templates = await CategoryGoalTemplateModel.find({
+    organizationId,
+    guildId: input.guildId,
+  })
+    .select({ categoryId: 1 })
+    .lean()
+    .exec();
+
+  const categories: Array<{ categoryId: string; matchedTrackedUsers: number; appliedCount: number }> = [];
+  let totalMatchedTrackedUsers = 0;
+  let totalAppliedCount = 0;
+
+  for (const template of templates) {
+    const result = await applyCategoryGoalsToTrackedUsers({
+      ...input,
+      categoryId: String(template.categoryId),
+    });
+    categories.push({
+      categoryId: String(template.categoryId),
+      matchedTrackedUsers: result.matchedTrackedUsers,
+      appliedCount: result.appliedCount,
+    });
+    totalMatchedTrackedUsers += result.matchedTrackedUsers;
+    totalAppliedCount += result.appliedCount;
+  }
+
+  return {
+    totalMatchedTrackedUsers,
+    totalAppliedCount,
+    categories,
+  };
+}
+
+/**
  * Monta relatório semanal de metas individuais com progresso por usuário.
  * @param {GoalsWeeklyReportInput} input Filtros de tenant, guild, categoria e data de referência
  * @returns {Promise<GoalsWeeklyReport>} Relatório de meta versus realizado por membro
@@ -194,7 +243,24 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
     return { periodStart, periodEnd, generatedAt: referenceDate, entries: [] };
   }
 
+  const categories = await MemberCategoryModel.find({
+    organizationId,
+    guildId: input.guildId,
+  })
+    .select({ _id: 1, name: 1 })
+    .lean()
+    .exec();
+  const categoryNameById = new Map(categories.map((category) => [String(category._id), category.name]));
+
   const trackedUserIds = trackedUsers.map((trackedUser) => trackedUser._id);
+  const discordIds = trackedUsers.map((trackedUser) => trackedUser.discordId);
+  const coreUsers = await User.find({ discordId: { $in: discordIds } })
+    .select({ _id: 1, discordId: 1 })
+    .lean()
+    .exec();
+  const coreUserIdByDiscordId = new Map(coreUsers.map((user) => [user.discordId, user._id as Types.ObjectId]));
+  const coreUserIds = coreUsers.map((user) => user._id as Types.ObjectId);
+
   const [goals, realizedRows] = await Promise.all([
     UserCollaborationGoalModel.find({
       organizationId,
@@ -204,38 +270,44 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
       .select({ trackedUserId: 1, weeklyCollaborationHours: 1, dailyMinimumHours: 1 })
       .lean()
       .exec(),
-    VoiceSession.aggregate<{ _id: Types.ObjectId; totalSeconds: number }>([
-      {
-        $match: {
-          userId: { $in: trackedUserIds },
-          startedAt: { $gte: periodStart, $lte: periodEnd },
-          durationSeconds: { $gt: 0 },
-          isIgnoredChannel: false,
-          sessionType: 'VOICE',
-        },
-      },
-      { $group: { _id: '$userId', totalSeconds: { $sum: '$durationSeconds' } } },
-    ]),
+    coreUserIds.length > 0
+      ? VoiceSession.aggregate<{ _id: Types.ObjectId; totalSeconds: number }>([
+          {
+            $match: {
+              userId: { $in: coreUserIds },
+              startedAt: { $gte: periodStart, $lte: periodEnd },
+              durationSeconds: { $gt: 0 },
+              isIgnoredChannel: false,
+              sessionType: 'VOICE',
+            },
+          },
+          { $group: { _id: '$userId', totalSeconds: { $sum: '$durationSeconds' } } },
+        ])
+      : Promise.resolve([]),
   ]);
 
   const goalsByTrackedUserId = new Map(goals.map((goal) => [String(goal.trackedUserId), goal]));
-  const realizedHoursByTrackedUserId = new Map(
+  const realizedHoursByCoreUserId = new Map(
     realizedRows.map((row) => [String(row._id), Number((row.totalSeconds / 3600).toFixed(2))]),
   );
 
   const entries: GoalWeeklyReportEntry[] = trackedUsers.map((trackedUser) => {
     const goal = goalsByTrackedUserId.get(String(trackedUser._id));
-    const realizedHours = realizedHoursByTrackedUserId.get(String(trackedUser._id)) ?? 0;
+    const coreUserId = coreUserIdByDiscordId.get(trackedUser.discordId);
+    const realizedHours = coreUserId ? realizedHoursByCoreUserId.get(String(coreUserId)) ?? 0 : 0;
     const weeklyGoalHours = goal?.weeklyCollaborationHours ?? null;
     const progressPercent = weeklyGoalHours && weeklyGoalHours > 0
       ? Number(Math.min(100, (realizedHours / weeklyGoalHours) * 100).toFixed(2))
       : 0;
 
+    const trackedCategoryId = trackedUser.categoryId as Types.ObjectId | undefined;
+
     return {
       trackedUserId: trackedUser._id,
       discordId: trackedUser.discordId,
       displayName: trackedUser.displayName,
-      categoryId: trackedUser.categoryId as Types.ObjectId | undefined,
+      categoryId: trackedCategoryId,
+      categoryName: trackedCategoryId ? categoryNameById.get(String(trackedCategoryId)) : undefined,
       weeklyGoalHours,
       dailyMinimumHours: goal?.dailyMinimumHours ?? null,
       realizedHours,

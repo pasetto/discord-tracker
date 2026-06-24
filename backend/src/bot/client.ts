@@ -49,6 +49,9 @@ export class BotTokenInvalidError extends Error {
   }
 }
 
+/** Promise compartilhada para evitar múltiplas esperas concorrentes pelo gateway. */
+let gatewayReadyWait: Promise<void> | null = null;
+
 /**
  * Conecta o cliente Discord com o token recebido.
  * @param token Token OAuth do bot
@@ -56,11 +59,11 @@ export class BotTokenInvalidError extends Error {
  * @throws {BotTokenInvalidError} Quando o Discord rejeita o token
  */
 async function loginWithToken(token: string): Promise<void> {
-  if (discordClient.token === token && discordClient.isReady()) {
+  if (discordClient.token === token) {
     return;
   }
 
-  if (discordClient.token && discordClient.token !== token) {
+  if (discordClient.token) {
     discordClient.destroy();
   }
 
@@ -70,6 +73,9 @@ async function loginWithToken(token: string): Promise<void> {
     const message = error instanceof Error ? error.message : 'Falha ao autenticar bot Discord';
     if (message.toLowerCase().includes('invalid token')) {
       throw new BotTokenInvalidError();
+    }
+    if (message.toLowerCase().includes('already logged in')) {
+      return;
     }
     throw error;
   }
@@ -156,6 +162,69 @@ function ensureDiscordEventHandlers(): void {
   eventHandlersRegistered = true;
 }
 
+/** Tempo máximo aguardando o evento `ready` do gateway Discord. */
+const DISCORD_READY_TIMEOUT_MS = 15_000;
+
+/**
+ * Aguarda o gateway Discord ficar pronto sem repetir login com o mesmo token.
+ * @param timeoutMs Tempo máximo de espera
+ * @returns Promise resolvida quando o cliente estiver operacional
+ * @throws {Error} Quando o timeout expirar
+ */
+function waitForDiscordGatewayReady(timeoutMs: number): Promise<void> {
+  if (discordClient.isReady() || isDiscordReady) {
+    isDiscordReady = true;
+    return Promise.resolve();
+  }
+
+  if (gatewayReadyWait) {
+    return gatewayReadyWait;
+  }
+
+  gatewayReadyWait = new Promise<void>((resolve, reject) => {
+    const startedAt = Date.now();
+
+    const tryResolve = (): void => {
+      if (discordClient.isReady() || isDiscordReady) {
+        isDiscordReady = true;
+        cleanup();
+        resolve();
+      }
+    };
+
+    const onTimeout = (): void => {
+      cleanup();
+      reject(new Error('Timeout aguardando conexão do bot Discord'));
+    };
+
+    const timer = setTimeout(onTimeout, timeoutMs);
+    const poller = setInterval(() => {
+      tryResolve();
+      if (Date.now() - startedAt >= timeoutMs) {
+        clearInterval(poller);
+      }
+    }, 250);
+
+    const onGatewayReady = (): void => {
+      tryResolve();
+    };
+
+    const cleanup = (): void => {
+      clearTimeout(timer);
+      clearInterval(poller);
+      discordClient.off('ready', onGatewayReady);
+      discordClient.off('shardResume', onGatewayReady);
+      gatewayReadyWait = null;
+    };
+
+    discordClient.on('ready', onGatewayReady);
+    discordClient.on('shardResume', onGatewayReady);
+    tryResolve();
+  });
+
+  return gatewayReadyWait;
+}
+
 /**
  * Conecta o bot ao Discord e aguarda evento ready.
  * @returns Promise resolvida quando o bot estiver pronto
@@ -163,7 +232,55 @@ function ensureDiscordEventHandlers(): void {
 export async function connectDiscord(): Promise<Client> {
   ensureDiscordEventHandlers();
   await botManager.initialize();
+
+  if (!discordClient.isReady() && !isDiscordReady) {
+    await waitForDiscordGatewayReady(DISCORD_READY_TIMEOUT_MS);
+  }
+
   return discordClient;
+}
+
+/**
+ * Garante que o cliente Discord está autenticado e pronto para operações de guild.
+ * @param timeoutMs Tempo máximo de espera pelo evento `ready`
+ * @returns Promise resolvida quando o bot estiver pronto
+ * @throws {Error} Quando a conexão não ficar pronta dentro do timeout
+ */
+export async function ensureDiscordClientReady(timeoutMs = DISCORD_READY_TIMEOUT_MS): Promise<void> {
+  if (discordClient.isReady() || isDiscordReady) {
+    isDiscordReady = true;
+    return;
+  }
+
+  ensureDiscordEventHandlers();
+
+  if (!discordClient.token) {
+    await botManager.initialize();
+  }
+
+  if (discordClient.isReady() || isDiscordReady) {
+    isDiscordReady = true;
+    return;
+  }
+
+  await waitForDiscordGatewayReady(timeoutMs);
+}
+
+/**
+ * Indica se o bot pode acessar APIs de guild (cache ou gateway pronto).
+ * @param guildId ID opcional do servidor para validar presença no cache
+ * @returns `true` quando há token e guild no cache ou gateway pronto
+ */
+export function canAccessDiscordGuild(guildId?: string): boolean {
+  if (!discordClient.token) {
+    return false;
+  }
+
+  if (guildId && discordClient.guilds.cache.has(guildId)) {
+    return true;
+  }
+
+  return discordClient.isReady() || isDiscordReady;
 }
 
 /**
@@ -180,7 +297,11 @@ export async function reloadDiscordFromDatabase(): Promise<void> {
  * @returns true quando ready e websocket aberto
  */
 export function checkDiscordHealth(): boolean {
-  return isDiscordReady && discordClient.isReady();
+  const ready = discordClient.isReady() || isDiscordReady;
+  if (ready) {
+    isDiscordReady = true;
+  }
+  return ready;
 }
 
 /**

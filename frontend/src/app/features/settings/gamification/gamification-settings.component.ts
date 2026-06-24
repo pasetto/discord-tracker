@@ -2,6 +2,8 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { TenantContextService } from '../../../core/tenant/tenant-context.service';
 
 /**
  * Estado mínimo de toggles de gamificação usados na tela.
@@ -39,12 +41,11 @@ interface GamificationSettingsResponseDto {
  */
 @Component({
   selector: 'app-gamification-settings',
-  imports: [CommonModule, FormsModule],
+  standalone: true,
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './gamification-settings.component.html',
 })
 export class GamificationSettingsComponent implements OnInit {
-  orgId = localStorage.getItem('syntra.orgId') ?? '';
-  guildId = localStorage.getItem('syntra.guildId') ?? '';
   toggles: GamificationToggleState = {
     enabled: false,
     rankingEnabled: false,
@@ -60,16 +61,41 @@ export class GamificationSettingsComponent implements OnInit {
   errorMessage = '';
   successMessage = '';
 
-  constructor(private readonly httpClient: HttpClient) {}
+  constructor(
+    private readonly httpClient: HttpClient,
+    private readonly tenantContext: TenantContextService,
+  ) {}
+
+  /**
+   * Indica se há servidor Discord selecionado.
+   */
+  get hasGuild(): boolean {
+    return this.tenantContext.hasGuild;
+  }
+
+  /**
+   * Nome do servidor monitorado.
+   */
+  get guildName(): string {
+    return this.tenantContext.guildName;
+  }
+
+  /**
+   * Indica se sub-recursos dependem da gamificação principal estar ativa.
+   */
+  get areSubFeaturesDisabled(): boolean {
+    return !this.toggles.enabled || this.loading || this.saving;
+  }
 
   /**
    * Carrega configuração atual ao abrir a tela.
-   * @returns {void} Não retorna valor.
    */
   ngOnInit(): void {
-    if (this.orgId && this.guildId) {
-      this.loadSettings();
-    }
+    this.tenantContext.refresh().subscribe(() => {
+      if (this.hasGuild) {
+        this.loadSettings();
+      }
+    });
   }
 
   /**
@@ -77,29 +103,18 @@ export class GamificationSettingsComponent implements OnInit {
    * @returns {void} Não retorna valor.
    */
   loadSettings(): void {
-    if (!this.orgId || !this.guildId) {
-      this.errorMessage = 'Preencha organizationId e guildId para carregar as configurações.';
+    if (!this.hasGuild) {
+      this.errorMessage = 'Configure o Discord e selecione um servidor antes de ajustar gamificação.';
       return;
     }
 
-    localStorage.setItem('syntra.orgId', this.orgId);
-    localStorage.setItem('syntra.guildId', this.guildId);
     this.loading = true;
     this.errorMessage = '';
     this.successMessage = '';
 
     this.httpClient.get<GamificationSettingsResponseDto>(this.getBaseUrl()).subscribe({
       next: (response) => {
-        this.planFeatures = response.planFeatures;
-        this.toggles = {
-          enabled: response.settings.enabled,
-          rankingEnabled: response.settings.ranking.enabled,
-          badgesEnabled: response.settings.badges.enabled,
-          streaksEnabled: response.settings.streaks.enabled,
-        };
-        if (!this.planFeatures.ranking) {
-          this.toggles.rankingEnabled = false;
-        }
+        this.applySettingsResponse(response);
         this.loading = false;
       },
       error: (error: { error?: { error?: string } }) => {
@@ -114,8 +129,8 @@ export class GamificationSettingsComponent implements OnInit {
    * @returns {void} Não retorna valor.
    */
   saveSettings(): void {
-    if (!this.orgId || !this.guildId) {
-      this.errorMessage = 'Preencha organizationId e guildId antes de salvar.';
+    if (!this.hasGuild) {
+      this.errorMessage = 'Configure o Discord antes de salvar.';
       return;
     }
 
@@ -132,7 +147,7 @@ export class GamificationSettingsComponent implements OnInit {
       })
       .subscribe({
         next: (response) => {
-          this.planFeatures = response.planFeatures;
+          this.applySettingsResponse(response);
           this.successMessage = 'Configuração de gamificação salva com sucesso.';
           this.saving = false;
         },
@@ -156,6 +171,24 @@ export class GamificationSettingsComponent implements OnInit {
    * @returns {string} URL base para requisições da feature.
    */
   private getBaseUrl(): string {
-    return `/api/v1/org/${this.orgId}/guilds/${this.guildId}/gamification`;
+    return `${this.tenantContext.getGuildApiBaseUrl()}/gamification`;
+  }
+
+  /**
+   * Sincroniza toggles locais com resposta da API.
+   * @param response Configuração retornada pelo backend
+   */
+  private applySettingsResponse(response: GamificationSettingsResponseDto): void {
+    this.planFeatures = response.planFeatures;
+    this.toggles = {
+      enabled: response.settings.enabled,
+      rankingEnabled: response.settings.ranking.enabled,
+      badgesEnabled: response.settings.badges.enabled,
+      streaksEnabled: response.settings.streaks.enabled,
+    };
+
+    if (!this.planFeatures.ranking) {
+      this.toggles.rankingEnabled = false;
+    }
   }
 }

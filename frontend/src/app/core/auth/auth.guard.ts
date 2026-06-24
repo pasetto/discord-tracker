@@ -9,8 +9,12 @@ export const authGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  if (authService.hasToken()) {
+  if (authService.isTokenValid()) {
     return true;
+  }
+
+  if (authService.hasToken()) {
+    authService.logout();
   }
 
   return router.createUrlTree(['/login']);
@@ -23,7 +27,7 @@ export const guestGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  if (!authService.hasToken()) {
+  if (!authService.isTokenValid()) {
     return true;
   }
 

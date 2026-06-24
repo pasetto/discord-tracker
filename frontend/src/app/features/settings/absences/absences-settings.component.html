@@ -2,256 +2,121 @@
   <header class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
     <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Ausências planejadas</h2>
     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-      Cadastre e gerencie férias, PTO e licenças para melhorar o relatório de quem sumiu.
+      Cadastre férias, PTO e licenças por colaborador para melhorar o relatório de quem sumiu.
     </p>
   </header>
 
-  <section class="grid gap-4 rounded-2xl border border-gray-200 bg-white p-5 md:grid-cols-2 dark:border-gray-800 dark:bg-white/[0.03]">
-    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
-      organizationId
-      <input
-        class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-        [(ngModel)]="orgId"
-        placeholder="organizationId"
-      />
-    </label>
-    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
-      guildId
-      <input
-        class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-        [(ngModel)]="guildId"
-        placeholder="guildId"
-      />
-    </label>
-    <div class="md:col-span-2">
-      <button
-        type="button"
-        class="min-h-11 w-full rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60 sm:w-auto"
-        (click)="loadAbsences()"
-        [disabled]="loading"
-      >
+  <section *ngIf="!hasGuild" class="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-500/10">
+    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Configure o Discord primeiro</h3>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">Selecione um servidor para gerenciar ausências.</p>
+    <a routerLink="/app/settings/discord" class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+      Configurar Discord
+    </a>
+  </section>
+
+  <section *ngIf="hasGuild" class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <p class="text-sm text-gray-600 dark:text-gray-300">Servidor: <strong>{{ guildName }}</strong> · {{ members.length }} colaboradores</p>
+    <div class="flex flex-wrap gap-2">
+      <button type="button" class="min-h-11 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-white/5" (click)="syncMembers()" [disabled]="syncing">
+        {{ syncing ? 'Sincronizando...' : 'Sincronizar membros' }}
+      </button>
+      <button type="button" class="min-h-11 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60" (click)="loadAbsences()" [disabled]="loading">
         {{ loading ? 'Carregando...' : 'Atualizar ausências' }}
       </button>
     </div>
   </section>
 
-  <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-    <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Criar ausência</h3>
-    <div class="grid gap-3 md:grid-cols-2">
-      <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
-        trackedUserId
-        <input
-          class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          [(ngModel)]="createForm.trackedUserId"
-          placeholder="ObjectId do membro rastreado"
-        />
-      </label>
-      <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
-        discordId
-        <input
-          class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          [(ngModel)]="createForm.discordId"
-          placeholder="ID Discord"
-        />
-      </label>
-      <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
-        Tipo
-        <select
-          class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          [(ngModel)]="createForm.type"
-        >
-          <option value="vacation">Férias</option>
-          <option value="pto">PTO</option>
-          <option value="sick_leave">Licença médica</option>
-          <option value="other">Outro</option>
-        </select>
-      </label>
-      <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
-        Início
-        <input
-          type="date"
-          class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          [(ngModel)]="createForm.startDate"
-        />
-      </label>
-      <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
-        Fim
-        <input
-          type="date"
-          class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          [(ngModel)]="createForm.endDate"
-        />
-      </label>
-      <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 md:col-span-2">
-        Observação
-        <textarea
-          class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          rows="2"
-          [(ngModel)]="createForm.note"
-        ></textarea>
-      </label>
-    </div>
-    <button
-      type="button"
-      class="min-h-11 w-full rounded-lg bg-success-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-success-700 disabled:opacity-60 sm:w-auto"
-      (click)="createAbsence()"
-      [disabled]="saving"
-    >
-      {{ saving ? 'Salvando...' : 'Criar ausência' }}
-    </button>
-  </section>
-
-  <section
-    *ngIf="editingAbsenceId"
-    class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]"
-  >
-    <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Editar ausência</h3>
-    <div class="grid gap-3 md:grid-cols-2">
-      <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
-        discordId
-        <input
-          class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          [(ngModel)]="editForm.discordId"
-        />
-      </label>
-      <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
-        Tipo
-        <select
-          class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          [(ngModel)]="editForm.type"
-        >
-          <option value="vacation">Férias</option>
-          <option value="pto">PTO</option>
-          <option value="sick_leave">Licença médica</option>
-          <option value="other">Outro</option>
-        </select>
-      </label>
-      <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
-        Início
-        <input
-          type="date"
-          class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          [(ngModel)]="editForm.startDate"
-        />
-      </label>
-      <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
-        Fim
-        <input
-          type="date"
-          class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          [(ngModel)]="editForm.endDate"
-        />
-      </label>
-      <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 md:col-span-2">
-        Observação
-        <textarea
-          class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-          rows="2"
-          [(ngModel)]="editForm.note"
-        ></textarea>
-      </label>
-    </div>
-    <div class="flex flex-col gap-3 sm:flex-row">
-      <button
-        type="button"
-        class="min-h-11 w-full rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60 sm:w-auto"
-        (click)="updateAbsence()"
-        [disabled]="saving"
-      >
-        Salvar edição
+  <ng-container *ngIf="hasGuild">
+    <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Criar ausência</h3>
+      <div class="grid gap-3 md:grid-cols-2">
+        <app-member-select
+          label="Colaborador"
+          [members]="members"
+          [selectedMemberId]="createForm.trackedUserId"
+          (memberSelected)="onCreateMemberSelected($event)"
+        ></app-member-select>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Tipo
+          <select class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="createForm.type">
+            <option value="vacation">Férias</option>
+            <option value="pto">PTO</option>
+            <option value="sick_leave">Licença médica</option>
+            <option value="other">Outro</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Início
+          <input type="date" class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="createForm.startDate" />
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Fim
+          <input type="date" class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="createForm.endDate" />
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 md:col-span-2">
+          Observação
+          <textarea class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" rows="2" [(ngModel)]="createForm.note"></textarea>
+        </label>
+      </div>
+      <button type="button" class="min-h-11 w-full rounded-lg bg-success-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-success-700 disabled:opacity-60 sm:w-auto" (click)="createAbsence()" [disabled]="saving">
+        {{ saving ? 'Salvando...' : 'Criar ausência' }}
       </button>
-      <button
-        type="button"
-        class="min-h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-white/5 sm:w-auto"
-        (click)="cancelEdit()"
-      >
-        Cancelar
-      </button>
-    </div>
-  </section>
+    </section>
 
-  <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-    <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Lista de ausências</h3>
-    <p *ngIf="absences.length === 0" class="text-sm text-gray-500 dark:text-gray-400">
-      Nenhuma ausência cadastrada para o filtro atual.
-    </p>
+    <section *ngIf="editingAbsenceId" class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Editar ausência</h3>
+      <p class="text-sm text-gray-600 dark:text-gray-300">Colaborador: <strong>{{ editMemberLabel }}</strong></p>
+      <div class="grid gap-3 md:grid-cols-2">
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Tipo
+          <select class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="editForm.type">
+            <option value="vacation">Férias</option>
+            <option value="pto">PTO</option>
+            <option value="sick_leave">Licença médica</option>
+            <option value="other">Outro</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Início
+          <input type="date" class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="editForm.startDate" />
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Fim
+          <input type="date" class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="editForm.endDate" />
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 md:col-span-2">
+          Observação
+          <textarea class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" rows="2" [(ngModel)]="editForm.note"></textarea>
+        </label>
+      </div>
+      <div class="flex flex-col gap-3 sm:flex-row">
+        <button type="button" class="min-h-11 w-full rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60 sm:w-auto" (click)="updateAbsence()" [disabled]="saving">Salvar edição</button>
+        <button type="button" class="min-h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100 sm:w-auto" (click)="cancelEdit()">Cancelar</button>
+      </div>
+    </section>
 
-    <div *ngIf="absences.length > 0" class="space-y-3 md:hidden">
-      <article *ngFor="let absence of absences" class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
-        <p class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ absence.discordId }}</p>
-        <dl class="mt-2 grid grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-300">
-          <div><dt class="text-xs uppercase tracking-wide">Tipo</dt><dd>{{ formatType(absence.type) }}</dd></div>
-          <div><dt class="text-xs uppercase tracking-wide">Status</dt><dd>{{ absence.status }}</dd></div>
-          <div><dt class="text-xs uppercase tracking-wide">Início</dt><dd>{{ absence.startDate | date: 'dd/MM/yyyy' }}</dd></div>
-          <div><dt class="text-xs uppercase tracking-wide">Fim</dt><dd>{{ absence.endDate | date: 'dd/MM/yyyy' }}</dd></div>
-        </dl>
-        <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ absence.note || 'Sem observação.' }}</p>
-        <div class="mt-3 flex gap-2">
-          <button
-            type="button"
-            class="min-h-11 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100"
-            (click)="startEdit(absence)"
-          >
-            Editar
-          </button>
-          <button
-            type="button"
-            class="min-h-11 flex-1 rounded-lg border border-error-300 px-3 py-2 text-sm font-medium text-error-600"
-            (click)="deleteAbsence(absence._id)"
-          >
-            Cancelar
-          </button>
-        </div>
-      </article>
-    </div>
+    <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Lista de ausências</h3>
+      <p *ngIf="absences.length === 0" class="text-sm text-gray-500 dark:text-gray-400">Nenhuma ausência cadastrada.</p>
+      <div *ngIf="absences.length > 0" class="space-y-3">
+        <article *ngFor="let absence of absences" class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+          <p class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ getMemberLabel(absence) }}</p>
+          <dl class="mt-2 grid grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-300 md:grid-cols-4">
+            <div><dt class="text-xs uppercase tracking-wide">Tipo</dt><dd>{{ formatType(absence.type) }}</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide">Status</dt><dd>{{ absence.status }}</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide">Início</dt><dd>{{ absence.startDate | date: 'dd/MM/yyyy' }}</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide">Fim</dt><dd>{{ absence.endDate | date: 'dd/MM/yyyy' }}</dd></div>
+          </dl>
+          <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ absence.note || 'Sem observação.' }}</p>
+          <div class="mt-3 flex gap-2">
+            <button type="button" class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:text-gray-100" (click)="startEdit(absence)">Editar</button>
+            <button type="button" class="min-h-11 rounded-lg border border-error-300 px-3 py-2 text-sm text-error-600" (click)="deleteAbsence(absence._id)">Cancelar</button>
+          </div>
+        </article>
+      </div>
+    </section>
 
-    <div *ngIf="absences.length > 0" class="hidden overflow-x-auto md:block">
-      <table class="w-full min-w-[860px] table-auto text-left text-sm">
-        <thead>
-          <tr class="border-b border-gray-200 dark:border-gray-700">
-            <th class="px-2 py-2">Discord</th>
-            <th class="px-2 py-2">Tipo</th>
-            <th class="px-2 py-2">Início</th>
-            <th class="px-2 py-2">Fim</th>
-            <th class="px-2 py-2">Status</th>
-            <th class="px-2 py-2">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let absence of absences" class="border-b border-gray-100 dark:border-gray-800">
-            <td class="px-2 py-2">{{ absence.discordId }}</td>
-            <td class="px-2 py-2">{{ formatType(absence.type) }}</td>
-            <td class="px-2 py-2">{{ absence.startDate | date: 'dd/MM/yyyy' }}</td>
-            <td class="px-2 py-2">{{ absence.endDate | date: 'dd/MM/yyyy' }}</td>
-            <td class="px-2 py-2">{{ absence.status }}</td>
-            <td class="px-2 py-2">
-              <div class="flex gap-2">
-                <button
-                  type="button"
-                  class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 dark:border-gray-700 dark:text-gray-200"
-                  (click)="startEdit(absence)"
-                >
-                  Editar
-                </button>
-                <button
-                  type="button"
-                  class="min-h-11 rounded-lg border border-error-300 px-3 py-2 text-xs font-medium text-error-600"
-                  (click)="deleteAbsence(absence._id)"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <p *ngIf="successMessage" class="rounded-lg border border-success-300 bg-success-50 px-3 py-2 text-sm text-success-700">
-    {{ successMessage }}
-  </p>
-  <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">
-    {{ errorMessage }}
-  </p>
+    <p *ngIf="successMessage" class="rounded-lg border border-success-300 bg-success-50 px-3 py-2 text-sm text-success-700">{{ successMessage }}</p>
+    <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">{{ errorMessage }}</p>
+  </ng-container>
 </section>

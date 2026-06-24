@@ -2,36 +2,116 @@
   <header class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
     <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Conexão Discord</h2>
     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-      Escolha o servidor monitorado. O bot deve estar cadastrado em <code>/admin/discord</code> antes.
+      Cadastre o bot que você criou no
+      <a href="https://discord.com/developers/applications" target="_blank" rel="noopener" class="text-brand-500 hover:underline">
+        Discord Developer Portal
+      </a>, adicione-o ao seu servidor e escolha qual servidor monitorar.
     </p>
   </header>
 
-  <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-    <p class="text-sm text-gray-600 dark:text-gray-300">
-      Bot conectado:
-      <strong [class.text-success-600]="botConnected" [class.text-error-500]="!botConnected">
-        {{ botConnected ? 'Sim' : 'Não' }}
-      </strong>
+  <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">1. Cadastrar bot</h3>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+      Use o <strong>mesmo aplicativo</strong> que já roda no outro sistema. Copie as credenciais no
+      <a href="https://discord.com/developers/applications" target="_blank" rel="noopener" class="text-brand-500 hover:underline">Developer Portal</a>
+      (OAuth2 → Client ID / Client Secret; Bot → Token).
     </p>
-    <p *ngIf="activeConnection" class="mt-2 text-sm text-gray-600 dark:text-gray-300">
-      Servidor ativo: <strong>{{ activeConnection.guildName }}</strong> ({{ activeConnection.guildId }})
-    </p>
-    <button type="button" class="mt-4 min-h-11 rounded-lg border px-4 py-2 text-sm" (click)="refresh()" [disabled]="loading">
-      Atualizar lista
-    </button>
-  </div>
 
-  <div class="grid gap-3 md:grid-cols-2">
-    <button
-      type="button"
-      *ngFor="let guild of guilds"
-      class="rounded-2xl border border-gray-200 p-4 text-left transition hover:border-brand-500 dark:border-gray-700"
-      (click)="selectGuild(guild.guildId)"
-    >
-      <p class="font-medium text-gray-800 dark:text-white/90">{{ guild.guildName }}</p>
-      <p class="text-xs text-gray-500">{{ guild.memberCount }} membros · {{ guild.guildId }}</p>
+    <div class="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300">
+      <p><strong>Client ID:</strong> número longo (ex.: 1234567890123456789) — não é email.</p>
+      <p class="mt-1"><strong>Client Secret:</strong> em OAuth2 → Client Secret.</p>
+      <p class="mt-1"><strong>Bot Token:</strong> em Bot → Token (formato com dois pontos). Não confunda com Client Secret.</p>
+    </div>
+
+    <div class="mt-4 grid gap-4 md:grid-cols-2">
+      <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 md:col-span-2">
+        Nome do bot
+        <input class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="form.name" name="name" />
+      </label>
+      <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+        Client ID
+        <input
+          class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+          [(ngModel)]="form.clientId"
+          name="clientId"
+          inputmode="numeric"
+          placeholder="1234567890123456789"
+        />
+      </label>
+      <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+        Client Secret
+        <input
+          type="password"
+          class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+          [(ngModel)]="form.clientSecret"
+          name="clientSecret"
+          placeholder="Cole o Client Secret do OAuth2"
+        />
+      </label>
+      <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 md:col-span-2">
+        Bot Token
+        <input
+          type="password"
+          class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+          [(ngModel)]="form.botToken"
+          name="botToken"
+          placeholder="Cole o Bot Token (Bot → Reset Token / Copy)"
+        />
+      </label>
+    </div>
+
+    <div class="mt-4 flex flex-wrap gap-3">
+      <button type="button" class="min-h-11 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60" [disabled]="saving" (click)="saveApplication()">
+        {{ saving ? 'Salvando...' : application ? 'Atualizar bot' : 'Cadastrar bot' }}
+      </button>
+      <p *ngIf="application?.botUsername" class="self-center text-sm text-gray-500">
+        Conectado como <strong>{{ application?.botUsername }}</strong>
+      </p>
+    </div>
+  </section>
+
+  <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">2. Adicionar bot ao servidor</h3>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+      Abra o Discord, escolha o servidor do seu time e autorize o bot.
+    </p>
+    <button type="button" class="mt-4 min-h-11 rounded-lg bg-[#5865F2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#4752C4] disabled:opacity-60" [disabled]="!installUrl" (click)="openInstallUrl()">
+      Adicionar bot ao servidor
     </button>
-  </div>
+    <p class="mt-2 text-xs text-gray-500">Status: {{ botConnected ? 'Bot online' : 'Bot offline — cadastre e adicione ao servidor' }}</p>
+  </section>
+
+  <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">3. Escolher servidor</h3>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Selecione qual servidor será monitorado pelo Syntra.</p>
+      </div>
+      <button type="button" class="min-h-11 rounded-lg border px-4 py-2 text-sm" (click)="refreshAll()" [disabled]="loading">
+        Atualizar
+      </button>
+    </div>
+
+    <p *ngIf="activeGuildName" class="mt-3 text-sm text-success-700">
+      Servidor ativo: <strong>{{ activeGuildName }}</strong>
+    </p>
+
+    <p *ngIf="!loading && guilds.length === 0" class="mt-4 text-sm text-gray-500">
+      Nenhum servidor encontrado. Adicione o bot ao servidor e clique em Atualizar.
+    </p>
+
+    <div class="mt-4 grid gap-3 md:grid-cols-2">
+      <button
+        type="button"
+        *ngFor="let guild of guilds"
+        class="rounded-2xl border border-gray-200 p-4 text-left transition hover:border-brand-500 dark:border-gray-700"
+        (click)="selectGuild(guild.guildId)"
+      >
+        <p class="font-medium text-gray-800 dark:text-white/90">{{ guild.guildName }}</p>
+        <p class="text-xs text-gray-500">{{ guild.memberCount }} membros</p>
+      </button>
+    </div>
+  </section>
 
   <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">{{ errorMessage }}</p>
   <p *ngIf="successMessage" class="rounded-lg border border-success-300 bg-success-50 px-3 py-2 text-sm text-success-700">{{ successMessage }}</p>

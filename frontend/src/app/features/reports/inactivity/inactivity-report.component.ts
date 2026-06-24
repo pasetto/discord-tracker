@@ -2,6 +2,9 @@ import { CommonModule } from '@angular/common';
 import { HttpClient, HttpResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { TrackedMembersService } from '../../../core/members/tracked-members.service';
+import { TenantContextService } from '../../../core/tenant/tenant-context.service';
 
 /**
  * Status de inatividade exposto pelo relatório semanal.
@@ -41,41 +44,106 @@ interface InactivityReportDto {
 @Component({
   selector: 'app-inactivity-report',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './inactivity-report.component.html',
 })
 export class InactivityReportComponent implements OnInit {
-  orgId = localStorage.getItem('syntra.orgId') ?? '';
-  guildId = localStorage.getItem('syntra.guildId') ?? '';
   report: InactivityReportDto | null = null;
+  trackedMembersCount = 0;
   loading = false;
   exporting = false;
+  syncing = false;
   errorMessage = '';
+  successMessage = '';
 
-  constructor(private readonly httpClient: HttpClient) {}
+  constructor(
+    private readonly httpClient: HttpClient,
+    private readonly tenantContext: TenantContextService,
+    private readonly trackedMembersService: TrackedMembersService,
+  ) {}
 
   /**
-   * Carrega relatório inicial quando IDs já existem no localStorage.
-   * @returns {void} Não retorna valor.
+   * Indica se o tenant já tem servidor selecionado.
+   */
+  get hasGuild(): boolean {
+    return this.tenantContext.hasGuild;
+  }
+
+  /**
+   * Entradas com foco em quem sumiu ou baixa colaboração.
+   */
+  get concernEntries(): InactivityReportEntryDto[] {
+    if (!this.report) {
+      return [];
+    }
+
+    return this.report.entries.filter((entry) => entry.status === 'missing' || entry.status === 'low_voice_collaboration');
+  }
+
+  /**
+   * Total de colaboradores monitorados no relatório.
+   */
+  get totalTrackedInReport(): number {
+    if (!this.report) {
+      return 0;
+    }
+
+    return this.report.entries.length + this.report.plannedAbsenceEntries.length;
+  }
+
+  /**
+   * Carrega relatório quando o contexto do tenant estiver pronto.
    */
   ngOnInit(): void {
-    if (this.orgId && this.guildId) {
-      this.loadReport();
-    }
+    this.tenantContext.refresh().subscribe(() => {
+      if (this.hasGuild) {
+        this.loadMembersCount();
+        this.loadReport();
+      }
+    });
+  }
+
+  /**
+   * Sincroniza membros do Discord e recarrega relatório.
+   */
+  syncMembersAndReload(): void {
+    this.syncing = true;
+    this.errorMessage = '';
+    this.successMessage = '';
+
+    this.trackedMembersService.syncMembers().subscribe({
+      next: (response) => {
+        this.trackedMembersCount = response.members.length;
+        this.syncing = false;
+        this.successMessage = `${response.syncedCount} colaboradores sincronizados.`;
+        this.loadReport();
+      },
+      error: (error) => {
+        this.syncing = false;
+        this.errorMessage = error.error?.error ?? 'Falha ao sincronizar membros do Discord.';
+      },
+    });
+  }
+
+  /**
+   * Carrega quantidade de membros rastreados.
+   */
+  private loadMembersCount(): void {
+    this.trackedMembersService.listMembers().subscribe({
+      next: (members) => {
+        this.trackedMembersCount = members.length;
+      },
+    });
   }
 
   /**
    * Busca relatório semanal de "quem sumiu" no backend.
-   * @returns {void} Não retorna valor.
    */
   loadReport(): void {
-    if (!this.orgId || !this.guildId) {
-      this.errorMessage = 'Preencha organizationId e guildId para carregar o relatório.';
+    if (!this.hasGuild) {
+      this.errorMessage = 'Configure o Discord e selecione um servidor antes de carregar o relatório.';
       return;
     }
-
-    localStorage.setItem('syntra.orgId', this.orgId);
-    localStorage.setItem('syntra.guildId', this.guildId);
     this.loading = true;
     this.errorMessage = '';
 
@@ -83,9 +151,10 @@ export class InactivityReportComponent implements OnInit {
       next: (response) => {
         this.report = response.report;
         this.loading = false;
+        this.loadMembersCount();
       },
-      error: () => {
-        this.errorMessage = 'Não foi possível carregar o relatório semanal de inatividade.';
+      error: (error) => {
+        this.errorMessage = error.error?.error ?? 'Não foi possível carregar o relatório semanal de inatividade.';
         this.loading = false;
       },
     });
@@ -131,8 +200,8 @@ export class InactivityReportComponent implements OnInit {
    * @returns {void} Não retorna valor.
    */
   private exportCsv(route: string, fallbackFilename: string): void {
-    if (!this.orgId || !this.guildId) {
-      this.errorMessage = 'Preencha organizationId e guildId antes de exportar.';
+    if (!this.hasGuild) {
+      this.errorMessage = 'Configure o Discord antes de exportar.';
       return;
     }
 
@@ -145,10 +214,11 @@ export class InactivityReportComponent implements OnInit {
         next: (response) => {
           this.triggerCsvDownload(response, fallbackFilename);
           this.exporting = false;
+          this.successMessage = 'Exportação concluída.';
         },
-        error: () => {
-          this.errorMessage = 'Falha ao exportar CSV.';
+        error: async (error) => {
           this.exporting = false;
+          this.errorMessage = await this.resolveExportError(error);
         },
       });
   }
@@ -194,6 +264,26 @@ export class InactivityReportComponent implements OnInit {
    * @returns {string} Prefixo das rotas de API.
    */
   private getBaseUrl(): string {
-    return `/api/v1/org/${this.orgId}/guilds/${this.guildId}`;
+    return this.tenantContext.getGuildApiBaseUrl();
+  }
+
+  /**
+   * Extrai mensagem de erro quando export retorna JSON em blob.
+   * @param error Erro HTTP da exportação
+   */
+  private async resolveExportError(error: { error?: Blob }): Promise<string> {
+    const blob = error.error;
+    if (blob instanceof Blob) {
+      try {
+        const payload = JSON.parse(await blob.text()) as { error?: string };
+        if (payload.error) {
+          return payload.error;
+        }
+      } catch {
+        // ignora parse inválido
+      }
+    }
+
+    return 'Falha ao exportar CSV.';
   }
 }

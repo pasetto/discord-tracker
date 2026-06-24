@@ -47,6 +47,58 @@ export interface DiscordBotValidationResult {
   botAvatarUrl?: string;
 }
 
+/** Formato esperado de Client ID (snowflake numérico do Discord). */
+const DISCORD_CLIENT_ID_PATTERN = /^\d{17,20}$/;
+
+/** Formato mínimo de Bot Token (três segmentos separados por ponto). */
+const DISCORD_BOT_TOKEN_PATTERN = /^[\w-]+\.[\w-]+\.[\w-]+$/;
+
+/**
+ * Valida formato local das credenciais antes de consultar o Discord.
+ * @param input Credenciais informadas na UI
+ * @throws {Error} Quando algum campo não corresponde ao formato do Developer Portal
+ */
+export function validateDiscordApplicationInputFormat(input: CreateDiscordApplicationInput): void {
+  const clientId = input.clientId.trim();
+  const clientSecret = input.clientSecret.trim();
+  const botToken = input.botToken.trim();
+
+  if (!DISCORD_CLIENT_ID_PATTERN.test(clientId)) {
+    throw new Error(
+      'Client ID inválido. No Discord Developer Portal → OAuth2, copie o número longo (ex.: 1234567890123456789). Não use email nem nome.',
+    );
+  }
+
+  if (clientSecret.length < 20) {
+    throw new Error(
+      'Client Secret inválido. No Discord Developer Portal → OAuth2, copie o Client Secret completo (geralmente 32 caracteres).',
+    );
+  }
+
+  if (!DISCORD_BOT_TOKEN_PATTERN.test(botToken) || botToken.length < 50) {
+    throw new Error(
+      'Bot Token inválido. No Discord Developer Portal → Bot → Reset Token / Copy, cole o token completo (formato XXXXX.XXXXX.XXXXX). Não confunda com Client Secret.',
+    );
+  }
+}
+
+/**
+ * Traduz falhas da API do Discord para mensagens amigáveis em português.
+ * @param status Código HTTP retornado pelo Discord
+ * @param body Corpo bruto da resposta
+ * @returns Mensagem para exibir ao usuário
+ */
+export function formatDiscordBotTokenError(status: number, body: string): string {
+  if (status === 401) {
+    return (
+      'O Discord rejeitou o Bot Token (401 Unauthorized). Verifique se você copiou o token em Developer Portal → Bot → Token. ' +
+      'Se o token foi resetado recentemente, use o novo. Não use Client Secret no lugar do Bot Token.'
+    );
+  }
+
+  return `Token do bot inválido (${status}): ${body}`;
+}
+
 /**
  * Mascara um segredo exibindo apenas os últimos 4 caracteres.
  * @param value Valor sensível em texto puro
@@ -107,7 +159,7 @@ export async function validateBotTokenRemote(botToken: string): Promise<DiscordB
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`Token do bot inválido (${response.status}): ${body}`);
+    throw new Error(formatDiscordBotTokenError(response.status, body));
   }
 
   const payload = (await response.json()) as {
@@ -183,6 +235,7 @@ export async function createDiscordApplication(
   input: CreateDiscordApplicationInput,
   createdById: string,
 ): Promise<DiscordApplicationSummary> {
+  validateDiscordApplicationInputFormat(input);
   const validation = await validateBotTokenRemote(input.botToken);
   const shouldBeDefault = input.isPlatformDefault ?? (await DiscordApplicationModel.countDocuments()) === 0;
 
@@ -258,4 +311,92 @@ export async function activateDiscordApplication(applicationId: string): Promise
 
   const refreshed = await DiscordApplicationModel.findById(applicationId).exec();
   return toSummary(refreshed!);
+}
+
+/** Permissões mínimas para o bot monitorar voz e presença. */
+const BOT_INVITE_PERMISSIONS = '36818496';
+
+/**
+ * Monta URL de convite OAuth para instalar o bot em um servidor Discord.
+ * @param clientId Client ID público do aplicativo
+ * @param state Estado opcional para correlação pós-redirect
+ * @returns URL de autorização do Discord
+ */
+export function buildDiscordBotInstallUrl(clientId: string, state?: string): string {
+  const params = new URLSearchParams({
+    client_id: clientId,
+    permissions: BOT_INVITE_PERMISSIONS,
+    scope: 'bot applications.commands',
+  });
+  if (state?.trim()) {
+    params.set('state', state.trim());
+  }
+  return `https://discord.com/api/oauth2/authorize?${params.toString()}`;
+}
+
+/**
+ * Busca aplicativo Discord vinculado à organização.
+ * @param organizationId ID da organização
+ * @returns Resumo mascarado ou null
+ */
+export async function getOrganizationDiscordApplication(
+  organizationId: string,
+): Promise<DiscordApplicationSummary | null> {
+  const app = await DiscordApplicationModel.findOne({
+    organizationId: new Types.ObjectId(organizationId),
+  }).exec();
+  return app ? toSummary(app) : null;
+}
+
+/**
+ * Cadastra ou atualiza bot Discord da organização e ativa como padrão da plataforma.
+ * @param organizationId ID da organização
+ * @param input Credenciais informadas na UI
+ * @param createdById ID do usuário autenticado
+ * @returns Resumo mascarado do aplicativo
+ */
+export async function upsertOrganizationDiscordApplication(
+  organizationId: string,
+  input: CreateDiscordApplicationInput,
+  createdById: string,
+): Promise<DiscordApplicationSummary> {
+  validateDiscordApplicationInputFormat(input);
+  const validation = await validateBotTokenRemote(input.botToken);
+  const orgObjectId = new Types.ObjectId(organizationId);
+  const existing = await DiscordApplicationModel.findOne({ organizationId: orgObjectId }).exec();
+
+  await DiscordApplicationModel.updateMany({ isPlatformDefault: true }, { isPlatformDefault: false });
+
+  if (existing) {
+    existing.name = input.name.trim();
+    existing.clientId = input.clientId.trim();
+    existing.clientSecretEncrypted = encryptSecret(input.clientSecret.trim());
+    existing.botTokenEncrypted = encryptSecret(input.botToken.trim());
+    existing.botUserId = validation.botUserId;
+    existing.botUsername = validation.botUsername;
+    existing.botAvatarUrl = validation.botAvatarUrl;
+    existing.lastValidatedAt = new Date();
+    existing.validationError = undefined;
+    existing.isActive = true;
+    existing.isPlatformDefault = true;
+    await existing.save();
+    return toSummary(existing);
+  }
+
+  const app = await DiscordApplicationModel.create({
+    name: input.name.trim(),
+    clientId: input.clientId.trim(),
+    clientSecretEncrypted: encryptSecret(input.clientSecret.trim()),
+    botTokenEncrypted: encryptSecret(input.botToken.trim()),
+    organizationId: orgObjectId,
+    isPlatformDefault: true,
+    isActive: true,
+    botUserId: validation.botUserId,
+    botUsername: validation.botUsername,
+    botAvatarUrl: validation.botAvatarUrl,
+    lastValidatedAt: new Date(),
+    createdBy: new Types.ObjectId(createdById),
+  });
+
+  return toSummary(app);
 }

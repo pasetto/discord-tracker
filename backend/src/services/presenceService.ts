@@ -8,7 +8,9 @@ import { mapDiscordPresenceStatus } from './channelClassifier';
 import { PresenceStatus } from '../config/env';
 import { setActiveSessions } from '../metrics/prometheus';
 import { voiceSessionRepository } from '../repositories/voiceSessionRepository';
-import { guildService } from './guildService';
+import { isMonitoredGuild, resolveMonitoredGuild } from './guildMonitoringService';
+import { publishLiveGuildSnapshot } from './liveActivityBroadcaster';
+import { upsertTrackedUser } from './trackedUserService';
 
 const log = createLogger('presence');
 
@@ -67,7 +69,12 @@ export const presenceService = {
    * @param newPresence Nova presença
    */
   async handlePresenceUpdate(_oldPresence: Presence | null, newPresence: Presence): Promise<void> {
-    if (!guildService.isMonitoredGuild(newPresence.guild?.id)) {
+    if (!(await isMonitoredGuild(newPresence.guild?.id))) {
+      return;
+    }
+
+    const monitored = await resolveMonitoredGuild(newPresence.guild?.id);
+    if (!monitored) {
       return;
     }
 
@@ -108,7 +115,17 @@ export const presenceService = {
       newStatus,
     });
 
+    await upsertTrackedUser({
+      organizationId: monitored.organizationId,
+      guildId: monitored.guildId,
+      discordId: newPresence.user.id,
+      username: newPresence.user.username,
+      displayName: newPresence.member?.displayName ?? newPresence.user.globalName ?? newPresence.user.username,
+      seenAt: now,
+    });
+
     await this.refreshMetrics();
+    void publishLiveGuildSnapshot(monitored.organizationId, monitored.guildId);
   },
 
   /**

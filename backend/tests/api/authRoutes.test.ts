@@ -5,11 +5,13 @@ import { createApp } from '../../src/api/server';
 const platformAuthMocks = vi.hoisted(() => ({
   registerPlatformUser: vi.fn(),
   loginPlatformUser: vi.fn(),
+  refreshPlatformUserSession: vi.fn(),
 }));
 
 vi.mock('../../src/services/platformAuthService', () => ({
   registerPlatformUser: platformAuthMocks.registerPlatformUser,
   loginPlatformUser: platformAuthMocks.loginPlatformUser,
+  refreshPlatformUserSession: platformAuthMocks.refreshPlatformUserSession,
 }));
 
 describe('auth routes', () => {
@@ -83,6 +85,37 @@ describe('auth routes', () => {
 
     expect(response.status).toBe(204);
     expect(response.headers['set-cookie']?.[0]).toContain('syntra_refresh=;');
+  });
+
+  it('renova access token em POST /api/v1/auth/refresh com cookie válido', async () => {
+    platformAuthMocks.refreshPlatformUserSession.mockResolvedValue({
+      accessToken: 'new-access-token',
+      refreshToken: 'new-refresh-token',
+      user: {
+        id: 'user-1',
+        email: 'owner@test.com',
+        displayName: 'Owner',
+        memberships: [{ organizationId: 'org-1', role: 'owner' }],
+      },
+      organization: { id: 'org-1', name: 'Test Org', slug: 'test-org' },
+    });
+
+    const app = createApp();
+    const response = await request(app.callback())
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', ['syntra_refresh=refresh-token']);
+
+    expect(response.status).toBe(200);
+    expect(response.body.accessToken).toBe('new-access-token');
+    expect(platformAuthMocks.refreshPlatformUserSession).toHaveBeenCalledWith('refresh-token');
+  });
+
+  it('retorna 401 em POST /api/v1/auth/refresh sem cookie', async () => {
+    const app = createApp();
+    const response = await request(app.callback()).post('/api/v1/auth/refresh');
+
+    expect(response.status).toBe(401);
+    expect(response.body.message).toContain('Sessão expirada');
   });
 
   it('retorna 401 ao acessar relatório diário sem JWT', async () => {

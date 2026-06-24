@@ -22,7 +22,7 @@ const seedPlans = [
       dataRetentionDays: 90,
     },
     features: {
-      gamification: false,
+      gamification: true,
       ranking: false,
       exportCsv: false,
       exportPdf: false,

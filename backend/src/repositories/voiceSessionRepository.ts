@@ -1,6 +1,13 @@
 import { Types } from 'mongoose';
 import { VoiceSession, IVoiceSession } from '../db/models/VoiceSession';
 import { VoiceSessionType } from '../config/env';
+import { overlapSeconds } from '../utils/sessionTimeUtils';
+
+/** Totais diários de voz por usuário. */
+export interface VoiceDailyTotals {
+  collaborationSeconds: number;
+  inactiveSeconds: number;
+}
 
 /**
  * Dados para criação de sessão de voz.
@@ -73,6 +80,65 @@ export const voiceSessionRepository = {
    */
   async countOpen(): Promise<number> {
     return VoiceSession.countDocuments({ endedAt: null });
+  },
+
+  /**
+   * Lista sessões de voz que intersectam o dia corrente para um conjunto de usuários.
+   * @param userIds IDs Mongo dos usuários
+   * @param dayStart Início do dia UTC
+   * @param now Momento atual (fim da janela)
+   * @returns Sessões fechadas ou abertas que tocam o dia
+   */
+  async findOverlappingDay(
+    userIds: Types.ObjectId[],
+    dayStart: Date,
+    now: Date,
+  ): Promise<IVoiceSession[]> {
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    return VoiceSession.find({
+      userId: { $in: userIds },
+      startedAt: { $lt: now },
+      $or: [{ endedAt: null }, { endedAt: { $gt: dayStart } }],
+    })
+      .select('userId startedAt endedAt isIgnoredChannel sessionType')
+      .lean<IVoiceSession[]>()
+      .exec();
+  },
+
+  /**
+   * Soma segundos de colaboração e inatividade de voz no dia por usuário.
+   * @param userIds IDs Mongo dos usuários
+   * @param dayStart Início do dia UTC
+   * @param now Momento atual
+   * @returns Mapa userId → totais diários
+   */
+  async sumTodayByUserIds(
+    userIds: Types.ObjectId[],
+    dayStart: Date,
+    now: Date,
+  ): Promise<Map<string, VoiceDailyTotals>> {
+    const sessions = await this.findOverlappingDay(userIds, dayStart, now);
+    const totals = new Map<string, VoiceDailyTotals>();
+
+    for (const session of sessions) {
+      const userKey = String(session.userId);
+      const bucket = totals.get(userKey) ?? { collaborationSeconds: 0, inactiveSeconds: 0 };
+      const seconds = overlapSeconds(session.startedAt, session.endedAt, dayStart, now);
+      const isCollaboration = !session.isIgnoredChannel && session.sessionType === 'VOICE';
+
+      if (isCollaboration) {
+        bucket.collaborationSeconds += seconds;
+      } else {
+        bucket.inactiveSeconds += seconds;
+      }
+
+      totals.set(userKey, bucket);
+    }
+
+    return totals;
   },
 
   /**

@@ -6,6 +6,7 @@ import { catchError, firstValueFrom, of } from 'rxjs';
 
 import { routes } from './app.routes';
 import { PublicConfigService } from './core/api/public-config.service';
+import { AuthService } from './core/auth/auth.service';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 
 /**
@@ -16,6 +17,15 @@ import { authInterceptor } from './core/interceptors/auth.interceptor';
 function loadPublicConfig(publicConfigService: PublicConfigService) {
   return () =>
     firstValueFrom(publicConfigService.loadConfig().pipe(catchError(() => of(null))));
+}
+
+/**
+ * Tenta renovar sessão expirada antes de renderizar rotas protegidas.
+ * @param authService Serviço de autenticação do frontend
+ * @returns Factory do APP_INITIALIZER
+ */
+function restoreAuthSession(authService: AuthService) {
+  return () => firstValueFrom(authService.tryRestoreSession().pipe(catchError(() => of(false))));
 }
 
 /**
@@ -34,6 +44,12 @@ export const appConfig: ApplicationConfig = {
       provide: APP_INITIALIZER,
       useFactory: loadPublicConfig,
       deps: [PublicConfigService],
+      multi: true,
+    },
+    {
+      provide: APP_INITIALIZER,
+      useFactory: restoreAuthSession,
+      deps: [AuthService],
       multi: true,
     },
   ],

@@ -3,11 +3,27 @@ import {
   REFRESH_COOKIE_NAME,
   REFRESH_TOKEN_TTL_SECONDS,
 } from '../../services/authService';
-import { loginPlatformUser, registerPlatformUser } from '../../services/platformAuthService';
+import { loginPlatformUser, refreshPlatformUserSession, registerPlatformUser } from '../../services/platformAuthService';
 import { config } from '../../config/env';
 
 /** Rotas públicas de autenticação com email e senha. */
 export const authRouter = new Router();
+
+/**
+ * Define se o cookie de refresh deve usar flag `secure`.
+ * Em dev (HTTP) nunca força secure — evita erro do Koa em conexão não criptografada.
+ * @param ctx Contexto Koa da requisição
+ * @returns `true` somente em produção com conexão HTTPS (ou atrás de proxy confiável)
+ */
+function shouldUseSecureCookie(ctx: Router.RouterContext): boolean {
+  if (process.env.COOKIE_SECURE === 'false') {
+    return false;
+  }
+  if (process.env.COOKIE_SECURE === 'true') {
+    return ctx.secure;
+  }
+  return config.nodeEnv === 'production' && ctx.secure;
+}
 
 /**
  * Define cookie HttpOnly de refresh token na resposta.
@@ -18,8 +34,9 @@ function setRefreshCookie(ctx: Router.RouterContext, refreshToken: string): void
   ctx.cookies.set(REFRESH_COOKIE_NAME, refreshToken, {
     httpOnly: true,
     sameSite: 'lax',
+    path: '/',
     maxAge: REFRESH_TOKEN_TTL_SECONDS * 1000,
-    secure: config.nodeEnv === 'production',
+    secure: shouldUseSecureCookie(ctx),
   });
 }
 
@@ -94,6 +111,47 @@ authRouter.post('/auth/login', async (ctx) => {
 
 /**
  * @openapi
+ * /auth/refresh:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Renova access token usando cookie de refresh
+ *     responses:
+ *       200:
+ *         description: Novo access token emitido
+ *       401:
+ *         description: Sessão expirada ou refresh token ausente
+ */
+authRouter.post('/auth/refresh', async (ctx) => {
+  const refreshToken = ctx.cookies.get(REFRESH_COOKIE_NAME);
+  if (!refreshToken) {
+    ctx.status = 401;
+    ctx.body = {
+      error: 'Não autorizado',
+      message: 'Sessão expirada. Faça login novamente.',
+    };
+    return;
+  }
+
+  try {
+    const result = await refreshPlatformUserSession(refreshToken);
+    setRefreshCookie(ctx, result.refreshToken);
+    ctx.body = {
+      accessToken: result.accessToken,
+      user: result.user,
+      organization: result.organization,
+    };
+  } catch {
+    ctx.status = 401;
+    ctx.body = {
+      error: 'Não autorizado',
+      message: 'Sessão expirada. Faça login novamente.',
+    };
+  }
+});
+
+/**
+ * @openapi
  * /auth/logout:
  *   post:
  *     tags:
@@ -104,8 +162,9 @@ authRouter.post('/auth/logout', async (ctx) => {
   ctx.cookies.set(REFRESH_COOKIE_NAME, '', {
     httpOnly: true,
     sameSite: 'lax',
+    path: '/',
     maxAge: 0,
-    secure: config.nodeEnv === 'production',
+    secure: shouldUseSecureCookie(ctx),
   });
   ctx.status = 204;
 });

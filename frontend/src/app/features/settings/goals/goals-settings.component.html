@@ -2,116 +2,121 @@
   <header class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
     <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Metas individuais de colaboração</h2>
     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-      Consulte meta vs realizado por pessoa e aplique template por categoria.
+      Defina metas por categoria. Ao salvar o template, as metas são aplicadas automaticamente aos membros da categoria.
     </p>
   </header>
 
-  <div class="grid gap-4 rounded-2xl border border-gray-200 bg-white p-5 md:grid-cols-2 dark:border-gray-800 dark:bg-white/[0.03]">
-    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
-      organizationId
-      <input
-        class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-        [(ngModel)]="orgId"
-        placeholder="orgId"
-      />
-    </label>
-    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
-      guildId
-      <input
-        class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-        [(ngModel)]="guildId"
-        placeholder="guildId"
-      />
-    </label>
-    <div class="md:col-span-2">
-      <button
-        type="button"
-        class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60 min-h-11"
-        (click)="refreshData()"
-        [disabled]="loading"
-      >
+  <section *ngIf="!hasGuild" class="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-500/10">
+    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Configure o Discord primeiro</h3>
+    <a routerLink="/app/settings/discord" class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+      Ir para configuração do Discord
+    </a>
+  </section>
+
+  <ng-container *ngIf="hasGuild">
+    <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <p class="text-sm text-gray-600 dark:text-gray-300">Servidor: <strong>{{ guildName }}</strong></p>
+      <button type="button" class="min-h-11 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60" (click)="refreshData()" [disabled]="loading">
         Atualizar dados
       </button>
     </div>
-  </div>
 
-  <div class="grid gap-4 rounded-2xl border border-gray-200 bg-white p-5 md:grid-cols-[1fr_auto] dark:border-gray-800 dark:bg-white/[0.03]">
-    <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
-      categoryId para aplicar template
-      <input
-        class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-        [(ngModel)]="categoryIdToApply"
-        placeholder="ObjectId da categoria"
-      />
-    </label>
-    <button
-      type="button"
-      class="h-fit self-end rounded-lg bg-success-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-success-600 disabled:opacity-60 min-h-11 w-full sm:w-auto"
-      (click)="applyCategoryTemplate()"
-      [disabled]="loading"
-    >
-      Aplicar template aos membros
-    </button>
-  </div>
+    <section class="rounded-2xl border border-brand-200 bg-brand-50 p-4 text-sm text-gray-700 dark:border-brand-900 dark:bg-brand-500/10 dark:text-gray-200">
+      <p class="font-medium">Fluxo recomendado</p>
+      <ol class="mt-2 list-decimal space-y-1 pl-5">
+        <li>Em <a routerLink="/app/settings/categories" class="font-medium text-brand-600 hover:underline">Categorias</a>, sincronize membros e atribua cada colaborador a uma categoria.</li>
+        <li>Aqui, configure horas por categoria e clique em <strong>Salvar e aplicar</strong>.</li>
+        <li>Acompanhe o progresso abaixo, separado por categoria.</li>
+      </ol>
+    </section>
 
-  <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-    <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Templates por categoria</h3>
-    <p *ngIf="templates.length === 0" class="text-sm text-gray-500 dark:text-gray-400">Nenhum template encontrado.</p>
-    <ul *ngIf="templates.length > 0" class="space-y-2">
-      <li *ngFor="let template of templates" class="rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
-        <p><strong>categoryId:</strong> {{ template.categoryId }}</p>
-        <p><strong>Meta semanal:</strong> {{ template.weeklyCollaborationHours }}h</p>
-        <p><strong>Mínimo diário:</strong> {{ template.dailyMinimumHours ?? '-' }}h</p>
-      </li>
-    </ul>
-  </section>
+    <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Template por categoria</h3>
+      <p *ngIf="categories.length === 0" class="text-sm text-gray-500 dark:text-gray-400">
+        Crie categorias antes de configurar metas.
+        <a routerLink="/app/settings/categories" class="font-medium text-brand-600 hover:underline">Ir para Categorias</a>
+      </p>
+      <div *ngIf="categories.length > 0" class="grid gap-3 md:grid-cols-2">
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Categoria
+          <select class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="selectedCategoryId" (ngModelChange)="loadTemplateForSelectedCategory()">
+            <option *ngFor="let category of categories" [value]="category._id">
+              {{ category.name }} ({{ countMembersInCategory(category._id) }} membro(s))
+            </option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Meta semanal (horas)
+          <input type="number" min="0" step="0.5" class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="weeklyGoalHours" />
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
+          Mínimo diário (horas)
+          <input type="number" min="0" step="0.5" class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="dailyMinimumHours" />
+        </label>
+      </div>
 
-  <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-    <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Meta vs realizado</h3>
-    <p *ngIf="entries.length === 0" class="text-sm text-gray-500 dark:text-gray-400">Nenhuma meta aplicada para os membros.</p>
+      <p *ngIf="selectedCategoryId && membersInSelectedCategory.length === 0" class="text-sm text-warning-600">
+        Nenhum membro em <strong>{{ selectedCategoryName }}</strong>.
+        <a routerLink="/app/settings/categories" class="font-medium hover:underline">Atribua colaboradores</a> antes de aplicar metas.
+      </p>
 
-    <!-- Cards mobile -->
-    <div *ngIf="entries.length > 0" class="space-y-3 md:hidden">
-      <article
-        *ngFor="let entry of entries"
-        class="rounded-xl border border-gray-200 p-4 text-sm dark:border-gray-700"
-      >
-        <p class="font-semibold text-gray-800 dark:text-white/90">{{ entry.displayName }}</p>
-        <dl class="mt-3 grid grid-cols-2 gap-2 text-gray-600 dark:text-gray-300">
-          <div><dt class="text-xs uppercase tracking-wide">Meta</dt><dd>{{ entry.weeklyGoalHours ?? '-' }}h</dd></div>
-          <div><dt class="text-xs uppercase tracking-wide">Realizado</dt><dd>{{ entry.realizedHours }}h</dd></div>
-          <div><dt class="text-xs uppercase tracking-wide">Progresso</dt><dd>{{ entry.progressPercent }}%</dd></div>
-          <div><dt class="text-xs uppercase tracking-wide">Alerta quinta</dt><dd>{{ entry.shouldAlertLowProgress ? 'Sim' : 'Não' }}</dd></div>
-        </dl>
-      </article>
-    </div>
+      <ul *ngIf="membersInSelectedCategory.length > 0" class="rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
+        <li *ngFor="let member of membersInSelectedCategory" class="py-1 text-gray-700 dark:text-gray-200">
+          {{ member.displayName }} <span class="text-xs text-gray-500">({{ member.username }})</span>
+        </li>
+      </ul>
 
-    <!-- Tabela desktop -->
-    <div *ngIf="entries.length > 0" class="hidden overflow-x-auto md:block">
-      <table class="w-full min-w-[760px] table-auto text-left text-sm">
-        <thead>
-          <tr class="border-b border-gray-200 dark:border-gray-700">
-            <th class="px-2 py-2">Membro</th>
-            <th class="px-2 py-2">Meta semanal</th>
-            <th class="px-2 py-2">Realizado</th>
-            <th class="px-2 py-2">Progresso</th>
-            <th class="px-2 py-2">Alerta quinta</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let entry of entries" class="border-b border-gray-100 dark:border-gray-800">
-            <td class="px-2 py-2">{{ entry.displayName }}</td>
-            <td class="px-2 py-2">{{ entry.weeklyGoalHours ?? '-' }}h</td>
-            <td class="px-2 py-2">{{ entry.realizedHours }}h</td>
-            <td class="px-2 py-2">{{ entry.progressPercent }}%</td>
-            <td class="px-2 py-2">{{ entry.shouldAlertLowProgress ? 'Sim' : 'Não' }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
+      <div *ngIf="categories.length > 0" class="flex flex-wrap gap-3">
+        <button type="button" class="min-h-11 rounded-lg bg-success-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-success-600 disabled:opacity-60" (click)="saveCategoryTemplate()" [disabled]="saving || loading">
+          {{ saving ? 'Salvando...' : 'Salvar e aplicar' }}
+        </button>
+        <button type="button" class="min-h-11 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100" (click)="applyCategoryTemplate()" [disabled]="loading">
+          Reaplicar categoria atual
+        </button>
+        <button type="button" class="min-h-11 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100" (click)="applyAllCategoryTemplates()" [disabled]="applyingAll || loading">
+          {{ applyingAll ? 'Aplicando...' : 'Aplicar todas as categorias' }}
+        </button>
+      </div>
+    </section>
 
-  <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">
-    {{ errorMessage }}
-  </p>
+    <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Templates salvos</h3>
+      <p *ngIf="templates.length === 0" class="text-sm text-gray-500 dark:text-gray-400">Nenhum template salvo ainda.</p>
+      <ul *ngIf="templates.length > 0" class="space-y-2">
+        <li *ngFor="let template of templates" class="rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
+          <p><strong>{{ getCategoryName(template.categoryId) }}</strong> · {{ countMembersInCategory(template.categoryId) }} membro(s)</p>
+          <p>Meta semanal: {{ template.weeklyCollaborationHours }}h · Mínimo diário: {{ template.dailyMinimumHours ?? '-' }}h</p>
+        </li>
+      </ul>
+    </section>
+
+    <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Meta vs realizado por categoria</h3>
+      <p *ngIf="entries.length === 0" class="text-sm text-gray-500 dark:text-gray-400">
+        Nenhum colaborador rastreado. Sincronize membros, atribua categorias e salve os templates.
+      </p>
+
+      <div *ngIf="entriesByCategory.length > 0" class="space-y-6">
+        <section *ngFor="let group of entriesByCategory" class="space-y-3">
+          <h4 class="text-base font-semibold text-gray-800 dark:text-white/90">
+            {{ group.categoryName }}
+            <span class="text-sm font-normal text-gray-500">({{ group.entries.length }} colaborador(es))</span>
+          </h4>
+
+          <article *ngFor="let entry of group.entries" class="rounded-xl border border-gray-200 p-4 text-sm dark:border-gray-700">
+            <p class="font-semibold text-gray-800 dark:text-white/90">{{ entry.displayName }}</p>
+            <p class="mt-1 text-gray-600 dark:text-gray-300">
+              Meta: {{ entry.weeklyGoalHours ?? 'não aplicada' }}{{ entry.weeklyGoalHours ? 'h' : '' }}
+              · Realizado: {{ entry.realizedHours }}h
+              · Progresso: {{ entry.progressPercent }}%
+            </p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Mínimo diário: {{ entry.dailyMinimumHours ?? '-' }}h</p>
+          </article>
+        </section>
+      </div>
+    </section>
+
+    <p *ngIf="successMessage" class="rounded-lg border border-success-300 bg-success-50 px-3 py-2 text-sm text-success-700">{{ successMessage }}</p>
+    <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">{{ errorMessage }}</p>
+  </ng-container>
 </section>

@@ -197,18 +197,23 @@ onboardingRouter.put('/onboarding', async (ctx) => {
     }
 
     assertManagerRole(ctx, organizationId);
-    const onboarding = sanitizeOnboardingPayload(payload?.onboarding);
-    const organization = await OrganizationModel.findByIdAndUpdate(
-      organizationId,
-      { $set: { onboarding } },
-      { new: true, projection: { onboarding: 1 } },
-    );
+    const onboardingPatch = sanitizeOnboardingPayload(payload?.onboarding);
+    const organization = await OrganizationModel.findById(organizationId, { onboarding: 1 });
 
     if (!organization) {
       ctx.status = 404;
       ctx.body = { error: 'Organização não encontrada' };
       return;
     }
+
+    const currentOnboarding =
+      typeof organization.onboarding?.toObject === 'function'
+        ? organization.onboarding.toObject()
+        : { ...organization.onboarding };
+    const mergedOnboarding = { ...currentOnboarding, ...onboardingPatch };
+
+    organization.onboarding = mergedOnboarding;
+    await organization.save();
 
     ctx.body = { onboarding: organization.onboarding };
   } catch (error) {

@@ -124,11 +124,13 @@ npm run dev:frontend
 2. **Remova** `DISCORD_TOKEN`, `DISCORD_GUILD_ID` e `DISCORD_OAUTH_*` do `.env` se existirem
 3. Cadastre o bot por uma das opções:
    - **UI:** http://localhost:4200/admin/discord (bootstrap automático no primeiro cadastro em dev)
-   - **Seed:** copie `backend/seed/discord-app.local.json.example` → `discord-app.local.json`, preencha e rode:
+   - **Seed:** na primeira execução o script cria `backend/seed/discord-app.local.json` a partir do `.example`. Edite com credenciais reais e rode de novo:
 
 ```bash
 npm run seed:discord-app --workspace=backend
 ```
+
+> O arquivo `discord-app.local.json` é gitignored — nunca commite tokens.
 
 4. Reinicie o backend — o bot conecta lendo o token **criptografado no MongoDB**
 5. Escolha o servidor em http://localhost:4200/app/settings/discord

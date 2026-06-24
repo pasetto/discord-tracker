@@ -1,6 +1,9 @@
 import { Types } from 'mongoose';
 import { PresenceSession, IPresenceSession } from '../db/models/PresenceSession';
 import { PresenceStatus } from '../config/env';
+import { overlapSeconds } from '../utils/sessionTimeUtils';
+
+const ACTIVE_PRESENCE_STATUSES = new Set<PresenceStatus>(['ONLINE', 'IDLE', 'DND']);
 
 /**
  * Dados para criação de sessão de presença.
@@ -70,6 +73,46 @@ export const presenceSessionRepository = {
    */
   async countOpen(): Promise<number> {
     return PresenceSession.countDocuments({ endedAt: null });
+  },
+
+  /**
+   * Soma segundos online (ONLINE/IDLE/DND) no dia por usuário.
+   * @param userIds IDs Mongo dos usuários
+   * @param dayStart Início do dia UTC
+   * @param now Momento atual
+   * @returns Mapa userId → segundos online no dia
+   */
+  async sumTodayOnlineByUserIds(
+    userIds: Types.ObjectId[],
+    dayStart: Date,
+    now: Date,
+  ): Promise<Map<string, number>> {
+    if (userIds.length === 0) {
+      return new Map();
+    }
+
+    const sessions = await PresenceSession.find({
+      userId: { $in: userIds },
+      startedAt: { $lt: now },
+      $or: [{ endedAt: null }, { endedAt: { $gt: dayStart } }],
+    })
+      .select('userId status startedAt endedAt')
+      .lean<IPresenceSession[]>()
+      .exec();
+
+    const totals = new Map<string, number>();
+
+    for (const session of sessions) {
+      if (!ACTIVE_PRESENCE_STATUSES.has(session.status)) {
+        continue;
+      }
+
+      const userKey = String(session.userId);
+      const seconds = overlapSeconds(session.startedAt, session.endedAt, dayStart, now);
+      totals.set(userKey, (totals.get(userKey) ?? 0) + seconds);
+    }
+
+    return totals;
   },
 
   /**

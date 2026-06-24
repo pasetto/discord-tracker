@@ -35,6 +35,28 @@ export class OnboardingProgressService {
   }
 
   /**
+   * Indica se o onboarding foi finalizado explicitamente pelo gestor.
+   * @returns true quando `completedAt` existe ou o passo 8 foi concluído
+   */
+  get isOnboardingComplete(): boolean {
+    const progress = this.progressSubject.value;
+    return Boolean(progress.completedAt) || progress.completedSteps.includes(8);
+  }
+
+  /**
+   * Define se o banner de onboarding deve aparecer no layout autenticado.
+   * @param progress Progresso atual de onboarding
+   * @returns true quando ainda há setup pendente e o fluxo não foi concluído
+   */
+  shouldShowOnboardingBanner(progress: OnboardingProgress): boolean {
+    if (progress.completedAt || progress.completedSteps.includes(8)) {
+      return false;
+    }
+
+    return !(progress.channelsConfigured && progress.calendarConfigured);
+  }
+
+  /**
    * Retorna o estado atual em memória.
    * @returns Progresso atual
    */

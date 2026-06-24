@@ -61,6 +61,8 @@ export interface LoginRequest {
  */
 @Injectable({ providedIn: 'root' })
 export class AuthApiService {
+  private readonly authRequestOptions = { withCredentials: true };
+
   constructor(private readonly http: HttpClient) {}
 
   /**
@@ -69,7 +71,7 @@ export class AuthApiService {
    * @returns Sessão autenticada criada
    */
   register(payload: RegisterRequest): Observable<AuthSessionResponse> {
-    return this.http.post<AuthSessionResponse>('/api/v1/auth/register', payload);
+    return this.http.post<AuthSessionResponse>('/api/v1/auth/register', payload, this.authRequestOptions);
   }
 
   /**
@@ -78,6 +80,14 @@ export class AuthApiService {
    * @returns Sessão autenticada
    */
   login(payload: LoginRequest): Observable<AuthSessionResponse> {
-    return this.http.post<AuthSessionResponse>('/api/v1/auth/login', payload);
+    return this.http.post<AuthSessionResponse>('/api/v1/auth/login', payload, this.authRequestOptions);
+  }
+
+  /**
+   * Renova access token usando cookie HttpOnly de refresh.
+   * @returns Nova sessão com access token atualizado
+   */
+  refresh(): Observable<AuthSessionResponse> {
+    return this.http.post<AuthSessionResponse>('/api/v1/auth/refresh', {}, this.authRequestOptions);
   }
 }

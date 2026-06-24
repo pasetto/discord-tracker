@@ -1,7 +1,7 @@
 import Router from '@koa/router';
 import { Types, isValidObjectId } from 'mongoose';
 import { CategoryGoalTemplateModel } from '../../db/models/CategoryGoalTemplate';
-import { applyCategoryGoalsToTrackedUsers, getGoalsWeeklyReport } from '../../services/goalsService';
+import { applyAllCategoryGoalsToTrackedUsers, applyCategoryGoalsToTrackedUsers, getGoalsWeeklyReport } from '../../services/goalsService';
 
 /**
  * Membership de organização presente no JWT.
@@ -247,7 +247,14 @@ goalsRouter.put('/guilds/:guildId/categories/:categoryId/goal-template', async (
       .lean()
       .exec();
 
-    ctx.body = { template };
+    const applyResult = await applyCategoryGoalsToTrackedUsers({
+      organizationId,
+      guildId: ctx.params.guildId,
+      categoryId: ctx.params.categoryId,
+      setBy: userId,
+    });
+
+    ctx.body = { template, applyResult };
   } catch (error) {
     const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
     ctx.status = status;
@@ -332,6 +339,38 @@ goalsRouter.post('/guilds/:guildId/members/apply-category-goals', async (ctx) =>
       organizationId,
       guildId: ctx.params.guildId,
       categoryId,
+      setBy: userId,
+    });
+
+    ctx.body = { result };
+  } catch (error) {
+    const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
+    ctx.status = status;
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /org/{orgId}/guilds/{guildId}/members/apply-all-category-goals:
+ *   post:
+ *     tags:
+ *       - Goals
+ *     summary: Aplica templates de todas as categorias para os respectivos membros
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Metas aplicadas em lote por categoria
+ */
+goalsRouter.post('/guilds/:guildId/members/apply-all-category-goals', async (ctx) => {
+  try {
+    const { organizationId, userId } = getRequestIdentity(ctx);
+    assertManagerRole(ctx, organizationId);
+
+    const result = await applyAllCategoryGoalsToTrackedUsers({
+      organizationId,
+      guildId: ctx.params.guildId,
       setBy: userId,
     });
 

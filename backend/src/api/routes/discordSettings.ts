@@ -1,8 +1,14 @@
 import Router from '@koa/router';
 import { Types } from 'mongoose';
-import { discordClient, isDiscordReady } from '../../bot/client';
-import { GuildConnectionModel } from '../../db/models/GuildConnection';
+import { checkDiscordHealth, discordClient, reloadDiscordFromDatabase } from '../../bot/client';import { GuildConnectionModel } from '../../db/models/GuildConnection';
 import type { AuthUserPayload } from '../../services/authService';
+import {
+  buildDiscordBotInstallUrl,
+  getOrganizationDiscordApplication,
+  getPublicDiscordClientId,
+  upsertOrganizationDiscordApplication,
+} from '../../services/discordApplicationService';
+import { guildService } from '../../services/guildService';
 
 const ADMIN_ROLES = new Set(['owner', 'admin']);
 
@@ -58,7 +64,7 @@ discordSettingsRouter.get('/discord/status', async (ctx) => {
     .exec();
 
   ctx.body = {
-    botConnected: isDiscordReady,
+    botConnected: checkDiscordHealth(),
     guildCount: discordClient.isReady() ? discordClient.guilds.cache.size : 0,
     activeConnection: activeConnection
       ? {
@@ -87,17 +93,16 @@ discordSettingsRouter.get('/discord/guilds', async (ctx) => {
     return;
   }
 
-  if (!isDiscordReady) {
+  if (!checkDiscordHealth()) {
     ctx.status = 503;
     ctx.body = {
       error: 'Bot Discord não conectado',
-      message: 'Cadastre o bot em /admin/discord antes de listar servidores',
+      message: 'Cadastre o bot em Configurações → Discord antes de listar servidores',
     };
     return;
   }
 
-  const guilds = [...discordClient.guilds.cache.values()].map((guild) => ({
-    guildId: guild.id,
+  const guilds = [...discordClient.guilds.cache.values()].map((guild) => ({    guildId: guild.id,
     guildName: guild.name,
     iconUrl: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : undefined,
     memberCount: guild.memberCount,
@@ -127,14 +132,13 @@ discordSettingsRouter.post('/discord/guilds/:guildId/select', async (ctx) => {
 
   assertAdminRole(ctx, organizationId);
 
-  if (!isDiscordReady) {
+  if (!checkDiscordHealth()) {
     ctx.status = 503;
     ctx.body = { error: 'Bot Discord não conectado' };
     return;
   }
 
-  const guild = discordClient.guilds.cache.get(guildId);
-  if (!guild) {
+  const guild = discordClient.guilds.cache.get(guildId);  if (!guild) {
     ctx.status = 404;
     ctx.body = { error: 'Servidor não encontrado para o bot atual' };
     return;
@@ -164,6 +168,12 @@ discordSettingsRouter.post('/discord/guilds/:guildId/select', async (ctx) => {
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).exec();
 
+  try {
+    await guildService.setSelectedGuildId(guildId);
+  } catch {
+    // Bot legado pode não estar conectado; GuildConnection já habilita monitoramento multitenant.
+  }
+
   ctx.body = {
     connection: {
       guildId: connection.guildId,
@@ -171,5 +181,109 @@ discordSettingsRouter.post('/discord/guilds/:guildId/select', async (ctx) => {
       iconUrl: connection.iconUrl,
       isMonitoringEnabled: connection.isMonitoringEnabled,
     },
+  };
+});
+
+/**
+ * @openapi
+ * /org/{orgId}/discord/application:
+ *   get:
+ *     tags:
+ *       - Discord
+ *     summary: Retorna bot Discord cadastrado pela organização
+ */
+discordSettingsRouter.get('/discord/application', async (ctx) => {
+  const organizationId = ctx.state.organizationId as string | undefined;
+  if (!organizationId) {
+    ctx.status = 400;
+    ctx.body = { error: 'organizationId ausente' };
+    return;
+  }
+
+  const application = await getOrganizationDiscordApplication(organizationId);
+  ctx.body = { application };
+});
+
+/**
+ * @openapi
+ * /org/{orgId}/discord/application:
+ *   post:
+ *     tags:
+ *       - Discord
+ *     summary: Cadastra ou atualiza bot Discord da organização
+ */
+discordSettingsRouter.post('/discord/application', async (ctx) => {
+  const organizationId = ctx.state.organizationId as string | undefined;
+  const user = ctx.state.user as AuthUserPayload | undefined;
+  if (!organizationId) {
+    ctx.status = 400;
+    ctx.body = { error: 'organizationId ausente' };
+    return;
+  }
+
+  assertAdminRole(ctx, organizationId);
+
+  const payload = ctx.request.body as {
+    name?: string;
+    clientId?: string;
+    clientSecret?: string;
+    botToken?: string;
+  };
+
+  if (!payload?.name?.trim() || !payload.clientId?.trim() || !payload.clientSecret?.trim() || !payload.botToken?.trim()) {
+    ctx.status = 400;
+    ctx.body = { error: 'Informe name, clientId, clientSecret e botToken' };
+    return;
+  }
+
+  try {
+    const application = await upsertOrganizationDiscordApplication(
+      organizationId,
+      {
+        name: payload.name,
+        clientId: payload.clientId,
+        clientSecret: payload.clientSecret,
+        botToken: payload.botToken,
+      },
+      user?.id ?? organizationId,
+    );
+
+    await reloadDiscordFromDatabase();
+
+    ctx.status = 201;
+    ctx.body = { application, message: 'Bot cadastrado e conectado com sucesso.' };
+  } catch (error) {
+    ctx.status = 400;
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /org/{orgId}/discord/install-url:
+ *   get:
+ *     tags:
+ *       - Discord
+ *     summary: URL para adicionar o bot ao servidor Discord
+ */
+discordSettingsRouter.get('/discord/install-url', async (ctx) => {
+  const organizationId = ctx.state.organizationId as string | undefined;
+  if (!organizationId) {
+    ctx.status = 400;
+    ctx.body = { error: 'organizationId ausente' };
+    return;
+  }
+
+  const orgApp = await getOrganizationDiscordApplication(organizationId);
+  const clientId = orgApp?.clientId ?? (await getPublicDiscordClientId());
+  if (!clientId) {
+    ctx.status = 400;
+    ctx.body = { error: 'Cadastre o bot antes de gerar o link de instalação.' };
+    return;
+  }
+
+  ctx.body = {
+    installUrl: buildDiscordBotInstallUrl(clientId, organizationId),
+    clientId,
   };
 });

@@ -8,6 +8,7 @@ import {
   type AuthUserPayload,
   signAccessToken,
   signRefreshToken,
+  verifyRefreshToken,
 } from './authService';
 
 /** Custo do bcrypt para hash de senha. */
@@ -130,8 +131,8 @@ async function findOrCreateStarterPlan() {
       dataRetentionDays: 30,
     },
     features: {
-      gamification: false,
-      ranking: true,
+      gamification: true,
+      ranking: false,
       exportCsv: false,
       exportPdf: false,
       apiAccess: false,
@@ -270,6 +271,47 @@ export async function loginPlatformUser(input: LoginPlatformUserInput): Promise<
   const passwordMatches = await verifyPassword(input.password, user.passwordHash);
   if (!passwordMatches) {
     throw new Error('Credenciais inválidas');
+  }
+
+  const primaryMembership = user.memberships[0];
+  if (!primaryMembership) {
+    throw new Error('Usuário sem organização vinculada');
+  }
+
+  const organization = await OrganizationModel.findById(primaryMembership.organizationId).exec();
+  if (!organization) {
+    throw new Error('Organização vinculada não encontrada');
+  }
+
+  const authPayload = buildAuthPayloadFromPlatformUser(user);
+  return {
+    accessToken: signAccessToken(authPayload),
+    refreshToken: signRefreshToken(authPayload),
+    user: {
+      id: authPayload.id,
+      email: authPayload.email,
+      displayName: user.displayName,
+      memberships: authPayload.memberships,
+    },
+    organization: {
+      id: String(organization._id),
+      name: organization.name,
+      slug: organization.slug,
+    },
+  };
+}
+
+/**
+ * Renova access token a partir de um refresh token válido.
+ * @param refreshToken JWT de refresh recebido via cookie HttpOnly
+ * @returns Nova sessão com access token atualizado
+ * @throws {Error} Quando refresh token for inválido, expirado ou usuário inexistente
+ */
+export async function refreshPlatformUserSession(refreshToken: string): Promise<PlatformAuthResult> {
+  const payload = verifyRefreshToken(refreshToken);
+  const user = await PlatformUserModel.findById(payload.id).exec();
+  if (!user) {
+    throw new Error('Usuário não encontrado');
   }
 
   const primaryMembership = user.memberships[0];

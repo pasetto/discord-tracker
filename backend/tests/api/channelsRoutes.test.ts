@@ -15,11 +15,19 @@ const repositoryMocks = vi.hoisted(() => ({
   upsertByGuild: vi.fn(),
 }));
 
+const channelListMocks = vi.hoisted(() => ({
+  listGuildDiscordChannels: vi.fn(),
+}));
+
 vi.mock('../../src/repositories/channelRuleRepository', () => ({
   channelRuleRepository: {
     getByGuild: repositoryMocks.getByGuild,
     upsertByGuild: repositoryMocks.upsertByGuild,
   },
+}));
+
+vi.mock('../../src/services/discordGuildChannelService', () => ({
+  listGuildDiscordChannels: channelListMocks.listGuildDiscordChannels,
 }));
 
 import { createApp } from '../../src/api/server';
@@ -45,6 +53,36 @@ describe('channels routes', () => {
   beforeEach(() => {
     repositoryMocks.getByGuild.mockReset();
     repositoryMocks.upsertByGuild.mockReset();
+    channelListMocks.listGuildDiscordChannels.mockReset();
+  });
+
+  it('lista canais do Discord no GET autenticado', async () => {
+    const app = createApp();
+    channelListMocks.listGuildDiscordChannels.mockReturnValue([
+      { channelId: '1', channelName: 'Geral', channelType: 'voice' as const },
+    ]);
+
+    const response = await request(app.callback())
+      .get('/api/v1/org/org-1/guilds/guild-1/channels/discord')
+      .set('Authorization', buildAuthHeader([{ organizationId: 'org-1', role: 'manager' }]));
+
+    expect(response.status).toBe(200);
+    expect(response.body.channels).toHaveLength(1);
+    expect(channelListMocks.listGuildDiscordChannels).toHaveBeenCalledWith('guild-1');
+  });
+
+  it('retorna 503 quando bot não consegue listar canais', async () => {
+    const app = createApp();
+    channelListMocks.listGuildDiscordChannels.mockImplementation(() => {
+      throw new Error('Bot Discord não conectado');
+    });
+
+    const response = await request(app.callback())
+      .get('/api/v1/org/org-1/guilds/guild-1/channels/discord')
+      .set('Authorization', buildAuthHeader([{ organizationId: 'org-1', role: 'manager' }]));
+
+    expect(response.status).toBe(503);
+    expect(response.body.error).toContain('Bot Discord não conectado');
   });
 
   it('retorna 401 ao acessar sem JWT', async () => {

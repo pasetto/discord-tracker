@@ -7,6 +7,13 @@
   </header>
 
   <ng-container *ngIf="progress$ | async as progress">
+    <section
+      *ngIf="progress.completedAt || progress.completedSteps.includes(8)"
+      class="rounded-xl border border-success-300 bg-success-50 px-4 py-3 text-sm text-success-700 dark:border-success-700 dark:bg-success-500/10 dark:text-success-300"
+    >
+      Onboarding concluído em {{ progress.completedAt | date: 'dd/MM/yyyy HH:mm' }}. Você pode revisar os passos abaixo ou ir direto ao dashboard.
+    </section>
+
     <div class="grid gap-3 md:grid-cols-2">
       <article
         *ngFor="let item of steps"

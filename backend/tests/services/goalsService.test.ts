@@ -3,10 +3,12 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { MemberCategoryModel } from '../../src/db/models/MemberCategory';
 import { TrackedUserModel } from '../../src/db/models/TrackedUser';
+import { User } from '../../src/db/models/User';
 import { VoiceSession } from '../../src/db/models/VoiceSession';
 import { CategoryGoalTemplateModel } from '../../src/db/models/CategoryGoalTemplate';
 import { UserCollaborationGoalModel } from '../../src/db/models/UserCollaborationGoal';
 import {
+  applyAllCategoryGoalsToTrackedUsers,
   applyCategoryGoalsToTrackedUsers,
   getGoalsWeeklyReport,
   shouldTriggerLowProgressThursdayAlert,
@@ -38,6 +40,7 @@ describe('goalsService', () => {
     await Promise.all([
       MemberCategoryModel.deleteMany({}),
       TrackedUserModel.deleteMany({}),
+      User.deleteMany({}),
       VoiceSession.deleteMany({}),
       CategoryGoalTemplateModel.deleteMany({}),
       UserCollaborationGoalModel.deleteMany({}),
@@ -115,6 +118,66 @@ describe('goalsService', () => {
     expect(persistedGoals[0]?.weeklyCollaborationHours).toBe(32);
   });
 
+  it('aplica templates de todas as categorias com membros vinculados', async () => {
+    const organizationId = new mongoose.Types.ObjectId();
+    const devCategoryId = new mongoose.Types.ObjectId();
+    const supportCategoryId = new mongoose.Types.ObjectId();
+    const setBy = new mongoose.Types.ObjectId();
+    const guildId = 'guild-all';
+
+    await CategoryGoalTemplateModel.create([
+      {
+        organizationId,
+        guildId,
+        categoryId: devCategoryId,
+        weeklyCollaborationHours: 32,
+        dailyMinimumHours: 5,
+        setBy,
+      },
+      {
+        organizationId,
+        guildId,
+        categoryId: supportCategoryId,
+        weeklyCollaborationHours: 24,
+        dailyMinimumHours: 4,
+        setBy,
+      },
+    ]);
+
+    await TrackedUserModel.create([
+      {
+        organizationId,
+        guildId,
+        discordId: 'd-dev',
+        username: 'dev-user',
+        displayName: 'Dev User',
+        categoryId: devCategoryId,
+        firstSeenAt: new Date('2026-06-01T10:00:00.000Z'),
+        lastSeenAt: new Date('2026-06-10T10:00:00.000Z'),
+      },
+      {
+        organizationId,
+        guildId,
+        discordId: 'd-support',
+        username: 'support-user',
+        displayName: 'Support User',
+        categoryId: supportCategoryId,
+        firstSeenAt: new Date('2026-06-01T10:00:00.000Z'),
+        lastSeenAt: new Date('2026-06-10T10:00:00.000Z'),
+      },
+    ]);
+
+    const result = await applyAllCategoryGoalsToTrackedUsers({
+      organizationId: organizationId.toHexString(),
+      guildId,
+      setBy: setBy.toHexString(),
+    });
+
+    expect(result.totalMatchedTrackedUsers).toBe(2);
+    expect(result.totalAppliedCount).toBe(2);
+    expect(result.categories).toHaveLength(2);
+  });
+
   it('retorna relatório semanal com meta, realizado e progresso', async () => {
     const organizationId = new mongoose.Types.ObjectId();
     const categoryId = new mongoose.Types.ObjectId();
@@ -141,6 +204,14 @@ describe('goalsService', () => {
       },
     ]);
 
+    const coreUser = await User.create({
+      discordId: 'd-3',
+      username: 'gamma',
+      displayName: 'Gamma',
+      firstSeenAt: new Date('2026-06-01T10:00:00.000Z'),
+      lastSeenAt: new Date('2026-06-10T10:00:00.000Z'),
+    });
+
     await UserCollaborationGoalModel.create({
       organizationId,
       guildId,
@@ -150,7 +221,7 @@ describe('goalsService', () => {
       setBy,
     });
     await VoiceSession.create({
-      userId: trackedUser._id,
+      userId: coreUser._id,
       channelId: '10',
       channelName: 'Colaboração',
       startedAt: new Date('2026-06-16T10:00:00.000Z'),
@@ -168,6 +239,7 @@ describe('goalsService', () => {
 
     expect(report.entries).toHaveLength(1);
     expect(report.entries[0]?.weeklyGoalHours).toBe(8);
+    expect(report.entries[0]?.categoryName).toBe('Suporte');
     expect(report.entries[0]?.realizedHours).toBe(2);
     expect(report.entries[0]?.progressPercent).toBe(25);
   });

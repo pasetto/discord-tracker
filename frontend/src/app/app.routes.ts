@@ -82,6 +82,11 @@ const loadGamificationSettings = () =>
     (module) => module.GamificationSettingsComponent,
   );
 
+const loadCategoriesSettings = () =>
+  import('./features/settings/categories/categories-settings.component').then(
+    (module) => module.CategoriesSettingsComponent,
+  );
+
 const loadChannelsSettings = () =>
   import('./features/settings/channels/channels-settings.component').then(
     (module) => module.ChannelsSettingsComponent,
@@ -145,7 +150,12 @@ const featureRoutes: Routes = [
       {
         path: '',
         pathMatch: 'full',
-        loadComponent: loadDashboardPlaceholder,
+        redirectTo: 'discord',
+      },
+      {
+        path: 'categories',
+        loadComponent: loadCategoriesSettings,
+        title: 'Categorias do time | Syntra',
       },
       {
         path: 'channels',

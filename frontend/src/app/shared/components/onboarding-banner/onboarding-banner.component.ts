@@ -3,6 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { map, Observable } from 'rxjs';
 import { OnboardingProgressService } from '../../../core/onboarding/onboarding-progress.service';
+import { AuthService } from '../../../core/auth/auth.service';
 
 /**
  * Banner global que incentiva conclusão do setup mínimo do onboarding.
@@ -24,12 +25,15 @@ export class OnboardingBannerComponent implements OnInit {
    */
   readonly showBanner$: Observable<boolean>;
 
-  constructor(private readonly onboardingProgressService: OnboardingProgressService) {
+  constructor(
+    private readonly onboardingProgressService: OnboardingProgressService,
+    private readonly authService: AuthService,
+  ) {
     this.progressText$ = this.onboardingProgressService.progress$.pipe(
       map((progress) => `${progress.completedSteps.length}/8`),
     );
     this.showBanner$ = this.onboardingProgressService.progress$.pipe(
-      map((progress) => !(progress.channelsConfigured && progress.calendarConfigured)),
+      map((progress) => this.onboardingProgressService.shouldShowOnboardingBanner(progress)),
     );
   }
 
@@ -38,8 +42,7 @@ export class OnboardingBannerComponent implements OnInit {
    * @returns {void} Não retorna valor
    */
   ngOnInit(): void {
-    const orgId = localStorage.getItem('syntra.orgId') ?? '';
-    this.onboardingProgressService.load(orgId).subscribe();
+    this.onboardingProgressService.load(this.authService.getOrganizationId()).subscribe();
   }
 }
 

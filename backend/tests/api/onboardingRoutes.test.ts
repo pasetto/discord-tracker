@@ -3,13 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const organizationModelMocks = vi.hoisted(() => ({
   findById: vi.fn(),
-  findByIdAndUpdate: vi.fn(),
 }));
 
 vi.mock('../../src/db/models/Organization', () => ({
   OrganizationModel: {
     findById: organizationModelMocks.findById,
-    findByIdAndUpdate: organizationModelMocks.findByIdAndUpdate,
   },
 }));
 
@@ -50,7 +48,6 @@ function buildAuthHeader(memberships: Array<{ organizationId: string; role: stri
 describe('onboarding routes', () => {
   beforeEach(() => {
     organizationModelMocks.findById.mockReset();
-    organizationModelMocks.findByIdAndUpdate.mockReset();
   });
 
   it('retorna 401 ao acessar sem JWT', async () => {
@@ -85,34 +82,52 @@ describe('onboarding routes', () => {
     expect(organizationModelMocks.findById).toHaveBeenCalledWith('org-1', { onboarding: 1 });
   });
 
-  it('atualiza onboarding no PUT autenticado', async () => {
+  it('faz merge parcial do onboarding no PUT autenticado', async () => {
     const app = createApp();
-    const onboarding: OnboardingProgress = {
-      currentStep: 4,
-      completedSteps: [1, 2, 3, 4],
+    const existingOnboarding: OnboardingProgress = {
+      currentStep: 3,
+      completedSteps: [1, 2, 3],
       botConnected: true,
       guildSelected: true,
-      channelsConfigured: true,
+      channelsConfigured: false,
       calendarConfigured: false,
       categoriesConfigured: false,
       membersAssigned: false,
     };
-    organizationModelMocks.findByIdAndUpdate.mockResolvedValue({
+    const updatedOnboarding: OnboardingProgress = {
+      ...existingOnboarding,
+      currentStep: 4,
+      completedSteps: [1, 2, 3, 4],
+      channelsConfigured: true,
+    };
+
+    const organizationDocument = {
       _id: 'org-1',
-      onboarding,
-    });
+      onboarding: {
+        ...existingOnboarding,
+        toObject: () => ({ ...existingOnboarding }),
+      },
+      save: vi.fn().mockImplementation(async function save(this: { onboarding: OnboardingProgress }) {
+        this.onboarding = updatedOnboarding;
+        return this;
+      }),
+    };
+
+    organizationModelMocks.findById.mockResolvedValue(organizationDocument);
 
     const response = await request(app.callback())
       .put('/api/v1/org/org-1/onboarding')
       .set('Authorization', buildAuthHeader([{ organizationId: 'org-1', role: 'manager' }]))
-      .send({ onboarding });
+      .send({
+        onboarding: {
+          currentStep: 4,
+          completedSteps: [1, 2, 3, 4],
+          channelsConfigured: true,
+        },
+      });
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ onboarding });
-    expect(organizationModelMocks.findByIdAndUpdate).toHaveBeenCalledWith(
-      'org-1',
-      { $set: { onboarding } },
-      { new: true, projection: { onboarding: 1 } },
-    );
+    expect(response.body).toEqual({ onboarding: updatedOnboarding });
+    expect(organizationDocument.save).toHaveBeenCalledOnce();
   });
 });

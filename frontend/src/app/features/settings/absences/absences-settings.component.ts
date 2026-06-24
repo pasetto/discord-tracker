@@ -2,6 +2,10 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { TrackedMemberOption, TrackedMembersService } from '../../../core/members/tracked-members.service';
+import { TenantContextService } from '../../../core/tenant/tenant-context.service';
+import { MemberSelectComponent } from '../../../shared/components/member-select/member-select.component';
 
 /**
  * Tipos de ausência suportados pelo backend.
@@ -40,13 +44,12 @@ interface AbsenceFormModel {
 @Component({
   selector: 'app-absences-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink, MemberSelectComponent],
   templateUrl: './absences-settings.component.html',
 })
 export class AbsencesSettingsComponent implements OnInit {
-  orgId = localStorage.getItem('syntra.orgId') ?? '';
-  guildId = localStorage.getItem('syntra.guildId') ?? '';
   absences: PlannedAbsenceDto[] = [];
+  members: TrackedMemberOption[] = [];
   editingAbsenceId: string | null = null;
 
   createForm: AbsenceFormModel = this.createInitialForm();
@@ -54,44 +57,96 @@ export class AbsencesSettingsComponent implements OnInit {
 
   loading = false;
   saving = false;
+  syncing = false;
   errorMessage = '';
   successMessage = '';
 
-  constructor(private readonly httpClient: HttpClient) {}
+  constructor(
+    private readonly httpClient: HttpClient,
+    private readonly tenantContext: TenantContextService,
+    private readonly trackedMembersService: TrackedMembersService,
+  ) {}
 
   /**
-   * Dispara carregamento inicial quando IDs já estão salvos localmente.
-   * @returns {void} Não retorna valor.
+   * Indica se há servidor Discord selecionado.
+   */
+  get hasGuild(): boolean {
+    return this.tenantContext.hasGuild;
+  }
+
+  /**
+   * Nome do servidor monitorado.
+   */
+  get guildName(): string {
+    return this.tenantContext.guildName;
+  }
+
+  /**
+   * Dispara carregamento inicial quando o tenant já tem servidor.
    */
   ngOnInit(): void {
-    if (this.orgId && this.guildId) {
-      this.loadAbsences();
-    }
+    this.tenantContext.refresh().subscribe(() => {
+      if (this.hasGuild) {
+        this.loadMembers();
+        this.loadAbsences();
+      }
+    });
+  }
+
+  /**
+   * Carrega membros rastreados para seleção nos formulários.
+   */
+  loadMembers(): void {
+    this.trackedMembersService.listMembers().subscribe({
+      next: (members) => {
+        this.members = members;
+      },
+      error: () => {
+        this.errorMessage = 'Não foi possível carregar os colaboradores do servidor.';
+      },
+    });
+  }
+
+  /**
+   * Sincroniza membros do Discord e recarrega formulários.
+   */
+  syncMembers(): void {
+    this.syncing = true;
+    this.errorMessage = '';
+    this.successMessage = '';
+
+    this.trackedMembersService.syncMembers().subscribe({
+      next: (response) => {
+        this.members = response.members;
+        this.syncing = false;
+        this.successMessage = `${response.syncedCount} colaboradores sincronizados do Discord.`;
+      },
+      error: (error) => {
+        this.syncing = false;
+        this.errorMessage = error.error?.error ?? 'Falha ao sincronizar membros do Discord.';
+      },
+    });
   }
 
   /**
    * Carrega lista de ausências da guild selecionada.
-   * @returns {void} Não retorna valor.
    */
   loadAbsences(): void {
-    if (!this.orgId || !this.guildId) {
-      this.errorMessage = 'Preencha organizationId e guildId para carregar as ausências.';
+    if (!this.hasGuild) {
+      this.errorMessage = 'Configure o Discord e selecione um servidor antes de gerenciar ausências.';
       return;
     }
 
-    localStorage.setItem('syntra.orgId', this.orgId);
-    localStorage.setItem('syntra.guildId', this.guildId);
     this.loading = true;
     this.errorMessage = '';
-    this.successMessage = '';
 
     this.httpClient.get<{ absences: PlannedAbsenceDto[] }>(`${this.getBaseUrl()}/absences`).subscribe({
       next: (response) => {
         this.absences = response.absences ?? [];
         this.loading = false;
       },
-      error: () => {
-        this.errorMessage = 'Não foi possível carregar as ausências.';
+      error: (error) => {
+        this.errorMessage = error.error?.error ?? 'Não foi possível carregar as ausências.';
         this.loading = false;
       },
     });
@@ -99,11 +154,15 @@ export class AbsencesSettingsComponent implements OnInit {
 
   /**
    * Cria uma nova ausência com os dados do formulário.
-   * @returns {void} Não retorna valor.
    */
   createAbsence(): void {
-    if (!this.orgId || !this.guildId) {
-      this.errorMessage = 'Preencha organizationId e guildId antes de criar ausência.';
+    if (!this.createForm.trackedUserId || !this.createForm.discordId) {
+      this.errorMessage = 'Selecione um colaborador antes de criar a ausência.';
+      return;
+    }
+
+    if (!this.createForm.startDate || !this.createForm.endDate) {
+      this.errorMessage = 'Informe as datas de início e fim.';
       return;
     }
 
@@ -118,8 +177,8 @@ export class AbsencesSettingsComponent implements OnInit {
         this.successMessage = 'Ausência criada com sucesso.';
         this.loadAbsences();
       },
-      error: () => {
-        this.errorMessage = 'Falha ao criar ausência. Verifique trackedUserId e datas.';
+      error: (error) => {
+        this.errorMessage = error.error?.error ?? 'Falha ao criar ausência.';
         this.saving = false;
       },
     });
@@ -127,8 +186,7 @@ export class AbsencesSettingsComponent implements OnInit {
 
   /**
    * Inicia edição de uma ausência existente preenchendo o formulário.
-   * @param {PlannedAbsenceDto} absence Registro selecionado para edição.
-   * @returns {void} Não retorna valor.
+   * @param absence Registro selecionado para edição
    */
   startEdit(absence: PlannedAbsenceDto): void {
     this.editingAbsenceId = absence._id;
@@ -146,7 +204,6 @@ export class AbsencesSettingsComponent implements OnInit {
 
   /**
    * Cancela estado de edição da ausência atual.
-   * @returns {void} Não retorna valor.
    */
   cancelEdit(): void {
     this.editingAbsenceId = null;
@@ -155,7 +212,6 @@ export class AbsencesSettingsComponent implements OnInit {
 
   /**
    * Persiste alterações da ausência em edição.
-   * @returns {void} Não retorna valor.
    */
   updateAbsence(): void {
     if (!this.editingAbsenceId) {
@@ -178,8 +234,8 @@ export class AbsencesSettingsComponent implements OnInit {
           this.cancelEdit();
           this.loadAbsences();
         },
-        error: () => {
-          this.errorMessage = 'Falha ao atualizar ausência.';
+        error: (error) => {
+          this.errorMessage = error.error?.error ?? 'Falha ao atualizar ausência.';
           this.saving = false;
         },
       });
@@ -187,8 +243,7 @@ export class AbsencesSettingsComponent implements OnInit {
 
   /**
    * Remove (cancela) uma ausência existente.
-   * @param {string} absenceId Identificador da ausência.
-   * @returns {void} Não retorna valor.
+   * @param absenceId Identificador da ausência
    */
   deleteAbsence(absenceId: string): void {
     this.saving = true;
@@ -201,17 +256,44 @@ export class AbsencesSettingsComponent implements OnInit {
         this.successMessage = 'Ausência cancelada com sucesso.';
         this.loadAbsences();
       },
-      error: () => {
-        this.errorMessage = 'Falha ao cancelar ausência.';
+      error: (error) => {
+        this.errorMessage = error.error?.error ?? 'Falha ao cancelar ausência.';
         this.saving = false;
       },
     });
   }
 
   /**
+   * Preenche IDs do colaborador selecionado no formulário de criação.
+   * @param member Membro selecionado ou null
+   */
+  onCreateMemberSelected(member: TrackedMemberOption | null): void {
+    this.createForm.trackedUserId = member?.id ?? '';
+    this.createForm.discordId = member?.discordId ?? '';
+  }
+
+  /**
+   * Retorna nome amigável do colaborador para exibição na lista.
+   * @param absence Ausência cadastrada
+   */
+  getMemberLabel(absence: PlannedAbsenceDto): string {
+    const member = this.members.find((item) => item.id === absence.trackedUserId);
+    return member?.displayName ?? absence.discordId;
+  }
+
+  /**
+   * Retorna nome amigável a partir dos IDs do formulário de edição.
+   */
+  get editMemberLabel(): string {
+    return this.getMemberLabel({
+      trackedUserId: this.editForm.trackedUserId,
+      discordId: this.editForm.discordId,
+    } as PlannedAbsenceDto);
+  }
+
+  /**
    * Converte tipo técnico para label amigável de interface.
-   * @param {PlannedAbsenceType} type Tipo técnico da ausência.
-   * @returns {string} Label amigável para exibição.
+   * @param type Tipo técnico da ausência
    */
   formatType(type: PlannedAbsenceType): string {
     const labels: Record<PlannedAbsenceType, string> = {
@@ -225,9 +307,8 @@ export class AbsencesSettingsComponent implements OnInit {
 
   /**
    * Constrói payload compatível com endpoint de ausência.
-   * @param {AbsenceFormModel} form Formulário origem dos dados.
-   * @param {boolean} skipTrackedUserId Quando `true`, omite trackedUserId para update.
-   * @returns {Record<string, unknown>} Objeto pronto para envio HTTP.
+   * @param form Formulário origem dos dados
+   * @param skipTrackedUserId Quando `true`, omite trackedUserId para update
    */
   private createPayloadFromForm(form: AbsenceFormModel, skipTrackedUserId = false): Record<string, unknown> {
     return {
@@ -242,7 +323,6 @@ export class AbsencesSettingsComponent implements OnInit {
 
   /**
    * Retorna um formulário inicial vazio com defaults do MVP.
-   * @returns {AbsenceFormModel} Estado inicial para criação/edição.
    */
   private createInitialForm(): AbsenceFormModel {
     return {
@@ -257,8 +337,7 @@ export class AbsencesSettingsComponent implements OnInit {
 
   /**
    * Normaliza data ISO para valor aceito pelo input `date`.
-   * @param {string} isoDate Data ISO recebida do backend.
-   * @returns {string} Data no formato `YYYY-MM-DD`.
+   * @param isoDate Data ISO recebida do backend
    */
   private toDateInputValue(isoDate: string): string {
     return isoDate.slice(0, 10);
@@ -266,9 +345,8 @@ export class AbsencesSettingsComponent implements OnInit {
 
   /**
    * Monta URL base dos endpoints de ausência no tenant atual.
-   * @returns {string} Prefixo da API para ausências por guild.
    */
   private getBaseUrl(): string {
-    return `/api/v1/org/${this.orgId}/guilds/${this.guildId}`;
+    return this.tenantContext.getGuildApiBaseUrl();
   }
 }

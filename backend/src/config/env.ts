@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
+import path from 'node:path';
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 /**
  * Tipos de sessão de voz suportados pelo sistema.
@@ -37,6 +39,7 @@ export interface AppConfig {
   apiKeys: string[];
   jwtSecret: string;
   frontendUrl: string;
+  apiPublicUrl: string;
   vapidPublicKey?: string;
   vapidPrivateKey?: string;
   vapidSubject?: string;
@@ -56,6 +59,24 @@ function parseList(value: string | undefined, fallback: string[]): string[] {
 }
 
 /**
+ * Valida ENCRYPTION_KEY exigida para criptografar tokens Discord no banco.
+ * @throws {Error} Quando ausente ou com tamanho inválido
+ */
+function assertEncryptionKey(): void {
+  const rawKey = process.env.ENCRYPTION_KEY?.trim();
+  if (!rawKey) {
+    throw new Error(
+      'ENCRYPTION_KEY é obrigatório no .env (32 bytes em base64). Gere com: npm run generate:encryption-key --workspace=backend',
+    );
+  }
+
+  const decodedKey = Buffer.from(rawKey, 'base64');
+  if (decodedKey.length !== 32) {
+    throw new Error('ENCRYPTION_KEY deve ser base64 de exatamente 32 bytes');
+  }
+}
+
+/**
  * Carrega e valida a configuração da aplicação.
  * @returns Objeto de configuração tipado
  * @throws {Error} Quando variáveis obrigatórias estão ausentes
@@ -63,8 +84,12 @@ function parseList(value: string | undefined, fallback: string[]): string[] {
 export function loadConfig(): AppConfig {
   const nodeEnv = process.env.NODE_ENV ?? 'development';
   const mongodbUri = process.env.MONGODB_URI;
-  const jwtSecret = process.env.JWT_SECRET;
-  const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:4200';
+  const jwtSecret = process.env.JWT_SECRET?.trim();
+  const frontendUrl = (process.env.FRONTEND_URL ?? 'http://localhost:4200').replace(/\/$/, '');
+  const apiPublicUrl = (process.env.API_PUBLIC_URL ?? `http://localhost:${process.env.PORT ?? 3000}`).replace(
+    /\/$/,
+    '',
+  );
   const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
   const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
   const vapidSubject = process.env.VAPID_SUBJECT;
@@ -75,6 +100,7 @@ export function loadConfig(): AppConfig {
   if (!jwtSecret) {
     throw new Error('JWT_SECRET é obrigatório');
   }
+  assertEncryptionKey();
 
   const apiKeys = parseList(process.env.API_KEYS, []);
   if (apiKeys.length === 0 && nodeEnv !== 'development') {
@@ -97,6 +123,7 @@ export function loadConfig(): AppConfig {
     apiKeys,
     jwtSecret,
     frontendUrl,
+    apiPublicUrl,
     vapidPublicKey,
     vapidPrivateKey,
     vapidSubject,

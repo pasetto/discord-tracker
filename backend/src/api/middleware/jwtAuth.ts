@@ -27,7 +27,8 @@ export async function jwtAuth(ctx: Context, next: Next): Promise<void> {
     ctx.status = 401;
     ctx.body = {
       error: 'Não autorizado',
-      message: 'Informe JWT via Authorization: Bearer <token>',
+      message:
+        'Token ausente. Use o app em http://localhost:4200 ou envie o header Authorization: Bearer <seu-jwt>.',
     };
     return;
   }
