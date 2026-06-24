@@ -40,6 +40,7 @@ export default defineConfig({
         'src/services/inactivitySettingsService.ts',
         'src/services/intradayInactivityService.ts',
         'src/services/platformAuthService.ts',
+        'src/services/organizationTeamService.ts',
         'src/services/pushService.ts',
         'src/services/textActivityService.ts',
         'src/services/trackedUserService.ts',
