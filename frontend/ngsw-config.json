@@ -30,12 +30,13 @@
   ],
   "dataGroups": [
     {
-      "name": "api",
+      "name": "public-api",
       "urls": [
-        "/api/**"
+        "/api/v1/public/**",
+        "/api/v1/pricing"
       ],
       "cacheConfig": {
-        "maxSize": 50,
+        "maxSize": 20,
         "maxAge": "5m",
         "timeout": "10s",
         "strategy": "freshness"

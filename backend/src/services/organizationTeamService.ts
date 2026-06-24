@@ -7,7 +7,7 @@ import { PlatformUserModel, type IPlatformUser } from '../db/models/PlatformUser
 const INVITE_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 /** Papel padrão de novos membros aprovados (acesso total no MVP). */
-const DEFAULT_MEMBER_ROLE = 'admin' as const;
+const DEFAULT_MEMBER_ROLE = 'viewer' as const;
 
 /**
  * Resumo público de uma organização para validação de código de convite.

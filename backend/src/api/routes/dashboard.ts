@@ -1,5 +1,6 @@
 import Router from '@koa/router';
 import { getGuildLiveDashboard } from '../../services/dashboardLiveService';
+import { assertGuildMonitoredByOrganization } from '../../services/guildAccessService';
 
 /** Rotas de dashboard por organização e guild. */
 export const dashboardRouter = new Router();
@@ -18,10 +19,12 @@ dashboardRouter.get('/guilds/:guildId/dashboard/live', async (ctx) => {
   }
 
   try {
+    await assertGuildMonitoredByOrganization(organizationId, guildId);
     const snapshot = await getGuildLiveDashboard(guildId, organizationId);
     ctx.body = snapshot;
   } catch (error) {
-    ctx.status = 503;
-    ctx.body = { error: (error as Error).message };
+    const message = (error as Error).message;
+    ctx.status = message.includes('não monitorado') ? 403 : 503;
+    ctx.body = { error: message };
   }
 });

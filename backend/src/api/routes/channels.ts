@@ -2,6 +2,8 @@ import Router from '@koa/router';
 import type { ChannelRuleSet } from '../../db/models/ChannelRule';
 import { channelRuleRepository } from '../../repositories/channelRuleRepository';
 import { listGuildDiscordChannels } from '../../services/discordGuildChannelService';
+import { assertGuildMonitoredByOrganization } from '../../services/guildAccessService';
+import { assertManagerRole } from '../middleware/tenantRbac';
 
 /** Rotas de configuração de canais por organização e guild. */
 export const channelsRouter = new Router();
@@ -16,6 +18,14 @@ channelsRouter.get('/guilds/:guildId/channels/discord', async (ctx) => {
   if (!organizationId) {
     ctx.status = 400;
     ctx.body = { error: 'organizationId ausente no contexto autenticado' };
+    return;
+  }
+
+  try {
+    await assertGuildMonitoredByOrganization(organizationId, guildId);
+  } catch (error) {
+    ctx.status = 403;
+    ctx.body = { error: (error as Error).message };
     return;
   }
 
@@ -41,8 +51,14 @@ channelsRouter.get('/guilds/:guildId/channels', async (ctx) => {
     return;
   }
 
-  const rules = await channelRuleRepository.getByGuild(organizationId, guildId);
-  ctx.body = { rules };
+  try {
+    await assertGuildMonitoredByOrganization(organizationId, guildId);
+    const rules = await channelRuleRepository.getByGuild(organizationId, guildId);
+    ctx.body = { rules };
+  } catch (error) {
+    ctx.status = 403;
+    ctx.body = { error: (error as Error).message };
+  }
 });
 
 /**
@@ -56,6 +72,15 @@ channelsRouter.put('/guilds/:guildId/channels', async (ctx) => {
   if (!organizationId) {
     ctx.status = 400;
     ctx.body = { error: 'organizationId ausente no contexto autenticado' };
+    return;
+  }
+
+  try {
+    assertManagerRole(ctx, organizationId);
+    await assertGuildMonitoredByOrganization(organizationId, guildId);
+  } catch (error) {
+    ctx.status = 403;
+    ctx.body = { error: (error as Error).message };
     return;
   }
 

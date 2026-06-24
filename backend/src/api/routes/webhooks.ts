@@ -4,6 +4,8 @@ import { Types, isValidObjectId } from 'mongoose';
 import { WebhookEndpointModel } from '../../db/models/WebhookEndpoint';
 import { OUTBOUND_WEBHOOK_EVENTS } from '../../db/models/WebhookEndpoint';
 import type { OutboundWebhookEvent } from '../../db/models/WebhookEndpoint';
+import { assertPublicHttpsUrl } from '../../utils/urlSecurity';
+import { assertManagerRole } from '../middleware/tenantRbac';
 
 /**
  * Shape mínimo do usuário autenticado disponível em `ctx.state.user`.
@@ -100,23 +102,7 @@ function toSafeEndpointResponse(endpoint: {
  * @throws {Error} Quando URL estiver ausente, inválida ou sem HTTPS.
  */
 function parseWebhookUrl(url: string | undefined): string {
-  const trimmed = url?.trim();
-  if (!trimmed) {
-    throw new Error('url é obrigatória');
-  }
-
-  let parsed: URL;
-  try {
-    parsed = new URL(trimmed);
-  } catch {
-    throw new Error('url inválida');
-  }
-
-  if (parsed.protocol !== 'https:') {
-    throw new Error('url deve usar HTTPS');
-  }
-
-  return parsed.toString();
+  return assertPublicHttpsUrl(url);
 }
 
 /**
@@ -204,6 +190,7 @@ webhooksRouter.get('/webhooks', async (ctx) => {
 webhooksRouter.post('/webhooks', async (ctx) => {
   try {
     const { organizationId, userId } = getRequestIdentity(ctx);
+    assertManagerRole(ctx, organizationId);
     const payload = (ctx.request.body as CreateWebhookEndpointBody | undefined) ?? {};
 
     const endpoint = await WebhookEndpointModel.create({
@@ -224,8 +211,9 @@ webhooksRouter.post('/webhooks', async (ctx) => {
       warning: 'Guarde o secret agora. Ele não será exibido novamente.',
     };
   } catch (error) {
-    ctx.status = 400;
-    ctx.body = { error: (error as Error).message };
+    const message = (error as Error).message;
+    ctx.status = message.includes('Permissão insuficiente') ? 403 : 400;
+    ctx.body = { error: message };
   }
 });
 
@@ -288,6 +276,7 @@ webhooksRouter.get('/webhooks/:id', async (ctx) => {
 webhooksRouter.put('/webhooks/:id', async (ctx) => {
   try {
     const { organizationId } = getRequestIdentity(ctx);
+    assertManagerRole(ctx, organizationId);
     const endpointId = ctx.params.id;
     if (!isValidObjectId(endpointId)) {
       ctx.status = 400;
@@ -335,8 +324,9 @@ webhooksRouter.put('/webhooks/:id', async (ctx) => {
 
     ctx.body = { endpoint: toSafeEndpointResponse(endpoint) };
   } catch (error) {
-    ctx.status = 400;
-    ctx.body = { error: (error as Error).message };
+    const message = (error as Error).message;
+    ctx.status = message.includes('Permissão insuficiente') ? 403 : 400;
+    ctx.body = { error: message };
   }
 });
 
@@ -358,6 +348,7 @@ webhooksRouter.put('/webhooks/:id', async (ctx) => {
 webhooksRouter.delete('/webhooks/:id', async (ctx) => {
   try {
     const { organizationId } = getRequestIdentity(ctx);
+    assertManagerRole(ctx, organizationId);
     const endpointId = ctx.params.id;
     if (!isValidObjectId(endpointId)) {
       ctx.status = 400;
@@ -377,7 +368,8 @@ webhooksRouter.delete('/webhooks/:id', async (ctx) => {
 
     ctx.status = 204;
   } catch (error) {
-    ctx.status = 400;
-    ctx.body = { error: (error as Error).message };
+    const message = (error as Error).message;
+    ctx.status = message.includes('Permissão insuficiente') ? 403 : 400;
+    ctx.body = { error: message };
   }
 });

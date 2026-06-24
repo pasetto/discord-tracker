@@ -9,6 +9,10 @@ vi.mock('../../src/services/dashboardLiveService', () => ({
   getGuildLiveDashboard: dashboardMocks.getGuildLiveDashboard,
 }));
 
+vi.mock('../../src/services/guildAccessService', () => ({
+  assertGuildMonitoredByOrganization: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { createApp } from '../../src/api/server';
 import { signAccessToken } from '../../src/services/authService';
 

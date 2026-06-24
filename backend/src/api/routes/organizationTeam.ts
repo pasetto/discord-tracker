@@ -1,6 +1,7 @@
 import Router from '@koa/router';
 import { Context } from 'koa';
 import { PlatformUserModel } from '../../db/models/PlatformUser';
+import { assertManagerRole } from '../middleware/tenantRbac';
 import {
   approveOrganizationMember,
   ensureOrganizationInviteCode,
@@ -161,6 +162,14 @@ export async function assertTeamManagerAccess(ctx: Context, next: () => Promise<
   if (!organizationId || !userId) {
     ctx.status = 401;
     ctx.body = { error: 'Não autorizado' };
+    return;
+  }
+
+  try {
+    assertManagerRole(ctx as Router.RouterContext, organizationId);
+  } catch (error) {
+    ctx.status = 403;
+    ctx.body = { error: (error as Error).message };
     return;
   }
 

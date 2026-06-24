@@ -105,6 +105,17 @@ describe('organization team routes', () => {
     expect(response.status).toBe(403);
   });
 
+  it('bloqueia viewer em rotas de gestão de time', async () => {
+    const app = createApp();
+
+    const response = await request(app.callback())
+      .get('/api/v1/org/org-1/team/invite-code')
+      .set('Authorization', buildAuthHeader([{ organizationId: 'org-1', role: 'viewer', status: 'active' }]));
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toContain('Permissão insuficiente');
+  });
+
   it('lista membros da organização', async () => {
     teamServiceMocks.listOrganizationMembers.mockResolvedValue([
       {

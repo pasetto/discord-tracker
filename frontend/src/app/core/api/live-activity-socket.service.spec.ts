@@ -51,14 +51,20 @@ describe('LiveActivitySocketService', () => {
     globalScope.WebSocket = originalWebSocket;
   });
 
-  it('conecta e envia subscribe para o guild monitorado', () => {
+  it('conecta sem token na URL, autentica e envia subscribe', () => {
     service.connect('org-1', 'guild-1', 'jwt-token');
 
     const socket = MockWebSocket.instances[0];
-    expect(socket.url).toContain('/api/v1/ws/live?token=');
+    expect(socket.url).toContain('/api/v1/ws/live');
+    expect(socket.url).not.toContain('token=');
+
     socket.onopen?.();
-    expect(socket.sent[0]).toContain('"type":"subscribe"');
-    expect(socket.sent[0]).toContain('"organizationId":"org-1"');
+    expect(socket.sent[0]).toContain('"type":"auth"');
+    expect(socket.sent[0]).toContain('"token":"jwt-token"');
+
+    socket.emitMessage(JSON.stringify({ type: 'connected' }));
+    expect(socket.sent[1]).toContain('"type":"subscribe"');
+    expect(socket.sent[1]).toContain('"organizationId":"org-1"');
   });
 
   it('emite snapshot e transição ao receber mensagens válidas', () => {
@@ -71,6 +77,7 @@ describe('LiveActivitySocketService', () => {
     service.connect('org-1', 'guild-1', 'jwt-token');
     const socket = MockWebSocket.instances[0];
     socket.onopen?.();
+    socket.emitMessage(JSON.stringify({ type: 'connected' }));
 
     socket.emitMessage(
       JSON.stringify({

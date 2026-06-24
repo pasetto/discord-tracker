@@ -349,7 +349,7 @@ export async function getOrganizationDiscordApplication(
 }
 
 /**
- * Cadastra ou atualiza bot Discord da organização e ativa como padrão da plataforma.
+ * Cadastra ou atualiza bot Discord da organização (sem alterar bot padrão da plataforma).
  * @param organizationId ID da organização
  * @param input Credenciais informadas na UI
  * @param createdById ID do usuário autenticado
@@ -365,8 +365,6 @@ export async function upsertOrganizationDiscordApplication(
   const orgObjectId = new Types.ObjectId(organizationId);
   const existing = await DiscordApplicationModel.findOne({ organizationId: orgObjectId }).exec();
 
-  await DiscordApplicationModel.updateMany({ isPlatformDefault: true }, { isPlatformDefault: false });
-
   if (existing) {
     existing.name = input.name.trim();
     existing.clientId = input.clientId.trim();
@@ -378,7 +376,7 @@ export async function upsertOrganizationDiscordApplication(
     existing.lastValidatedAt = new Date();
     existing.validationError = undefined;
     existing.isActive = true;
-    existing.isPlatformDefault = true;
+    existing.isPlatformDefault = false;
     await existing.save();
     return toSummary(existing);
   }
@@ -389,7 +387,7 @@ export async function upsertOrganizationDiscordApplication(
     clientSecretEncrypted: encryptSecret(input.clientSecret.trim()),
     botTokenEncrypted: encryptSecret(input.botToken.trim()),
     organizationId: orgObjectId,
-    isPlatformDefault: true,
+    isPlatformDefault: false,
     isActive: true,
     botUserId: validation.botUserId,
     botUsername: validation.botUsername,

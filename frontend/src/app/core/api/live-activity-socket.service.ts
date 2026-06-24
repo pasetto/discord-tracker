@@ -47,6 +47,7 @@ export interface DashboardLiveSnapshot {
 /** Mensagens recebidas do WebSocket de atividade ao vivo. */
 type LiveActivityServerMessage =
   | { type: 'connected' }
+  | { type: 'awaiting_auth' }
   | { type: 'subscribed'; organizationId: string; guildId: string }
   | { type: 'snapshot'; data: DashboardLiveSnapshot }
   | { type: 'transition'; data: LiveVoiceTransitionEvent }
@@ -95,11 +96,11 @@ export class LiveActivitySocketService implements OnDestroy {
     this.currentToken = token;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const url = `${protocol}//${window.location.host}/api/v1/ws/live?token=${encodeURIComponent(token)}`;
+    const url = `${protocol}//${window.location.host}/api/v1/ws/live`;
     this.socket = new WebSocket(url);
 
     this.socket.onopen = () => {
-      this.sendSubscribe();
+      this.socket?.send(JSON.stringify({ type: 'auth', token: this.currentToken }));
     };
 
     this.socket.onmessage = (event) => {
@@ -190,6 +191,10 @@ export class LiveActivitySocketService implements OnDestroy {
     }
 
     switch (message.type) {
+      case 'connected':
+      case 'awaiting_auth':
+        this.sendSubscribe();
+        break;
       case 'subscribed':
         this.connectedSubject.next(true);
         break;

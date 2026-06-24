@@ -5,15 +5,17 @@ import http from 'http';
 import { config } from '../config/env';
 import { createLogger } from '../logger';
 import { corsMiddleware } from './middleware/cors';
-import { authMiddleware } from './middleware/auth';
 import { jwtAuth } from './middleware/jwtAuth';
 import { tenantMiddleware } from './middleware/tenant';
+import { stripeRawBodyMiddleware } from './middleware/stripeRawBody';
+import { internalAuthMiddleware } from './middleware/internalAuth';
+import { createRateLimitMiddleware } from './middleware/rateLimit';
 import { authRouter, authSessionRouter } from './routes/auth';
 import { publicRouter as publicRoutesRouter } from './routes/public';
 import { healthRouter } from './routes/health';
-import { statsRouter } from './routes/stats';
 import { reportsRouter } from './routes/reports';
 import { metricsRouter } from './routes/metrics';
+import { legacyDeprecatedRouter } from './routes/legacyDeprecated';
 import { channelsRouter } from './routes/channels';
 import { categoriesRouter } from './routes/categories';
 import { workCalendarRouter } from './routes/workCalendar';
@@ -49,6 +51,12 @@ const swaggerUi = require('koa-swagger-ui').ui as (
 ) => Koa.Middleware;
 
 const log = createLogger('api');
+const jsonBodyParser = bodyParser({ jsonLimit: '1mb' });
+const authRateLimit = createRateLimitMiddleware({
+  keyPrefix: 'auth',
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+});
 
 /** Timestamp de início do processo para cálculo de uptime. */
 export const processStartTime = Date.now();
@@ -61,12 +69,16 @@ export function createApp(): Koa {
   const app = new Koa();
   app.proxy = config.nodeEnv === 'production';
   const publicRouter = new Router();
-  const legacyProtectedRouter = new Router();
+  const internalRouter = new Router();
   const apiV1PublicRouter = new Router({ prefix: '/api/v1' });
   const apiV1ProtectedRouter = new Router({ prefix: '/api/v1' });
   const openApiSpec = getOpenApiSpec();
 
   publicRouter.use(healthRouter.routes());
+  internalRouter.use(internalAuthMiddleware);
+  internalRouter.use(metricsRouter.routes());
+
+  apiV1PublicRouter.use(authRateLimit);
   apiV1PublicRouter.use(authRouter.routes());
   apiV1PublicRouter.use(publicRoutesRouter.routes());
   apiV1PublicRouter.use(adminDiscordBootstrapRouter.routes());
@@ -78,10 +90,6 @@ export function createApp(): Koa {
   });
   app.use(swaggerUi(openApiSpec, { pathRoot: '/api/v1/docs', skipPaths: ['/api/v1/docs/openapi.json'] }));
 
-  legacyProtectedRouter.use(authMiddleware);
-  legacyProtectedRouter.use(statsRouter.routes());
-  legacyProtectedRouter.use(reportsRouter.routes());
-  legacyProtectedRouter.use(metricsRouter.routes());
   apiV1ProtectedRouter.use(jwtAuth);
   apiV1ProtectedRouter.use(authSessionRouter.routes(), authSessionRouter.allowedMethods());
   apiV1ProtectedRouter.use(
@@ -159,15 +167,22 @@ export function createApp(): Koa {
   });
 
   app.use(corsMiddleware);
-  app.use(bodyParser());
+  app.use(stripeRawBodyMiddleware);
+  app.use(async (ctx, next) => {
+    if (ctx.state.stripeRawBody) {
+      await next();
+      return;
+    }
+    await jsonBodyParser(ctx, next);
+  });
   app.use(publicRouter.routes());
   app.use(publicRouter.allowedMethods());
+  app.use(internalRouter.routes());
+  app.use(internalRouter.allowedMethods());
   app.use(apiV1PublicRouter.routes());
   app.use(apiV1PublicRouter.allowedMethods());
-
-  app.use(legacyProtectedRouter.routes());
-  app.use(legacyProtectedRouter.allowedMethods());
-
+  app.use(legacyDeprecatedRouter.routes());
+  app.use(legacyDeprecatedRouter.allowedMethods());
   app.use(apiV1ProtectedRouter.routes());
   app.use(apiV1ProtectedRouter.allowedMethods());
 

@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import Stripe from 'stripe';
 import { OrganizationModel } from '../db/models/Organization';
 import { PlanModel, type IPlan } from '../db/models/Plan';
+import { assertAllowedRedirectUrl } from '../utils/urlSecurity';
 
 /**
  * Payload para criação de checkout session.
@@ -199,6 +200,8 @@ export async function createCheckoutSession(input: CreateCheckoutSessionInput): 
   const organizationId = parseObjectId(input.organizationId, 'organizationId');
   const plan = await getPublicPlanBySlug(input.planSlug);
   const { gateway, mode } = createStripeGateway();
+  const successUrl = assertAllowedRedirectUrl(input.successUrl, 'successUrl');
+  const cancelUrl = assertAllowedRedirectUrl(input.cancelUrl, 'cancelUrl');
 
   const stripePriceId = plan.stripePriceId;
   if (!stripePriceId && mode === 'live') {
@@ -207,8 +210,8 @@ export async function createCheckoutSession(input: CreateCheckoutSessionInput): 
 
   const session = await gateway.checkout.sessions.create({
     mode: 'subscription',
-    success_url: input.successUrl,
-    cancel_url: input.cancelUrl,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
     currency: 'brl',
     customer_email: input.customerEmail,
     line_items: [

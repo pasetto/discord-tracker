@@ -58,24 +58,15 @@ export function attachLiveActivityWebSocket(server: Server): () => void {
 }
 
 /**
- * Processa conexão WebSocket autenticada por JWT.
+ * Processa conexão WebSocket autenticada por JWT via primeira mensagem `auth`.
  * @param ws Conexão WebSocket
  * @param request Requisição HTTP de upgrade
  */
 async function handleConnection(ws: WebSocket, request: IncomingMessage): Promise<void> {
   const state: LiveSocketState = { userId: '' };
 
-  try {
-    const token = extractToken(request);
-    const payload = verifyAccessToken(token);
-    state.userId = payload.id;
-    state.payload = payload;
-    sendMessage(ws, { type: 'connected' });
-  } catch (error) {
-    log.warn({ err: error }, 'Falha na autenticação WebSocket');
-    sendMessage(ws, { type: 'error', message: 'Token inválido ou expirado' });
-    ws.close(4401, 'Unauthorized');
-    return;
+  if (!authenticateFromUpgradeHeaders(state, request)) {
+    sendMessage(ws, { type: 'awaiting_auth' });
   }
 
   ws.on('message', (raw) => {
@@ -88,7 +79,29 @@ async function handleConnection(ws: WebSocket, request: IncomingMessage): Promis
 }
 
 /**
- * Processa mensagens do cliente (subscribe / ping).
+ * Autentica conexão via header Authorization (clientes não-browser).
+ * @param state Estado mutável da conexão
+ * @param request Requisição de upgrade
+ * @returns true quando autenticado no handshake
+ */
+function authenticateFromUpgradeHeaders(state: LiveSocketState, request: IncomingMessage): boolean {
+  const authorization = request.headers.authorization;
+  if (!authorization?.startsWith('Bearer ')) {
+    return false;
+  }
+
+  try {
+    const payload = verifyAccessToken(authorization.slice('Bearer '.length).trim());
+    state.userId = payload.id;
+    state.payload = payload;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Processa mensagens do cliente (auth / subscribe / ping).
  * @param ws Conexão WebSocket
  * @param state Estado da conexão
  * @param raw Payload JSON recebido
@@ -102,6 +115,20 @@ async function handleClientMessage(ws: WebSocket, state: LiveSocketState, raw: s
     return;
   }
 
+  if (message.type === 'auth') {
+    try {
+      const payload = verifyAccessToken(message.token?.trim() ?? '');
+      state.userId = payload.id;
+      state.payload = payload;
+      sendMessage(ws, { type: 'connected' });
+    } catch (error) {
+      log.warn({ err: error }, 'Falha na autenticação WebSocket');
+      sendMessage(ws, { type: 'error', message: 'Token inválido ou expirado' });
+      ws.close(4401, 'Unauthorized');
+    }
+    return;
+  }
+
   if (message.type === 'ping') {
     ws.send(JSON.stringify({ type: 'pong' }));
     return;
@@ -109,6 +136,11 @@ async function handleClientMessage(ws: WebSocket, state: LiveSocketState, raw: s
 
   if (message.type !== 'subscribe') {
     sendMessage(ws, { type: 'error', message: 'Tipo de mensagem não suportado' });
+    return;
+  }
+
+  if (!state.payload) {
+    sendMessage(ws, { type: 'error', message: 'Autentique com { type: "auth", token } antes do subscribe' });
     return;
   }
 
@@ -120,10 +152,6 @@ async function handleClientMessage(ws: WebSocket, state: LiveSocketState, raw: s
   }
 
   try {
-    if (!state.payload) {
-      sendMessage(ws, { type: 'error', message: 'Sessão WebSocket inválida' });
-      return;
-    }
     assertOrgMembership(state.payload, organizationId);
   } catch {
     sendMessage(ws, { type: 'error', message: 'Sem permissão para esta organização' });
@@ -163,32 +191,14 @@ async function handleClientMessage(ws: WebSocket, state: LiveSocketState, raw: s
 }
 
 /**
- * Extrai token JWT da query string ou header Authorization.
- * @param request Requisição HTTP de upgrade
- * @returns Token JWT
- * @throws {Error} Quando token ausente
- */
-function extractToken(request: IncomingMessage): string {
-  const url = new URL(request.url ?? '', `http://${request.headers.host ?? 'localhost'}`);
-  const fromQuery = url.searchParams.get('token');
-  if (fromQuery?.trim()) {
-    return fromQuery.trim();
-  }
-
-  const authorization = request.headers.authorization;
-  if (authorization?.startsWith('Bearer ')) {
-    return authorization.slice('Bearer '.length).trim();
-  }
-
-  throw new Error('Token ausente');
-}
-
-/**
  * Envia mensagem JSON para o cliente WebSocket.
  * @param ws Conexão WebSocket
  * @param message Payload serializável
  */
-function sendMessage(ws: WebSocket, message: LiveActivityServerMessage | { type: 'pong' }): void {
+function sendMessage(
+  ws: WebSocket,
+  message: LiveActivityServerMessage | { type: 'pong' } | { type: 'awaiting_auth' },
+): void {
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(message));
   }

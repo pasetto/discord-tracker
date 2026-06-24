@@ -1,5 +1,6 @@
 import Router from '@koa/router';
 import { createCheckoutSession } from '../../services/billingService';
+import { assertManagerRole } from '../middleware/tenantRbac';
 
 /**
  * Payload esperado para iniciar Stripe Checkout.
@@ -60,6 +61,14 @@ billingRouter.post('/billing/checkout-session', async (ctx) => {
   if (!payload.planSlug || !payload.successUrl || !payload.cancelUrl) {
     ctx.status = 400;
     ctx.body = { error: 'planSlug, successUrl e cancelUrl são obrigatórios' };
+    return;
+  }
+
+  try {
+    assertManagerRole(ctx, organizationId);
+  } catch (error) {
+    ctx.status = 403;
+    ctx.body = { error: (error as Error).message };
     return;
   }
 

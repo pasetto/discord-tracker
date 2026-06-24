@@ -1,6 +1,7 @@
 import Router from '@koa/router';
 import { getDiscordPing } from '../../bot/client';
 import { evaluateProcessHealth } from '../health/processHealth';
+import { extractApiKey, isValidApiKey } from '../middleware/auth';
 import { getUptimeSeconds } from '../server';
 
 /** Rotas de healthcheck. */
@@ -70,6 +71,12 @@ healthRouter.get('/health', (ctx) => {
  * GET /health/details - Healthcheck detalhado com métricas de sistema.
  */
 healthRouter.get('/health/details', (ctx) => {
+  if (!isValidApiKey(extractApiKey(ctx))) {
+    ctx.status = 401;
+    ctx.body = { error: 'Não autorizado', message: 'Endpoint restrito a operadores com API key' };
+    return;
+  }
+
   const mem = process.memoryUsage();
   const health = evaluateProcessHealth();
 

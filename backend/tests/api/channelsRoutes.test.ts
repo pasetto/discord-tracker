@@ -30,6 +30,10 @@ vi.mock('../../src/services/discordGuildChannelService', () => ({
   listGuildDiscordChannels: channelListMocks.listGuildDiscordChannels,
 }));
 
+vi.mock('../../src/services/guildAccessService', () => ({
+  assertGuildMonitoredByOrganization: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { createApp } from '../../src/api/server';
 import { signAccessToken } from '../../src/services/authService';
 

@@ -102,12 +102,28 @@ discordSettingsRouter.get('/discord/guilds', async (ctx) => {
     return;
   }
 
-  const guilds = [...discordClient.guilds.cache.values()].map((guild) => ({    guildId: guild.id,
-    guildName: guild.name,
-    iconUrl: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : undefined,
-    memberCount: guild.memberCount,
-  }));
+  const activeConnections = await GuildConnectionModel.find({
+    isActive: true,
+    isMonitoringEnabled: true,
+  })
+    .select('organizationId guildId')
+    .lean()
+    .exec();
 
+  const blockedGuildIds = new Set(
+    activeConnections
+      .filter((connection) => String(connection.organizationId) !== organizationId)
+      .map((connection) => connection.guildId),
+  );
+
+  const guilds = [...discordClient.guilds.cache.values()]
+    .filter((guild) => !blockedGuildIds.has(guild.id))
+    .map((guild) => ({
+      guildId: guild.id,
+      guildName: guild.name,
+      iconUrl: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : undefined,
+      memberCount: guild.memberCount,
+    }));
   ctx.body = { guilds };
 });
 

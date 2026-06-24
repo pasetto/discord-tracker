@@ -19,6 +19,7 @@ export interface LiveVoiceTransitionEvent {
 /** Mensagens enviadas pelo WebSocket de atividade ao vivo. */
 export type LiveActivityServerMessage =
   | { type: 'connected' }
+  | { type: 'awaiting_auth' }
   | { type: 'subscribed'; organizationId: string; guildId: string }
   | { type: 'snapshot'; data: DashboardLiveSnapshot }
   | { type: 'transition'; data: LiveVoiceTransitionEvent }
@@ -26,6 +27,7 @@ export type LiveActivityServerMessage =
 
 /** Mensagens recebidas do cliente WebSocket. */
 export type LiveActivityClientMessage =
+  | { type: 'auth'; token: string }
   | { type: 'subscribe'; organizationId: string; guildId: string }
   | { type: 'ping' };
 
