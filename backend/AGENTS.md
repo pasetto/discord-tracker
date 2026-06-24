@@ -1,4 +1,4 @@
-# AGENTS.md — Backend (PulseDesk API + Bot)
+# AGENTS.md — Backend (Syntra API + Bot)
 
 ## Stack
 
@@ -11,166 +11,179 @@
 - **Docs:** JSDoc + swagger-jsdoc + koa-swagger-ui
 - **Logs:** Pino
 - **Métricas:** prom-client (`/metrics`)
+- **Realtime:** WebSocket em `/api/v1/ws/live` (`liveActivitySocket`)
 
 ## Estrutura de pastas
 
 ```
 backend/src/
 ├── api/
-│   ├── routes/           # Handlers por domínio
-│   ├── middleware/       # auth, tenant, rateLimit
+│   ├── routes/              # Handlers por domínio (finos)
+│   ├── middleware/          # jwtAuth, tenant, superAdmin, cors
+│   ├── websocket/           # Live activity
 │   └── server.ts
-├── bot/                  # Discord client, events, recovery
+├── bot/                     # Discord client, events, recovery
 ├── config/
-├── db/models/
-├── repositories/         # Acesso a dados (sem lógica de negócio pesada)
-├── services/             # Lógica de negócio
-├── workers/              # Webhook delivery, cron reports
+├── db/models/               # Schemas Mongoose multitenant
+├── repositories/            # Acesso a dados
+├── services/                # Lógica de negócio
+├── workers/                 # Crons (inatividade, webhooks)
+├── utils/
 └── index.ts
 ```
+
+## Mapa de rotas API (`/api/v1`)
+
+### Públicas
+
+| Prefixo | Arquivo | Notas |
+|---------|---------|-------|
+| `/auth/*` | `auth.ts` | login, register, refresh |
+| `/public/*` | `public.ts` | config pública |
+| `/health` | `health.ts` | healthcheck |
+| `/webhooks/stripe` | `webhooks/stripe.ts` | Stripe events |
+| `/admin/discord/bootstrap` | `adminDiscord.ts` | só dev — primeiro cadastro bot |
+
+### Autenticadas (JWT)
+
+| Prefixo | Middleware | Arquivo principal |
+|---------|------------|-------------------|
+| `/me/*` | jwtAuth | `me.ts` — portal colaborador, LGPD |
+| `/org/:orgId/*` | jwtAuth + tenant | ver tabela abaixo |
+| `/admin/*` | jwtAuth + superAdmin | `adminPlans`, `adminUsers`, `adminOrganizations`, `adminDiscord` |
+
+### Por tenant (`/org/:orgId`)
+
+| Recurso | Rotas (exemplos) | Service |
+|---------|------------------|---------|
+| Discord tenant | `/discord/*` | `discordSettings`, `discordGuildChannelService` |
+| Canais | `/guilds/:guildId/channels` | `channelClassifier` + `ChannelRule` |
+| Categorias | `/guilds/:guildId/categories` | models + repositories |
+| Membros rastreados | `/guilds/:guildId/tracked-users` | `trackedUserService` |
+| Calendário | `/work-calendar` | `workCalendarService` |
+| Ausências PTO | `/guilds/:guildId/absences` | `plannedAbsenceService` |
+| Inatividade | `/guilds/:guildId/inactivity/*` | `inactivityService` |
+| Metas | `/guilds/:guildId/goals`, `/reports/goals` | `goalsService` |
+| Gamificação | `/guilds/:guildId/gamification` | `gamificationService` |
+| Ranking gamificado | `.../gamification/ranking` | `gamificationRankingService` |
+| Conquistas | `.../gamification/insights` | `gamificationInsightsService` |
+| Dashboard live | `/guilds/:guildId/dashboard/live` | `dashboardLiveService` |
+| Onboarding | `/onboarding/*` | progresso 8 passos |
+| Billing | `/billing/*` | `billingService` |
+| Push | `/push/*` | web-push |
+| Webhooks outbound | `/webhooks/*` | worker + HMAC |
+| Export CSV | `/export/*` | relatórios |
+
+### Super Admin (`/admin`)
+
+| Rota | Service |
+|------|---------|
+| `GET/POST/PATCH /admin/plans` | `adminPlanService` |
+| `GET/PATCH /admin/users` | `adminPlatformService` |
+| `GET /admin/organizations` | `adminPlatformService` |
+| `/admin/discord/*` | `discordApplicationService` |
+
+## Serviços de gamificação
+
+| Arquivo | Responsabilidade |
+|---------|------------------|
+| `gamificationService.ts` | CRUD settings; enforcement de `Plan.features` |
+| `gamificationRankingService.ts` | Ranking por métrica/período/visibilidade |
+| `gamificationInsightsService.ts` | Badges (on-read) + streaks |
+
+Model: `GamificationSettings` — `enabled`, `ranking.*`, `badges.presetPack`, `streaks.minProductiveHoursPerDay`.
+
+**Badges por pacote:**
+
+- `minimal`: Madrugador, Colaborador
+- `standard`: + Campeão de voz
+- `full`: + Sinal de texto, Presença constante
 
 ## Convenções de código
 
 ### JSDoc (obrigatório)
 
-Todo **export** (função, classe, interface, tipo, constante pública) deve ter JSDoc completo:
-
-```typescript
-/**
- * Classifica canal de voz quanto a colaboração (tipo de sessão).
- * @param channelId ID do canal Discord
- * @param channelName Nome do canal (snapshot)
- * @param rules Regras carregadas do banco — nunca de env
- * @returns Classificação com tipo de sessão
- * @example
- * classifyChannel('123', 'Geral', rules) // { sessionType: 'VOICE', isIgnored: false }
- */
-export function classifyChannel(...): ChannelClassification { }
-```
+Todo **export** (função, classe, interface, tipo, constante pública) deve ter JSDoc completo com `@param`, `@returns`, `@throws` quando aplicável.
 
 ### Rotas API
 
-- Prefixo: `/api/v1`
 - Handlers finos — delegar para `services/`
-- Cada rota: JSDoc + bloco `@openapi` para Swagger
-- Respostas de erro padronizadas: `{ error, message, code? }`
+- Cada rota: bloco `@openapi` para Swagger
+- Erros: `{ error: string }` (padronizar gradualmente)
 
 ### Multitenant
 
 ```typescript
-// CORRETO — organizationId do JWT, nunca do body
-const orgId = ctx.state.auth.organizationId;
-await Report.find({ organizationId: orgId, ... });
+// CORRETO — organizationId do contexto tenant (JWT + middleware)
+const organizationId = ctx.state.organizationId;
+await Model.find({ organizationId, guildId });
 
-// PROIBIDO
-await Report.find({ organizationId: ctx.params.orgId }); // sem validar membership
+// PROIBIDO — confiar em orgId do body sem membership
 ```
 
 ### BotManager / DiscordApplication
 
-- `BotManager` carrega token de `DiscordApplication` no MongoDB — **nunca** `process.env.DISCORD_TOKEN` em produção
-- `NODE_ENV=production` → startup falha se não houver app Discord ativo no banco
-- Secrets criptografados com `ENCRYPTION_KEY` (AES-256-GCM)
-- Após PUT admin discord-app → `BotManager.reloadFromDatabase()`
-- Guild ativo via `GuildConnection` UI — **proibido** `DISCORD_GUILD_ID` env
+- Token de `DiscordApplication` no MongoDB — **nunca** `DISCORD_TOKEN` em produção
+- `NODE_ENV=production` → falha sem app ativo no banco
+- Secrets com `ENCRYPTION_KEY` (AES-256-GCM)
+- Guild via `GuildConnection` UI
 
 ### ChannelRule
 
-- Carregar regras de `ChannelRule` collection por `guildId`
-- **Proibido** ler `IGNORED_CHANNELS`, `AFK_CHANNEL_NAMES`, `LUNCH_CHANNEL_NAMES` do env
-- Cache em memória TTL 60 s; invalidar ao PUT `/channels`
-
-### MemberCategory
-
-- CRUD por guild; slugs únicos por `(organizationId, guildId)`
-- `TrackedUser.categoryId` atualizável em lote
-- Relatórios e ranking aceitam filtro `categoryId`
-
-### Webhooks outbound
-
-- Enfileirar em `WebhookDelivery` — nunca POST síncrono no request path
-- Worker com retry exponencial (1m → 24h)
-- Assinar body com HMAC-SHA256 (`X-Syntra-Signature`)
-- HTTPS only
+- Regras de `ChannelRule` por guild — **proibido** env de canais
+- Cache TTL ~60s; invalidar no PUT
 
 ### Inatividade (core)
 
-- `InactivityService` — cron diário, snapshots semanais
-- Critérios configuráveis por org/guild (`InactivitySettings`)
-- Eventos: `member.inactivity.detected` → push + webhook
-- API: `/reports/inactivity/weekly` — **prioridade MVP**
+- `InactivityService` — intraday + semanal, cron
+- `InactivitySettings` por org/guild
+- API: `/guilds/:guildId/inactivity/*`
 
 ### Metas individuais
 
-- `UserCollaborationGoal` — **sempre por TrackedUser**
-- `CategoryGoalTemplate` — só sugestão; aplicar cria meta **por membro**
-- **Proibido** meta agregada de equipe (40h split entre devs)
+- `UserCollaborationGoal` por `TrackedUser`
+- `CategoryGoalTemplate` — aplica metas por membro
+- **Proibido** meta agregada de equipe
 
-### Web Push
+### Webhooks outbound
 
-- `web-push` + VAPID env vars
-- `PushSubscription` collection
-- Notificar gestores: inatividade, resumo semanal
+- Fila `WebhookDelivery` — worker com retry + HMAC
 
 ## Swagger
 
 - UI: `GET /api/v1/docs`
 - JSON: `GET /api/v1/docs/openapi.json`
-- Arquivo base: `backend/src/api/openapi.ts` ou gerado por swagger-jsdoc
-- CI valida spec em `npm run build`
 
 ## Testes (obrigatório)
 
-| Tipo | Ferramenta | Cobertura mínima |
-|------|------------|------------------|
-| Unit | Vitest | services, utils, classifiers |
-| Integration | Vitest + mongodb-memory-server | repositories |
-| API | Supertest | rotas críticas, auth, tenant isolation |
-
 ```bash
-npm run test              # todos
-npm run test:coverage     # com threshold 80%
-npm run test:integration  # só integration
+npm run test              # Vitest
+npm run test:coverage     # threshold 80%
 ```
 
-**Sempre testar:**
-
-- Tenant isolation (org A ≠ org B)
-- Plan feature enforcement
-- ChannelRule sem env fallback
-- Webhook HMAC signature
-
-## Performance
-
-- `.lean()` em reads
-- Paginação (`limit` max 100)
-- Índices compostos com `organizationId` primeiro
-- Agregações: `$match` tenant no primeiro estágio
-- Não bloquear event loop — jobs pesados no worker
-
-## Variáveis de ambiente permitidas
-
-Ver spec seção 12.2. **Somente infra:** `MONGODB_URI`, `ENCRYPTION_KEY`, `JWT_SECRET`, Stripe, `PORT`, `NODE_ENV`, `LOG_LEVEL`.
-
-**Proibido em produção:** qualquer `DISCORD_*`, `IGNORED_CHANNELS`, `API_KEYS`, `TIMEZONE`, `APP_URL`, `CORS_ORIGIN` — tudo via UI/banco.
+**Sempre testar:** tenant isolation, plan feature enforcement, channel rules sem env.
 
 ## Scripts
 
 ```bash
-npm run dev          # tsx watch
-npm run build        # tsc
-npm run start        # node dist/index.js
-npm run test
-npm run lint         # tsc --noEmit
-npm run seed:plans   # seeds planos Super Admin
+npm run dev               # tsx watch — API + bot
+npm run build             # tsc
+npm run seed:plans        # catálogo Starter/Team
+npm run seed:discord-app  # bot + super admin dev
 ```
+
+## Variáveis de ambiente (somente infra)
+
+`MONGODB_URI`, `ENCRYPTION_KEY`, `JWT_SECRET`, `VAPID_*`, `STRIPE_*`, `PORT`, `NODE_ENV`, `LOG_LEVEL`.
+
+**Proibido em produção:** `DISCORD_*`, regras de canal via env.
 
 ## Anti-patterns
 
-- Lógica de negócio em routes (mover para services)
+- Lógica de negócio pesada em routes
 - Query sem `organizationId`
-- Config de canal via env ou hardcode
 - `process.env.DISCORD_TOKEN` em runtime (produção)
-- Retornar bot token ou client secret em GET API
+- Retornar bot token em GET
 - Webhook síncrono no handler HTTP
 - Export sem JSDoc
+- Editar `Plan` sem incluir `features` completas (quebra gamificação)

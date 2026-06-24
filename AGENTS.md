@@ -4,15 +4,16 @@ Guia para agentes de IA e desenvolvedores que trabalham neste monorepo.
 
 ## Visão geral
 
-**Syntra** é um SaaS B2B de analytics de **colaboração** para times remotos no Discord — foco em **quem sumiu**. Monorepo: backend + frontend (Angular + TailAdmin + **PWA**).
+**Syntra** é um SaaS B2B de analytics de **colaboração** para times remotos no Discord — foco em **quem sumiu**. Monorepo: `backend/` (API + bot) + `frontend/` (Angular 21 + TailAdmin + PWA).
 
 | Documento | Conteúdo |
 |-----------|----------|
+| [README.md](README.md) | Instalação, rotas, API, gamificação, admin |
 | [Design spec](docs/superpowers/specs/2026-06-20-pulsedesk-saas-design.md) | Arquitetura, modelos, fases, decisões |
-| [backend/AGENTS.md](backend/AGENTS.md) | Regras do backend |
-| [frontend/AGENTS.md](frontend/AGENTS.md) | Regras do frontend |
+| [backend/AGENTS.md](backend/AGENTS.md) | Regras e mapa de serviços do backend |
+| [frontend/AGENTS.md](frontend/AGENTS.md) | Rotas UI, guards, convenções Angular |
 
-## Estrutura do monorepo (alvo)
+## Estrutura do monorepo
 
 ```
 discord-tracker/
@@ -24,22 +25,58 @@ discord-tracker/
 └── package.json      # npm workspaces
 ```
 
-> **Estado atual:** Fase 0 concluída — monorepo `backend/` + `frontend/` com npm workspaces, Docker Compose e CI GitHub Actions.
-
 ## Comandos principais
 
 ```bash
-# Raiz (após workspaces)
 npm ci
-npm run test --workspace=backend
-npm run test --workspace=frontend
-npm run build --workspace=backend
-npm run build --workspace=frontend
+npm test                              # backend + frontend
+npm run build                         # ambos workspaces
+npm run dev:backend                   # API + bot :3000
+npm run dev:frontend                  # ng serve :4200 (proxy /api)
 
-# Dev
-npm run dev --workspace=backend      # API + bot :3000
-npm run start --workspace=frontend   # ng serve :4200
+# Seeds (dev)
+npm run seed:plans --workspace=backend
+npm run seed:discord-app --workspace=backend
 ```
+
+## Papéis e autorização
+
+### Plataforma (`PlatformUser`)
+
+| Flag / papel | Escopo |
+|--------------|--------|
+| `isSuperAdmin: true` | Painel `/admin/*`, rotas `/api/v1/admin/*` |
+| Membership em `Organization` | Papéis tenant: `owner`, `admin`, `manager`, `viewer` |
+
+Super admin **não** é role de tenant — é flag em `PlatformUser`. Guard frontend: `superAdminGuard`. Middleware backend: `superAdminMiddleware`.
+
+### Tenant (por organização)
+
+| Papel | Leitura relatórios | Configurações | Gamificação |
+|-------|-------------------|---------------|-------------|
+| `viewer` | Sim | Não | Ranking/conquistas (visibilidade aplicada) |
+| `manager` | Sim | Sim (maioria) | Config + visão completa |
+| `admin` / `owner` | Sim | Sim | Tudo |
+
+Toda rota `/api/v1/org/:orgId/*` passa por `jwtAuth` + `tenantMiddleware` — `organizationId` vem do JWT, validado contra membership.
+
+## Mapa funcional (estado atual)
+
+| Domínio | Backend (services) | Frontend |
+|---------|-------------------|----------|
+| Auth / OAuth | `platformAuthService`, `authService` | `core/auth/*` |
+| Discord bot | `discordApplicationService`, `bot/` | `/app/settings/discord`, `/admin/discord` |
+| Canais / regras | `channelClassifier`, `channels` routes | `/app/settings/channels` |
+| Categorias / membros | `trackedUserService`, `categories` | `/app/settings/categories` |
+| Calendário / PTO | `workCalendarService`, `plannedAbsenceService` | `/app/settings/calendar`, `absences` |
+| Inatividade (core) | `inactivityService`, cron | `/app/reports/inactivity`, dashboard |
+| Metas individuais | `goalsService` | `/app/settings/goals`, `/app/reports/goals` |
+| Gamificação | `gamificationService`, `gamificationRankingService`, `gamificationInsightsService` | settings + reports ranking/achievements + `/me` |
+| Dashboard ao vivo | `dashboardLiveService`, WebSocket | `/app/live` |
+| Billing | `billingService` + Stripe webhooks | landing pricing |
+| Super Admin | `adminPlanService`, `adminPlatformService` | `/admin/*` |
+| Portal colaborador | rotas `/me/*` | `/app/me` |
+| Onboarding | `onboarding` routes | `/app/onboarding` (8 passos) |
 
 ## Regras invioláveis
 
@@ -51,7 +88,17 @@ npm run start --workspace=frontend   # ng serve :4200
 6. **JSDoc:** todo export público do backend documentado; rotas com anotações OpenAPI.
 7. **UI-first:** config de negócio no banco — ENV só infra.
 8. **Colaboração:** nunca usar “produtividade” na UI — só **colaboração** / **horas colaborativas**.
-9. **Core feature:** relatório de inatividade (“quem sumiu”) + metas **individuais** + **calendário/ausências PTO** + sinais texto (metadados).
+9. **Core feature:** inatividade (“quem sumiu”) + metas **individuais** + calendário/PTO + sinais texto (metadados).
+10. **Planos:** features de gamificação/ranking enforced no backend (`Plan.features` + `GamificationSettings`).
+
+## Gamificação (resumo para agentes)
+
+- **Config:** `GET/PUT /org/:orgId/guilds/:guildId/gamification` — toggles + ranking (métrica, período, visibilidade, top N).
+- **Ranking:** `GET .../gamification/ranking` — respeita settings; UI em `/app/reports/ranking`.
+- **Badges + streaks:** calculados on-read em `gamificationInsightsService` (sem collection de conquistas no MVP).
+  - Pacotes: `minimal` | `standard` | `full` (`badges.presetPack`).
+  - UI time: `/app/reports/achievements`; colaborador: `GET /me/gamification`.
+- **Plano Team+** precisa ter `features.gamification` e `features.ranking` **true** no documento `Plan` — editável em `/admin/plans` (inclui checkboxes de features).
 
 ## Performance (mínimo)
 
@@ -83,3 +130,4 @@ Secrets: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `DEPLOY_PATH`.
 - [ ] Swagger atualizado se nova rota API
 - [ ] Sem secrets no código
 - [ ] UI responsiva (se alterou frontend)
+- [ ] Terminologia UI: colaboração, não produtividade
