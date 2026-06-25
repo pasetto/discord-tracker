@@ -13,10 +13,14 @@
   <div>
     <div class="mb-5 sm:mb-8">
       <h1 class="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
-        Criar conta
+        {{ isInviteSignup ? 'Criar conta e entrar no time' : 'Criar conta' }}
       </h1>
       <p class="text-sm text-gray-500 dark:text-gray-400">
-        Cadastre-se para começar a acompanhar a colaboração do seu time.
+        @if (isInviteSignup) {
+          Você está entrando em <strong>{{ inviteOrganizationName }}</strong>. Seu acesso será liberado após aprovação.
+        } @else {
+          Cadastre-se para começar a acompanhar a colaboração do seu time.
+        }
       </p>
     </div>
 
@@ -36,6 +40,7 @@
           />
         </div>
 
+        @if (!isInviteSignup) {
         <div>
           <app-label>
             Nome da organização <span class="text-error-500">*</span>
@@ -49,6 +54,7 @@
             placeholder="Ex.: Minha Empresa"
           />
         </div>
+        }
 
         <div>
           <app-label>
@@ -115,7 +121,7 @@
             type="submit"
             [disabled]="loading"
             class="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60">
-            {{ loading ? 'Criando conta...' : 'Criar conta' }}
+            {{ loading ? 'Criando conta...' : (isInviteSignup ? 'Criar conta e solicitar acesso' : 'Criar conta') }}
           </button>
         </div>
       </div>

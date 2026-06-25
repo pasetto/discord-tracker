@@ -44,6 +44,42 @@ describe('auth routes', () => {
     expect(response.headers['set-cookie']?.[0]).toContain('syntra_refresh');
   });
 
+  it('repassa inviteCode no cadastro via convite', async () => {
+    platformAuthMocks.registerPlatformUser.mockResolvedValue({
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      user: {
+        id: 'user-2',
+        email: 'convidado@test.com',
+        displayName: 'Convidado',
+        memberships: [{ organizationId: 'org-1', role: 'viewer', status: 'pending' }],
+      },
+      organization: null,
+      organizations: [{ id: 'org-1', name: 'Econdos', slug: 'econdos', role: 'viewer', status: 'pending' }],
+    });
+
+    const app = createApp();
+    const response = await request(app.callback())
+      .post('/api/v1/auth/register')
+      .send({
+        email: 'convidado@test.com',
+        password: 'senha-segura',
+        displayName: 'Convidado',
+        inviteCode: 'VB87T6AZ',
+      });
+
+    expect(response.status).toBe(201);
+    expect(platformAuthMocks.registerPlatformUser).toHaveBeenCalledWith({
+      email: 'convidado@test.com',
+      password: 'senha-segura',
+      displayName: 'Convidado',
+      organizationName: undefined,
+      inviteCode: 'VB87T6AZ',
+    });
+    expect(response.body.organization).toBeNull();
+    expect(response.body.organizations[0].status).toBe('pending');
+  });
+
   it('autentica usuário em POST /api/v1/auth/login', async () => {
     platformAuthMocks.loginPlatformUser.mockResolvedValue({
       accessToken: 'access-token',

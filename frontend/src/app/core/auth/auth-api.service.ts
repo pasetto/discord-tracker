@@ -59,7 +59,10 @@ export interface RegisterRequest {
   email: string;
   password: string;
   displayName: string;
-  organizationName: string;
+  /** Obrigatório quando `inviteCode` não é informado. */
+  organizationName?: string;
+  /** Código de convite para entrar em organização existente (membership pendente). */
+  inviteCode?: string;
 }
 
 /**

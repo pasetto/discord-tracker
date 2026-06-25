@@ -204,12 +204,6 @@ const featureRoutes: Routes = [
     data: page('Meu portal', 'Meu portal'),
   },
   {
-    path: 'join',
-    loadComponent: loadJoinOrganization,
-    title: 'Entrar em organização | Syntra',
-    data: page('Entrar em organização', 'Convite'),
-  },
-  {
     path: 'settings',
     canActivate: [managerGuard],
     title: 'Configurações | Syntra',
@@ -301,6 +295,11 @@ export const routes: Routes = [
         (module) => module.CaseStudyPageComponent,
       ),
     title: 'Case | Syntra',
+  },
+  {
+    path: 'app/join',
+    loadComponent: loadJoinOrganization,
+    title: 'Entrar em organização | Syntra',
   },
   {
     path: 'app',

@@ -63,7 +63,7 @@ function setRefreshCookie(
  *   post:
  *     tags:
  *       - Auth
- *     summary: Cadastra usuário e organização
+ *     summary: Cadastra usuário e organização (ou entra via convite)
  */
 authRouter.post('/auth/register', async (ctx) => {
   const payload = ctx.request.body as {
@@ -71,6 +71,7 @@ authRouter.post('/auth/register', async (ctx) => {
     password?: string;
     displayName?: string;
     organizationName?: string;
+    inviteCode?: string;
   };
 
   try {
@@ -78,7 +79,8 @@ authRouter.post('/auth/register', async (ctx) => {
       email: payload.email ?? '',
       password: payload.password ?? '',
       displayName: payload.displayName ?? '',
-      organizationName: payload.organizationName ?? '',
+      organizationName: payload.organizationName,
+      inviteCode: payload.inviteCode,
     });
 
     setRefreshCookie(ctx, result.refreshToken);

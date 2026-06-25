@@ -1,5 +1,5 @@
-import { Component } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { LabelComponent } from '../../form/label/label.component';
 import { CheckboxComponent } from '../../form/input/checkbox.component';
 import { ButtonComponent } from '../../ui/button/button.component';
@@ -26,7 +26,7 @@ import { AuthService } from '../../../../core/auth/auth.service';
   templateUrl: './signin-form.component.html',
   styles: ``,
 })
-export class SigninFormComponent {
+export class SigninFormComponent implements OnInit {
   showPassword = false;
   isChecked = true;
   loading = false;
@@ -34,11 +34,24 @@ export class SigninFormComponent {
 
   email = '';
   password = '';
+  /** Código de convite para redirecionar após login. */
+  joinCode = '';
 
   constructor(
     private readonly authService: AuthService,
     private readonly router: Router,
+    private readonly route: ActivatedRoute,
   ) {}
+
+  /**
+   * Lê código de convite da query string, se existir.
+   */
+  ngOnInit(): void {
+    const joinCodeFromQuery = this.route.snapshot.queryParamMap.get('joinCode');
+    if (joinCodeFromQuery) {
+      this.joinCode = joinCodeFromQuery.toUpperCase();
+    }
+  }
 
   /**
    * Alterna visibilidade do campo de senha.
@@ -73,6 +86,11 @@ export class SigninFormComponent {
       .subscribe({
       next: () => {
         this.loading = false;
+        if (this.joinCode) {
+          void this.router.navigate(['/app/join'], { queryParams: { code: this.joinCode } });
+          return;
+        }
+
         void this.router.navigate(['/app/dashboard']);
       },
       error: (error) => {

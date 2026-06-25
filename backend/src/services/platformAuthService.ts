@@ -6,6 +6,7 @@ import { PlatformUserModel, type IPlatformUser } from '../db/models/PlatformUser
 import {
   createUniqueOrganizationInviteCode,
   listUserOrganizations,
+  previewOrganizationInvite,
 } from './organizationTeamService';
 import {
   type AuthMembership,
@@ -28,7 +29,10 @@ export interface RegisterPlatformUserInput {
   email: string;
   password: string;
   displayName: string;
-  organizationName: string;
+  /** Obrigatório quando `inviteCode` não é informado. */
+  organizationName?: string;
+  /** Quando informado, o usuário entra na organização existente com aprovação pendente. */
+  inviteCode?: string;
 }
 
 /**
@@ -193,6 +197,12 @@ function assertRegisterInput(input: RegisterPlatformUserInput): void {
   if (!input.displayName?.trim()) {
     throw new Error('Informe o nome de exibição');
   }
+
+  const inviteCode = input.inviteCode?.trim();
+  if (inviteCode) {
+    return;
+  }
+
   if (!input.organizationName?.trim()) {
     throw new Error('Informe o nome da organização');
   }
@@ -212,13 +222,23 @@ export async function registerPlatformUser(input: RegisterPlatformUserInput): Pr
     throw new Error('Email já cadastrado');
   }
 
+  const inviteCode = input.inviteCode?.trim();
+  if (inviteCode) {
+    return registerPlatformUserViaInvite({
+      email: normalizedEmail,
+      password: input.password,
+      displayName: input.displayName.trim(),
+      inviteCode,
+    });
+  }
+
   const plan = await findOrCreateStarterPlan();
-  const slug = await createUniqueOrganizationSlug(input.organizationName);
-  const inviteCode = await createUniqueOrganizationInviteCode();
+  const slug = await createUniqueOrganizationSlug(input.organizationName!);
+  const organizationInviteCode = await createUniqueOrganizationInviteCode();
   const organization = await OrganizationModel.create({
-    name: input.organizationName.trim(),
+    name: input.organizationName!.trim(),
     slug,
-    inviteCode,
+    inviteCode: organizationInviteCode,
     subscription: {
       planId: plan._id,
       stripeCustomerId: `dev_${new Types.ObjectId().toHexString()}`,
@@ -245,6 +265,36 @@ export async function registerPlatformUser(input: RegisterPlatformUserInput): Pr
         role: 'owner',
         invitedAt: new Date(),
         acceptedAt: new Date(),
+      },
+    ],
+  });
+
+  return buildPlatformAuthResult(user);
+}
+
+/**
+ * Registra usuário com membership pendente em organização existente via convite.
+ * @param input Dados de cadastro com código de convite
+ * @returns Tokens e contexto autenticado sem organização ativa
+ */
+async function registerPlatformUserViaInvite(input: {
+  email: string;
+  password: string;
+  displayName: string;
+  inviteCode: string;
+}): Promise<PlatformAuthResult> {
+  const preview = await previewOrganizationInvite(input.inviteCode);
+  const passwordHash = await hashPassword(input.password);
+  const user = await PlatformUserModel.create({
+    email: input.email,
+    passwordHash,
+    displayName: input.displayName,
+    isSuperAdmin: false,
+    memberships: [
+      {
+        organizationId: new Types.ObjectId(preview.organizationId),
+        role: 'viewer',
+        invitedAt: new Date(),
       },
     ],
   });
