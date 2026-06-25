@@ -2,6 +2,7 @@ import Router from '@koa/router';
 import { Types, isValidObjectId } from 'mongoose';
 import { CategoryGoalTemplateModel } from '../../db/models/CategoryGoalTemplate';
 import { applyAllCategoryGoalsToTrackedUsers, applyCategoryGoalsToTrackedUsers, getGoalsWeeklyReport } from '../../services/goalsService';
+import { getMemberJourneyReport, type MemberJourneySignal } from '../../services/memberJourneyService';
 import { assertManagerRole, assertViewerReadRole } from '../middleware/tenantRbac';
 import { parseReportDateRangeQuery } from '../../utils/reportDateRange';
 
@@ -392,6 +393,84 @@ goalsRouter.get('/guilds/:guildId/reports/goals', async (ctx) => {
       from: range.from,
       to: range.to,
       referenceDate: range.to,
+    });
+
+    ctx.body = { report };
+  } catch (error) {
+    const status = typeof (error as { status?: unknown })?.status === 'number' ? (error as { status: number }).status : 400;
+    ctx.status = status;
+    ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /org/{orgId}/guilds/{guildId}/reports/member-journey:
+ *   get:
+ *     tags:
+ *       - Goals
+ *     summary: Retorna padrões de entrada/saída de um colaborador por dia
+ *     description: Calcula primeiro e último sinal de atividade por dia civil e agrega médias por dia da semana.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: trackedUserId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: signal
+ *         schema:
+ *           type: string
+ *           enum: [presence, voice]
+ *       - in: query
+ *         name: preset
+ *         schema:
+ *           type: string
+ *           enum: [today, yesterday, this_week, last_week, last_7_days]
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *     responses:
+ *       200:
+ *         description: Padrões de jornada do colaborador
+ */
+goalsRouter.get('/guilds/:guildId/reports/member-journey', async (ctx) => {
+  try {
+    const { organizationId } = getRequestIdentity(ctx);
+    assertViewerReadRole(ctx, organizationId);
+
+    const trackedUserId = typeof ctx.query.trackedUserId === 'string' ? ctx.query.trackedUserId : '';
+    if (!isValidObjectId(trackedUserId)) {
+      ctx.status = 400;
+      ctx.body = { error: 'trackedUserId inválido' };
+      return;
+    }
+
+    const signalParam = typeof ctx.query.signal === 'string' ? ctx.query.signal : undefined;
+    const signal: MemberJourneySignal = signalParam === 'voice' ? 'voice' : 'presence';
+
+    const range = parseReportDateRangeQuery({
+      preset: typeof ctx.query.preset === 'string' ? ctx.query.preset : undefined,
+      from: typeof ctx.query.from === 'string' ? ctx.query.from : undefined,
+      to: typeof ctx.query.to === 'string' ? ctx.query.to : undefined,
+    });
+
+    const report = await getMemberJourneyReport({
+      organizationId,
+      guildId: ctx.params.guildId,
+      trackedUserId,
+      signal,
+      from: range.from,
+      to: range.to,
     });
 
     ctx.body = { report };

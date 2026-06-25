@@ -20,12 +20,13 @@ describe('ReportsHubComponent', () => {
   });
 
   it('deve expor abas de relatório incluindo gamificação', () => {
-    expect(fixture.componentInstance.tabs.length).toBe(6);
+    expect(fixture.componentInstance.tabs.length).toBe(7);
     expect(fixture.componentInstance.tabs[0].label).toBe('Quem sumiu');
     expect(fixture.componentInstance.tabs.map((tab) => tab.path)).toEqual([
       'inactivity',
       'text-collaboration',
       'goals',
+      'member-journey',
       'absences',
       'ranking',
       'achievements',

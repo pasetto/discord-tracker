@@ -43,6 +43,8 @@ export interface GoalsWeeklyReportInput {
   from?: Date;
   /** Fim do intervalo (sobrescreve semana corrente quando informado com `from`) */
   to?: Date;
+  /** Instante atual usado para limitar horas realizadas (default: agora). Útil em testes. */
+  now?: Date;
 }
 
 /**
@@ -73,15 +75,19 @@ export interface GoalsWeeklyReport {
 
 /**
  * Soma horas colaborativas em voz por usuário core no intervalo (com overlap parcial).
+ *
+ * Sessões ainda abertas (`endedAt: null`) são contabilizadas apenas até o limite
+ * superior da janela (`windowEnd`), que nunca deve estar no futuro. Sem esse limite,
+ * uma sessão em andamento seria somada até o fim do dia, inflando as horas realizadas.
  * @param coreUserIds IDs de usuários core
  * @param periodStart Início do período
- * @param periodEnd Fim do período
+ * @param windowEnd Fim efetivo da janela (já limitado ao instante atual)
  * @returns Mapa userId → horas realizadas
  */
 async function aggregateRealizedVoiceHoursByUserId(
   coreUserIds: Types.ObjectId[],
   periodStart: Date,
-  periodEnd: Date,
+  windowEnd: Date,
 ): Promise<Map<string, number>> {
   if (coreUserIds.length === 0) {
     return new Map();
@@ -91,7 +97,7 @@ async function aggregateRealizedVoiceHoursByUserId(
     userId: { $in: coreUserIds },
     isIgnoredChannel: false,
     sessionType: 'VOICE',
-    startedAt: { $lte: periodEnd },
+    startedAt: { $lte: windowEnd },
     $or: [{ endedAt: null }, { endedAt: { $gte: periodStart } }],
   })
     .select({ userId: 1, startedAt: 1, endedAt: 1 })
@@ -101,7 +107,7 @@ async function aggregateRealizedVoiceHoursByUserId(
   const totals = new Map<string, number>();
   for (const session of sessions) {
     const userId = String(session.userId);
-    const seconds = overlapSeconds(session.startedAt, session.endedAt ?? null, periodStart, periodEnd);
+    const seconds = overlapSeconds(session.startedAt, session.endedAt ?? null, periodStart, windowEnd);
     if (seconds <= 0) {
       continue;
     }
@@ -296,6 +302,10 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
     throw new Error('Intervalo inválido: from deve ser anterior ou igual a to');
   }
 
+  // Horas realizadas nunca podem incluir o futuro: limita a janela ao instante atual.
+  const now = input.now ?? new Date();
+  const realizedWindowEnd = new Date(Math.min(periodEnd.getTime(), now.getTime()));
+
   const trackedUsers = await TrackedUserModel.find({
     organizationId,
     guildId: input.guildId,
@@ -336,7 +346,7 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
       .select({ trackedUserId: 1, weeklyCollaborationHours: 1, dailyMinimumHours: 1 })
       .lean()
       .exec(),
-    aggregateRealizedVoiceHoursByUserId(coreUserIds, periodStart, periodEnd),
+    aggregateRealizedVoiceHoursByUserId(coreUserIds, periodStart, realizedWindowEnd),
   ]);
 
   const goalsByTrackedUserId = new Map(goals.map((goal) => [String(goal.trackedUserId), goal]));

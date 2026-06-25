@@ -37,6 +37,11 @@ export class ReportsHubComponent {
       description: 'Progresso das metas individuais do time',
     },
     {
+      label: 'Padrões por pessoa',
+      path: 'member-journey',
+      description: 'Horário de entrada e saída por colaborador',
+    },
+    {
       label: 'Ausências em andamento',
       path: 'absences',
       description: 'Férias, PTO e licenças ativas no momento',

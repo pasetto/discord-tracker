@@ -311,4 +311,62 @@ describe('goalsService', () => {
     expect(report.entries[0]?.realizedHours).toBe(1);
     expect(report.entries[0]?.weeklyGoalHours).toBe(1);
   });
+
+  it('limita sessão de voz ainda aberta ao instante atual (não soma até o fim do dia)', async () => {
+    const organizationId = new mongoose.Types.ObjectId();
+    const guildId = 'guild-open-session';
+
+    const [trackedUser] = await TrackedUserModel.create([
+      {
+        organizationId,
+        guildId,
+        discordId: 'd-open',
+        username: 'open',
+        displayName: 'Open',
+        firstSeenAt: new Date('2026-06-10T08:00:00.000Z'),
+        lastSeenAt: new Date('2026-06-10T08:00:00.000Z'),
+      },
+    ]);
+
+    const coreUser = await User.create({
+      discordId: 'd-open',
+      username: 'open',
+      displayName: 'Open',
+      firstSeenAt: new Date('2026-06-10T08:00:00.000Z'),
+      lastSeenAt: new Date('2026-06-10T08:00:00.000Z'),
+    });
+
+    await UserCollaborationGoalModel.create({
+      organizationId,
+      guildId,
+      trackedUserId: trackedUser._id,
+      weeklyCollaborationHours: 40,
+      source: 'manual',
+      setBy: new mongoose.Types.ObjectId(),
+    });
+
+    // Sessão iniciada às 09:00 e ainda aberta (endedAt null).
+    await VoiceSession.create({
+      userId: coreUser._id,
+      channelId: '10',
+      channelName: 'Colaboração',
+      startedAt: new Date('2026-06-10T09:00:00.000Z'),
+      endedAt: null,
+      durationSeconds: null,
+      isIgnoredChannel: false,
+      sessionType: 'VOICE',
+    });
+
+    const report = await getGoalsWeeklyReport({
+      organizationId: organizationId.toHexString(),
+      guildId,
+      from: new Date('2026-06-10T00:00:00.000Z'),
+      to: new Date('2026-06-10T23:59:59.999Z'),
+      referenceDate: new Date('2026-06-10T23:59:59.999Z'),
+      now: new Date('2026-06-10T12:00:00.000Z'),
+    });
+
+    // Deve contar apenas 09:00 → 12:00 (3h), e não até 23:59 (~15h).
+    expect(report.entries[0]?.realizedHours).toBe(3);
+  });
 });

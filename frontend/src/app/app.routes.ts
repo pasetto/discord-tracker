@@ -45,6 +45,11 @@ const loadGoalsReport = () =>
     (module) => module.GoalsReportComponent,
   );
 
+const loadMemberJourneyReport = () =>
+  import('./features/reports/member-journey/member-journey-report.component').then(
+    (module) => module.MemberJourneyReportComponent,
+  );
+
 const loadAbsencesReport = () =>
   import('./features/reports/absences/absences-report.component').then(
     (module) => module.AbsencesReportComponent,
@@ -173,6 +178,11 @@ const featureRoutes: Routes = [
         path: 'goals',
         loadComponent: loadGoalsReport,
         title: 'Metas semanais | Syntra',
+      },
+      {
+        path: 'member-journey',
+        loadComponent: loadMemberJourneyReport,
+        title: 'Padrões por pessoa | Syntra',
       },
       {
         path: 'absences',
