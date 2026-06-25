@@ -44,6 +44,11 @@ import { getOpenApiSpec } from './swagger';
 import { organizationTeamRouter, assertTeamManagerAccess } from './routes/organizationTeam';
 import { organizationSettingsRouter } from './routes/organizationSettings';
 import { attachLiveActivityWebSocket } from './websocket/liveActivitySocket';
+import {
+  captureApiException,
+  sentryRequestMiddleware,
+  setupSentryKoaErrorHandler,
+} from '../instrumentation/sentry';
 
 const swaggerUi = require('koa-swagger-ui').ui as (
   document: object,
@@ -68,6 +73,7 @@ export const processStartTime = Date.now();
 export function createApp(): Koa {
   const app = new Koa();
   app.proxy = config.nodeEnv === 'production';
+  setupSentryKoaErrorHandler(app);
   const publicRouter = new Router();
   const internalRouter = new Router();
   const apiV1PublicRouter = new Router({ prefix: '/api/v1' });
@@ -156,11 +162,14 @@ export function createApp(): Koa {
     adminOrganizationsRouter.allowedMethods(),
   );
 
+  app.use(sentryRequestMiddleware);
+
   app.use(async (ctx, next) => {
     try {
       await next();
     } catch (error) {
       log.error({ err: error }, 'Erro não tratado na API');
+      captureApiException(error, ctx);
       ctx.status = 500;
       ctx.body = { error: 'Erro interno do servidor' };
     }

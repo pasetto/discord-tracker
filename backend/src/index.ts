@@ -1,3 +1,4 @@
+import './instrumentation/sentry';
 import type http from 'http';
 import { connectMongo, disconnectMongo } from './db/connection';
 import { BotTokenInvalidError, connectDiscord, disconnectDiscord, getDiscordPing } from './bot/client';
@@ -17,6 +18,7 @@ import {
   signalPm2Ready,
   watchMongoConnectionHealth,
 } from './runtime/pm2Lifecycle';
+import { captureApiException, flushSentry } from './instrumentation/sentry';
 
 const log = createLogger('main');
 
@@ -130,9 +132,12 @@ async function shutdown(signal: string): Promise<void> {
     await closeHttpServer();
     await disconnectDiscord();
     await disconnectMongo();
+    await flushSentry();
     process.exit(0);
   } catch (error) {
     log.error({ err: error }, 'Erro durante shutdown');
+    captureApiException(error);
+    await flushSentry();
     process.exit(1);
   }
 }
@@ -144,9 +149,12 @@ registerPm2GracefulShutdown(shutdown);
 
 process.on('unhandledRejection', (reason) => {
   log.error({ err: reason }, 'Unhandled rejection');
+  captureApiException(reason);
 });
 
-bootstrap().catch((error) => {
+bootstrap().catch(async (error) => {
   log.error({ err: error }, 'Falha fatal na inicialização');
+  captureApiException(error);
+  await flushSentry();
   process.exit(1);
 });
