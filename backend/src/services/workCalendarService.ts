@@ -152,25 +152,33 @@ export async function upsertOrganizationWorkCalendar(
     updatedBy: userObjectId,
   };
 
+  // Campos default aplicados apenas na criação (upsert). Um mesmo caminho não
+  // pode aparecer em $set e $setOnInsert ao mesmo tempo, senão o MongoDB lança
+  // "Updating the path 'X' would create a conflict at 'X'". Por isso só caímos
+  // no default quando o campo não veio no payload (e, portanto, não está em $set).
+  const toSetOnInsert: Partial<IWorkCalendar> = {
+    brNationalHolidaysSeeded: false,
+  };
+
   if (input.workWeek) {
     toSet.workWeek = input.workWeek;
+  } else {
+    toSetOnInsert.workWeek = createDefaultWorkWeek();
   }
 
   if (input.holidays) {
     toSet.holidays = dedupeHolidays(input.holidays);
+  } else {
+    toSetOnInsert.holidays = [];
   }
 
+  // organizationId é semeado automaticamente a partir da igualdade do filtro no
+  // upsert; incluí-lo aqui também geraria conflito de caminho.
   return WorkCalendarModel.findOneAndUpdate(
     { organizationId: organizationObjectId, guildId: { $exists: false } },
     {
       $set: toSet,
-      $setOnInsert: {
-        organizationId: organizationObjectId,
-        guildId: undefined,
-        workWeek: createDefaultWorkWeek(),
-        holidays: [],
-        brNationalHolidaysSeeded: false,
-      },
+      $setOnInsert: toSetOnInsert,
     },
     { new: true, upsert: true },
   );

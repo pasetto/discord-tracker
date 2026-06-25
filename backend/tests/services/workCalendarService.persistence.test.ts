@@ -79,6 +79,43 @@ describe('workCalendarService persistence', () => {
     );
   });
 
+  it('upsertOrganizationWorkCalendar não repete workWeek entre $set e $setOnInsert', async () => {
+    const workWeek = {
+      monday: { enabled: true, startTime: '08:00', endTime: '17:00' },
+      tuesday: { enabled: true, startTime: '08:00', endTime: '17:00' },
+      wednesday: { enabled: true, startTime: '08:00', endTime: '17:00' },
+      thursday: { enabled: true, startTime: '08:00', endTime: '17:00' },
+      friday: { enabled: true, startTime: '08:00', endTime: '17:00' },
+      saturday: { enabled: false },
+      sunday: { enabled: false },
+    };
+
+    workCalendarModelMocks.findOneAndUpdate.mockResolvedValue({ _id: 'calendar-3' });
+
+    await upsertOrganizationWorkCalendar(organizationId, userId, { workWeek });
+
+    const [, update] = workCalendarModelMocks.findOneAndUpdate.mock.calls[0];
+    expect(update.$set.workWeek).toEqual(workWeek);
+    // workWeek veio no payload, então não pode existir em $setOnInsert (evita conflito de caminho).
+    expect(update.$setOnInsert).not.toHaveProperty('workWeek');
+    // organizationId é semeado pelo filtro no upsert; não deve aparecer no $setOnInsert.
+    expect(update.$setOnInsert).not.toHaveProperty('organizationId');
+  });
+
+  it('upsertOrganizationWorkCalendar aplica workWeek default no insert quando ausente no payload', async () => {
+    workCalendarModelMocks.findOneAndUpdate.mockResolvedValue({ _id: 'calendar-4' });
+
+    await upsertOrganizationWorkCalendar(organizationId, userId, {
+      holidays: [{ date: '2026-12-25', name: 'Natal', type: 'national_br' as const }],
+    });
+
+    const [, update] = workCalendarModelMocks.findOneAndUpdate.mock.calls[0];
+    // holidays veio no payload → fica em $set; workWeek ausente → default só no insert.
+    expect(update.$set).not.toHaveProperty('workWeek');
+    expect(update.$setOnInsert).toHaveProperty('workWeek');
+    expect(update.$setOnInsert).not.toHaveProperty('holidays');
+  });
+
   it('seedBrazilNationalHolidays marca seed e insere apenas feriados faltantes', async () => {
     const saveMock = vi.fn().mockResolvedValue(undefined);
     const existingCalendar = {
