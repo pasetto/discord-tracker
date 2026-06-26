@@ -161,4 +161,100 @@ describe('AuthService', () => {
 
     expect(service.getMembershipRole()).toBe('admin');
   });
+
+  /**
+   * Monta um token válido (não expirado) para os testes de sessão.
+   * @returns JWT fake com exp no futuro
+   */
+  function buildValidToken(): string {
+    const payload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }));
+    return `header.${payload}.signature`;
+  }
+
+  /**
+   * Persiste no localStorage um usuário com apenas membership pendente.
+   */
+  function seedPendingSession(): void {
+    localStorage.setItem('syntra.auth.token', buildValidToken());
+    localStorage.setItem(
+      'syntra.auth.user',
+      JSON.stringify({ id: 'user-1', email: 'user@test.com', displayName: 'User', isSuperAdmin: false }),
+    );
+    localStorage.setItem(
+      'syntra.auth.organizations',
+      JSON.stringify([{ id: 'org-2', name: 'Acme', slug: 'acme', role: 'viewer', status: 'pending' }]),
+    );
+  }
+
+  /**
+   * Responde ao refresh com uma organização ativa (convite aprovado).
+   */
+  function flushApprovedRefresh(): void {
+    const req = httpMock.expectOne('/api/v1/auth/refresh');
+    expect(req.request.method).toBe('POST');
+    req.flush({
+      accessToken: buildValidToken(),
+      user: {
+        id: 'user-1',
+        email: 'user@test.com',
+        displayName: 'User',
+        memberships: [{ organizationId: 'org-2', role: 'viewer', status: 'active' }],
+      },
+      organization: { id: 'org-2', name: 'Acme', slug: 'acme' },
+      organizations: [{ id: 'org-2', name: 'Acme', slug: 'acme', role: 'viewer', status: 'active' }],
+    });
+
+    httpMock.expectOne('/api/v1/org/org-2/discord/status').flush({
+      botConnected: false,
+      activeConnection: null,
+    });
+  }
+
+  it('força refresh quando há apenas membership pendente, refletindo aprovação sem relogar', () => {
+    seedPendingSession();
+
+    let restored = false;
+    service.tryRestoreSession().subscribe((value) => {
+      restored = value;
+    });
+
+    flushApprovedRefresh();
+
+    expect(restored).toBeTrue();
+    expect(service.getActiveOrganizations().length).toBe(1);
+    expect(service.getOrganizationId()).toBe('org-2');
+  });
+
+  it('não força refresh quando já existe organização ativa e token é válido', () => {
+    localStorage.setItem('syntra.auth.token', buildValidToken());
+    localStorage.setItem(
+      'syntra.auth.user',
+      JSON.stringify({ id: 'user-1', email: 'user@test.com', displayName: 'User', isSuperAdmin: false }),
+    );
+    localStorage.setItem(
+      'syntra.auth.organizations',
+      JSON.stringify([{ id: 'org-1', name: 'Econdos', slug: 'econdos', role: 'owner', status: 'active' }]),
+    );
+
+    let restored = false;
+    service.tryRestoreSession().subscribe((value) => {
+      restored = value;
+    });
+
+    httpMock.expectNone('/api/v1/auth/refresh');
+    expect(restored).toBeTrue();
+  });
+
+  it('refreshSession emite true quando há organização ativa após renovar', () => {
+    seedPendingSession();
+
+    let hasActive = false;
+    service.refreshSession().subscribe((value) => {
+      hasActive = value;
+    });
+
+    flushApprovedRefresh();
+
+    expect(hasActive).toBeTrue();
+  });
 });

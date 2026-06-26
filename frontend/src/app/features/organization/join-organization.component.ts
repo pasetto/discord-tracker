@@ -1,11 +1,15 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Subject, interval, switchMap, takeUntil } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { AuthPageLayoutComponent } from '../../shared/layout/auth-page-layout/auth-page-layout.component';
 import { SignupFormComponent } from '../../shared/components/auth/signup-form/signup-form.component';
+
+/** Intervalo (ms) entre verificações de aprovação do convite. */
+const APPROVAL_POLL_INTERVAL_MS = 15000;
 
 /** Preview público de organização pelo código de convite. */
 interface InvitePreviewDto {
@@ -24,13 +28,16 @@ interface InvitePreviewDto {
   imports: [CommonModule, FormsModule, RouterLink, AuthPageLayoutComponent, SignupFormComponent],
   templateUrl: './join-organization.component.html',
 })
-export class JoinOrganizationComponent implements OnInit {
+export class JoinOrganizationComponent implements OnInit, OnDestroy {
   inviteCode = '';
   preview: InvitePreviewDto | null = null;
   loading = false;
   submitting = false;
   errorMessage = '';
   successMessage = '';
+
+  private readonly destroy$ = new Subject<void>();
+  private approvalPollingStarted = false;
 
   constructor(
     private readonly httpClient: HttpClient,
@@ -48,18 +55,62 @@ export class JoinOrganizationComponent implements OnInit {
   }
 
   /**
-   * Preenche código vindo da query string, se existir.
+   * Reage aos parâmetros de query (código e flag de cadastro recém-criado).
+   * Usa o observable (não o snapshot) porque o cadastro via convite reaproveita
+   * esta mesma rota, sem recriar o componente.
    */
   ngOnInit(): void {
-    const codeFromQuery = this.route.snapshot.queryParamMap.get('code');
-    if (codeFromQuery) {
-      this.inviteCode = codeFromQuery.toUpperCase();
-      this.previewInvite();
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
+      const codeFromQuery = params.get('code');
+      if (codeFromQuery) {
+        const normalizedCode = codeFromQuery.toUpperCase();
+        if (normalizedCode !== this.inviteCode) {
+          this.inviteCode = normalizedCode;
+          this.previewInvite();
+        }
+      }
+
+      if (params.get('registered') === '1') {
+        this.successMessage = 'Conta criada. Aguarde aprovação de um membro da organização.';
+      }
+
+      this.maybeStartApprovalPolling();
+    });
+  }
+
+  /**
+   * Encerra assinaturas ativas ao destruir o componente.
+   */
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  /**
+   * Inicia o polling de aprovação quando o usuário está autenticado e ainda não
+   * possui organização ativa. Ao ser aprovado, renova a sessão (novo token) e
+   * leva ao dashboard sem exigir logout/login.
+   */
+  private maybeStartApprovalPolling(): void {
+    if (this.approvalPollingStarted || !this.isAuthenticated) {
+      return;
     }
 
-    if (this.route.snapshot.queryParamMap.get('registered') === '1') {
-      this.successMessage = 'Conta criada. Aguarde aprovação de um membro da organização.';
+    if (this.authService.getActiveOrganizations().length > 0) {
+      return;
     }
+
+    this.approvalPollingStarted = true;
+    interval(APPROVAL_POLL_INTERVAL_MS)
+      .pipe(
+        switchMap(() => this.authService.refreshSession()),
+        takeUntil(this.destroy$),
+      )
+      .subscribe((hasActiveOrganization) => {
+        if (hasActiveOrganization) {
+          void this.router.navigate(['/app/dashboard']);
+        }
+      });
   }
 
   /**

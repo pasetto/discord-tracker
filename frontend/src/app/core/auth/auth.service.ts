@@ -308,17 +308,42 @@ export class AuthService {
       return of(false);
     }
 
-    if (this.isTokenValid() && !this.shouldRefreshToken()) {
+    const tokenUsable = this.isTokenValid() && !this.shouldRefreshToken();
+
+    // Token ainda válido e já há organização ativa: nada a sincronizar.
+    if (tokenUsable && !this.hasPendingMembershipWithoutActive()) {
       return of(true);
     }
 
+    // Quando há apenas membership pendente (convite aguardando aprovação),
+    // força a renovação para refletir aprovações recentes sem exigir logout/login.
     return this.refreshAccessToken().pipe(
       map(() => true),
       catchError(() => {
+        // Mantém a sessão quando o token local ainda é utilizável e só encerra
+        // quando ele realmente expirou.
+        if (tokenUsable) {
+          return of(true);
+        }
         this.clearToken();
         return of(false);
       }),
     );
+  }
+
+  /**
+   * Indica se o usuário possui apenas memberships pendentes (sem organização ativa).
+   * @returns `true` quando há membership pendente e nenhuma ativa
+   */
+  private hasPendingMembershipWithoutActive(): boolean {
+    const organizations = this.getOrganizations();
+    if (organizations.length === 0) {
+      return false;
+    }
+
+    const hasActive = organizations.some((organization) => organization.status === 'active');
+    const hasPending = organizations.some((organization) => organization.status === 'pending');
+    return !hasActive && hasPending;
   }
 
   /**
@@ -427,6 +452,19 @@ export class AuthService {
       tap((session) => {
         this.persistSession(session);
       }),
+    );
+  }
+
+  /**
+   * Renova a sessão completa a partir do servidor (novo token + organizações).
+   * Diferente de {@link syncSession}, emite um novo access token, refletindo
+   * aprovações de convite recentes sem exigir logout/login.
+   * @returns Observable que emite `true` quando há organização ativa após renovar
+   */
+  refreshSession(): Observable<boolean> {
+    return this.refreshAccessToken().pipe(
+      map(() => this.getActiveOrganizations().length > 0),
+      catchError(() => of(false)),
     );
   }
 
