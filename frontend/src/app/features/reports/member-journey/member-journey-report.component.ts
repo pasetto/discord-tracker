@@ -120,7 +120,7 @@ const HIGH_ENTRY_SPREAD_MINUTES = 60;
 export class MemberJourneyReportComponent implements OnInit {
   members: TrackedMemberOption[] = [];
   selectedTrackedUserId = '';
-  signal: MemberJourneySignal = 'presence';
+  signal: MemberJourneySignal = 'voice';
   includeIgnoredChannels = false;
   dateRange: ReportDateRangeValue = resolveReportDateRange('last_7_days');
   report: MemberJourneyReportDto | null = null;
