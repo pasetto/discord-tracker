@@ -1,12 +1,23 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { AppComponent } from './app.component';
+import { PwaUpdateService } from './core/pwa/pwa-update.service';
 
 describe('AppComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [AppComponent],
-      providers: [provideRouter([])],
+      providers: [
+        provideRouter([]),
+        {
+          provide: PwaUpdateService,
+          useValue: {
+            updateAvailable$: of(false),
+            applyUpdate: () => Promise.resolve(),
+          },
+        },
+      ],
     }).compileComponents();
   });
 

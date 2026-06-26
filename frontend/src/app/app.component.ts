@@ -2,12 +2,14 @@ import { Component, OnInit } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { AuthService } from './core/auth/auth.service';
 import { PushNotificationService } from './core/push/push-notification.service';
+import { PwaUpdateBannerComponent } from './shared/components/pwa-update-banner/pwa-update-banner.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [
     RouterModule,
+    PwaUpdateBannerComponent,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',

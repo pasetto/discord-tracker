@@ -1,0 +1,27 @@
+@if (updateAvailable$ | async) {
+  <div
+    role="status"
+    aria-live="polite"
+    class="fixed bottom-4 left-1/2 z-[60] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 rounded-xl border border-brand-200 bg-white px-4 py-3 shadow-lg dark:border-brand-500/30 dark:bg-gray-900"
+  >
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0">
+        <p class="text-sm font-semibold text-gray-900 dark:text-white">
+          Nova versão disponível
+        </p>
+        <p class="mt-0.5 text-sm text-gray-600 dark:text-gray-300">
+          Atualize para usar a versão mais recente do Syntra.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-70"
+        [disabled]="applying"
+        (click)="applyUpdate()"
+      >
+        {{ applying ? 'Atualizando...' : 'Atualizar agora' }}
+      </button>
+    </div>
+  </div>
+}
