@@ -72,9 +72,13 @@ export const presenceService = {
    * @param guildId ID do servidor Discord de origem
    */
   async endOpenSession(userId: Types.ObjectId, endedAt: Date, organizationId: string, guildId: string): Promise<void> {
-    const open = await presenceSessionRepository.findOpenByUserId(userId, new Types.ObjectId(organizationId), guildId);
-    if (open) {
-      await presenceSessionRepository.close(open._id, endedAt);
+    const closed = await presenceSessionRepository.closeAllOpenByUserId(
+      userId,
+      new Types.ObjectId(organizationId),
+      guildId,
+      endedAt,
+    );
+    if (closed > 0) {
       await this.refreshMetrics();
     }
   },
@@ -113,9 +117,14 @@ export const presenceService = {
       return;
     }
 
-    if (openSession) {
-      await presenceSessionRepository.close(openSession._id, now);
-    }
+    // Fecha todas as sessões abertas (não só a mais recente) para sanar órfãs
+    // acumuladas por corridas de eventos antes de abrir a nova.
+    await presenceSessionRepository.closeAllOpenByUserId(
+      userId,
+      new Types.ObjectId(monitored.organizationId),
+      monitored.guildId,
+      now,
+    );
 
     await presenceSessionRepository.create({
       organizationId: new Types.ObjectId(monitored.organizationId),

@@ -122,9 +122,13 @@ export const voiceService = {
    * @param guildId ID do servidor Discord de origem
    */
   async endOpenSession(userId: Types.ObjectId, endedAt: Date, organizationId: string, guildId: string): Promise<void> {
-    const open = await voiceSessionRepository.findOpenByUserId(userId, new Types.ObjectId(organizationId), guildId);
-    if (open) {
-      await voiceSessionRepository.close(open._id, endedAt);
+    const closed = await voiceSessionRepository.closeAllOpenByUserId(
+      userId,
+      new Types.ObjectId(organizationId),
+      guildId,
+      endedAt,
+    );
+    if (closed > 0) {
       await this.refreshMetrics();
     }
   },

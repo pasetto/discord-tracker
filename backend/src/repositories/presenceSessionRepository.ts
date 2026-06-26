@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import { PresenceSession, IPresenceSession } from '../db/models/PresenceSession';
 import { PresenceStatus } from '../config/env';
-import { overlapSeconds } from '../utils/sessionTimeUtils';
+import { clipToWindow, unionDurationSeconds, type TimeIntervalMs } from '../utils/sessionTimeUtils';
 
 const ACTIVE_PRESENCE_STATUSES = new Set<PresenceStatus>(['ONLINE', 'IDLE', 'DND']);
 
@@ -66,6 +66,34 @@ export const presenceSessionRepository = {
   },
 
   /**
+   * Fecha TODAS as sessões de presença abertas do usuário no escopo informado.
+   *
+   * Corrige acúmulo de sessões órfãs sobrepostas (criadas por corridas de eventos
+   * do Discord): garante que após uma troca de status reste no máximo uma sessão
+   * aberta por usuário.
+   * @param userId ID Mongo do usuário
+   * @param organizationId ID da organização
+   * @param guildId ID do servidor Discord
+   * @param endedAt Momento de encerramento
+   * @returns Quantidade de sessões fechadas
+   */
+  async closeAllOpenByUserId(
+    userId: Types.ObjectId,
+    organizationId: Types.ObjectId,
+    guildId: string,
+    endedAt: Date,
+  ): Promise<number> {
+    const open = await PresenceSession.find({ userId, organizationId, guildId, endedAt: null });
+    for (const session of open) {
+      const durationSeconds = Math.floor((endedAt.getTime() - session.startedAt.getTime()) / 1000);
+      session.endedAt = endedAt;
+      session.durationSeconds = Math.max(0, durationSeconds);
+      await session.save();
+    }
+    return open.length;
+  },
+
+  /**
    * Lista sessões de presença abertas, opcionalmente limitadas a um tenant/guild.
    * @param scope Escopo opcional de organização e guild
    * @returns Sessões sem endedAt
@@ -84,6 +112,11 @@ export const presenceSessionRepository = {
 
   /**
    * Soma segundos online (ONLINE/IDLE/DND) no dia por usuário.
+   *
+   * Usa a UNIÃO dos intervalos (não a soma bruta) para evitar contagem dupla
+   * quando há sessões abertas sobrepostas do mesmo usuário (sessões órfãs). Uma
+   * pessoa só tem um status por vez, então o total nunca pode exceder o tempo de
+   * relógio decorrido no dia.
    * @param userIds IDs Mongo dos usuários
    * @param dayStart Início do dia UTC
    * @param now Momento atual
@@ -111,16 +144,27 @@ export const presenceSessionRepository = {
       .lean<IPresenceSession[]>()
       .exec();
 
-    const totals = new Map<string, number>();
+    const intervalsByUser = new Map<string, TimeIntervalMs[]>();
 
     for (const session of sessions) {
       if (!ACTIVE_PRESENCE_STATUSES.has(session.status)) {
         continue;
       }
 
+      const interval = clipToWindow(session.startedAt, session.endedAt, dayStart, now);
+      if (!interval) {
+        continue;
+      }
+
       const userKey = String(session.userId);
-      const seconds = overlapSeconds(session.startedAt, session.endedAt, dayStart, now);
-      totals.set(userKey, (totals.get(userKey) ?? 0) + seconds);
+      const list = intervalsByUser.get(userKey) ?? [];
+      list.push(interval);
+      intervalsByUser.set(userKey, list);
+    }
+
+    const totals = new Map<string, number>();
+    for (const [userKey, intervals] of intervalsByUser) {
+      totals.set(userKey, unionDurationSeconds(intervals));
     }
 
     return totals;

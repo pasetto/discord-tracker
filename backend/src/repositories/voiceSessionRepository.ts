@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import { VoiceSession, IVoiceSession } from '../db/models/VoiceSession';
 import { VoiceSessionType } from '../config/env';
-import { overlapSeconds } from '../utils/sessionTimeUtils';
+import { clipToWindow, unionDurationSeconds, type TimeIntervalMs } from '../utils/sessionTimeUtils';
 
 /** Totais diários de voz por usuário. */
 export interface VoiceDailyTotals {
@@ -73,6 +73,34 @@ export const voiceSessionRepository = {
   },
 
   /**
+   * Fecha TODAS as sessões de voz abertas do usuário no escopo informado.
+   *
+   * Corrige acúmulo de sessões órfãs sobrepostas (criadas por corridas de eventos
+   * do Discord): garante que após sair/trocar de canal reste no máximo uma sessão
+   * aberta por usuário.
+   * @param userId ID Mongo do usuário
+   * @param organizationId ID da organização
+   * @param guildId ID do servidor Discord
+   * @param endedAt Momento de encerramento
+   * @returns Quantidade de sessões fechadas
+   */
+  async closeAllOpenByUserId(
+    userId: Types.ObjectId,
+    organizationId: Types.ObjectId,
+    guildId: string,
+    endedAt: Date,
+  ): Promise<number> {
+    const open = await VoiceSession.find({ userId, organizationId, guildId, endedAt: null });
+    for (const session of open) {
+      const durationSeconds = Math.floor((endedAt.getTime() - session.startedAt.getTime()) / 1000);
+      session.endedAt = endedAt;
+      session.durationSeconds = Math.max(0, durationSeconds);
+      await session.save();
+    }
+    return open.length;
+  },
+
+  /**
    * Lista sessões de voz abertas, opcionalmente limitadas a um tenant/guild.
    * @param scope Escopo opcional de organização e guild
    * @returns Sessões sem endedAt
@@ -121,6 +149,11 @@ export const voiceSessionRepository = {
 
   /**
    * Soma segundos de colaboração e inatividade de voz no dia por usuário.
+   *
+   * Usa a UNIÃO dos intervalos por bucket (colaboração e inatividade) em vez da
+   * soma bruta, evitando contagem dupla quando há sessões abertas sobrepostas do
+   * mesmo usuário (sessões órfãs). Como o usuário só fica em um canal por vez,
+   * cada bucket nunca excede o tempo de relógio decorrido no dia.
    * @param userIds IDs Mongo dos usuários
    * @param dayStart Início do dia UTC
    * @param now Momento atual
@@ -134,21 +167,32 @@ export const voiceSessionRepository = {
     now: Date,
   ): Promise<Map<string, VoiceDailyTotals>> {
     const sessions = await this.findOverlappingDay(userIds, organizationId, guildId, dayStart, now);
-    const totals = new Map<string, VoiceDailyTotals>();
+
+    const collaborationByUser = new Map<string, TimeIntervalMs[]>();
+    const inactiveByUser = new Map<string, TimeIntervalMs[]>();
 
     for (const session of sessions) {
-      const userKey = String(session.userId);
-      const bucket = totals.get(userKey) ?? { collaborationSeconds: 0, inactiveSeconds: 0 };
-      const seconds = overlapSeconds(session.startedAt, session.endedAt, dayStart, now);
-      const isCollaboration = !session.isIgnoredChannel && session.sessionType === 'VOICE';
-
-      if (isCollaboration) {
-        bucket.collaborationSeconds += seconds;
-      } else {
-        bucket.inactiveSeconds += seconds;
+      const interval = clipToWindow(session.startedAt, session.endedAt, dayStart, now);
+      if (!interval) {
+        continue;
       }
 
-      totals.set(userKey, bucket);
+      const userKey = String(session.userId);
+      const isCollaboration = !session.isIgnoredChannel && session.sessionType === 'VOICE';
+      const target = isCollaboration ? collaborationByUser : inactiveByUser;
+      const list = target.get(userKey) ?? [];
+      list.push(interval);
+      target.set(userKey, list);
+    }
+
+    const totals = new Map<string, VoiceDailyTotals>();
+    const userKeys = new Set<string>([...collaborationByUser.keys(), ...inactiveByUser.keys()]);
+
+    for (const userKey of userKeys) {
+      totals.set(userKey, {
+        collaborationSeconds: unionDurationSeconds(collaborationByUser.get(userKey) ?? []),
+        inactiveSeconds: unionDurationSeconds(inactiveByUser.get(userKey) ?? []),
+      });
     }
 
     return totals;

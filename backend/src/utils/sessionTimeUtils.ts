@@ -20,6 +20,77 @@ export function overlapSeconds(
   return Math.floor((effectiveEnd - effectiveStart) / 1000);
 }
 
+/** Intervalo de tempo em epoch (ms). */
+export interface TimeIntervalMs {
+  /** Início em epoch ms. */
+  start: number;
+  /** Fim em epoch ms. */
+  end: number;
+}
+
+/**
+ * Soma a duração (em segundos) da UNIÃO de intervalos, mesclando sobreposições.
+ *
+ * Evita contagem dupla quando há sessões abertas/sobrepostas do mesmo usuário
+ * (ex.: sessões órfãs criadas por corridas de eventos do Discord). Como uma pessoa
+ * só tem um status/canal por vez, o tempo real é a união — nunca a soma — dos
+ * intervalos. Garante que o total jamais ultrapasse o tempo de relógio da janela.
+ * @param intervals Lista de intervalos `{ start, end }` em epoch ms
+ * @returns Segundos totais cobertos pela união dos intervalos (>= 0)
+ * @example
+ * // duas sessões idênticas e sobrepostas contam uma só vez
+ * unionDurationSeconds([{ start: 0, end: 3600_000 }, { start: 0, end: 3600_000 }]) // 3600
+ */
+export function unionDurationSeconds(intervals: TimeIntervalMs[]): number {
+  const sorted = intervals
+    .filter((interval) => interval.end > interval.start)
+    .sort((left, right) => left.start - right.start);
+
+  if (sorted.length === 0) {
+    return 0;
+  }
+
+  let totalMs = 0;
+  let currentStart = sorted[0].start;
+  let currentEnd = sorted[0].end;
+
+  for (let index = 1; index < sorted.length; index += 1) {
+    const { start, end } = sorted[index];
+    if (start <= currentEnd) {
+      currentEnd = Math.max(currentEnd, end);
+    } else {
+      totalMs += currentEnd - currentStart;
+      currentStart = start;
+      currentEnd = end;
+    }
+  }
+
+  totalMs += currentEnd - currentStart;
+  return Math.floor(totalMs / 1000);
+}
+
+/**
+ * Recorta uma sessão a uma janela e retorna o intervalo efetivo em epoch ms.
+ * @param sessionStart Início da sessão
+ * @param sessionEnd Fim da sessão (null = ainda aberta, usa fim da janela)
+ * @param windowStart Início da janela
+ * @param windowEnd Fim da janela
+ * @returns Intervalo recortado ou null quando não há sobreposição
+ */
+export function clipToWindow(
+  sessionStart: Date,
+  sessionEnd: Date | null,
+  windowStart: Date,
+  windowEnd: Date,
+): TimeIntervalMs | null {
+  const start = Math.max(sessionStart.getTime(), windowStart.getTime());
+  const end = Math.min((sessionEnd ?? windowEnd).getTime(), windowEnd.getTime());
+  if (end <= start) {
+    return null;
+  }
+  return { start, end };
+}
+
 /**
  * Retorna início do dia UTC para filtros diários.
  * @param date Data de referência
