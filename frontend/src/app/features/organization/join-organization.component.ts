@@ -7,6 +7,8 @@ import { Subject, interval, switchMap, takeUntil } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { AuthPageLayoutComponent } from '../../shared/layout/auth-page-layout/auth-page-layout.component';
 import { SignupFormComponent } from '../../shared/components/auth/signup-form/signup-form.component';
+import { ThemeToggleButtonComponent } from '../../shared/components/common/theme-toggle/theme-toggle-button.component';
+import { SessionRefreshButtonComponent } from '../../shared/components/common/session-refresh-button/session-refresh-button.component';
 
 /** Intervalo (ms) entre verificações de aprovação do convite. */
 const APPROVAL_POLL_INTERVAL_MS = 15000;
@@ -25,7 +27,7 @@ interface InvitePreviewDto {
 @Component({
   selector: 'app-join-organization',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AuthPageLayoutComponent, SignupFormComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AuthPageLayoutComponent, SignupFormComponent, ThemeToggleButtonComponent, SessionRefreshButtonComponent],
   templateUrl: './join-organization.component.html',
 })
 export class JoinOrganizationComponent implements OnInit, OnDestroy {

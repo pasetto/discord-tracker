@@ -6,6 +6,10 @@
 </app-auth-page-layout>
 } @else {
 <div class="mx-auto max-w-xl p-4">
+  <div class="mb-4 flex justify-end gap-2">
+    <app-session-refresh-button />
+    <app-theme-toggle-button />
+  </div>
   <ng-container *ngTemplateOutlet="joinContent"></ng-container>
 </div>
 }

@@ -1,0 +1,26 @@
+<button
+  type="button"
+  class="relative flex items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full hover:text-dark-900 h-11 w-11 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
+  [disabled]="loading"
+  [attr.aria-label]="loading ? 'Atualizando sessão...' : 'Atualizar sessão'"
+  [title]="errorMessage || 'Atualizar sessão e recarregar'"
+  (click)="refreshSession()"
+>
+  <svg
+    class="transition-transform"
+    [class.animate-spin]="loading"
+    width="20"
+    height="20"
+    viewBox="0 0 20 20"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+  >
+    <path
+      d="M10 3.5415V1.5415M10 18.4585V16.4585M16.4585 10H18.4585M1.5415 10H3.5415M15.0974 4.9029L16.564 3.4363M3.4363 16.5637L4.9029 15.0971M15.0974 15.0971L16.564 16.5637M3.4363 3.4363L4.9029 4.9029M14.5 10C14.5 12.4853 12.4853 14.5 10 14.5C7.51472 14.5 5.5 12.4853 5.5 10C5.5 7.51472 7.51472 5.5 10 5.5C12.4853 5.5 14.5 7.51472 14.5 10Z"
+      stroke="currentColor"
+      stroke-width="1.5"
+      stroke-linecap="round"
+    />
+  </svg>
+</button>

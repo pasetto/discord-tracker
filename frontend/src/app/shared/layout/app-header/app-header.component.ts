@@ -3,6 +3,7 @@ import { SidebarService } from '../../services/sidebar.service';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ThemeToggleButtonComponent } from '../../components/common/theme-toggle/theme-toggle-button.component';
+import { SessionRefreshButtonComponent } from '../../components/common/session-refresh-button/session-refresh-button.component';
 import { UserDropdownComponent } from '../../components/header/user-dropdown/user-dropdown.component';
 import { PageContextService } from '../../../core/layout/page-context.service';
 import { TenantContextService } from '../../../core/tenant/tenant-context.service';
@@ -16,6 +17,7 @@ import { TenantContextService } from '../../../core/tenant/tenant-context.servic
     CommonModule,
     RouterModule,
     ThemeToggleButtonComponent,
+    SessionRefreshButtonComponent,
     UserDropdownComponent,
   ],
   templateUrl: './app-header.component.html',
