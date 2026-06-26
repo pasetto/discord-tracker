@@ -5,6 +5,8 @@ import { PresenceStatus } from '../../config/env';
  * Documento de sessão de presença de um usuário.
  */
 export interface IPresenceSession extends Document {
+  organizationId?: Types.ObjectId;
+  guildId?: string;
   userId: Types.ObjectId;
   status: PresenceStatus;
   startedAt: Date;
@@ -14,6 +16,8 @@ export interface IPresenceSession extends Document {
 
 const presenceSessionSchema = new Schema<IPresenceSession>(
   {
+    organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: false, index: true },
+    guildId: { type: String, required: false, trim: true, index: true },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     status: {
       type: String,
@@ -28,6 +32,8 @@ const presenceSessionSchema = new Schema<IPresenceSession>(
 );
 
 presenceSessionSchema.index({ userId: 1, endedAt: 1 });
+presenceSessionSchema.index({ organizationId: 1, guildId: 1, userId: 1, endedAt: 1 });
+presenceSessionSchema.index({ organizationId: 1, guildId: 1, startedAt: 1 });
 presenceSessionSchema.index({ startedAt: 1 });
 
 /** Model Mongoose para collection presence_sessions. */

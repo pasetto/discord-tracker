@@ -9,6 +9,8 @@ const ACTIVE_PRESENCE_STATUSES = new Set<PresenceStatus>(['ONLINE', 'IDLE', 'DND
  * Dados para criação de sessão de presença.
  */
 export interface CreatePresenceSessionData {
+  organizationId: Types.ObjectId;
+  guildId: string;
   userId: Types.ObjectId;
   status: PresenceStatus;
   startedAt: Date;
@@ -55,16 +57,21 @@ export const presenceSessionRepository = {
    * @param userId ID Mongo do usuário
    * @returns Sessão aberta ou null
    */
-  async findOpenByUserId(userId: Types.ObjectId): Promise<IPresenceSession | null> {
-    return PresenceSession.findOne({ userId, endedAt: null }).sort({ startedAt: -1 });
+  async findOpenByUserId(
+    userId: Types.ObjectId,
+    organizationId: Types.ObjectId,
+    guildId: string,
+  ): Promise<IPresenceSession | null> {
+    return PresenceSession.findOne({ userId, organizationId, guildId, endedAt: null }).sort({ startedAt: -1 });
   },
 
   /**
-   * Lista todas as sessões de presença abertas.
+   * Lista sessões de presença abertas, opcionalmente limitadas a um tenant/guild.
+   * @param scope Escopo opcional de organização e guild
    * @returns Sessões sem endedAt
    */
-  async findAllOpen(): Promise<IPresenceSession[]> {
-    return PresenceSession.find({ endedAt: null }).populate('userId');
+  async findAllOpen(scope?: { organizationId: Types.ObjectId; guildId: string }): Promise<IPresenceSession[]> {
+    return PresenceSession.find({ endedAt: null, ...(scope ?? {}) }).populate('userId');
   },
 
   /**
@@ -84,6 +91,8 @@ export const presenceSessionRepository = {
    */
   async sumTodayOnlineByUserIds(
     userIds: Types.ObjectId[],
+    organizationId: Types.ObjectId,
+    guildId: string,
     dayStart: Date,
     now: Date,
   ): Promise<Map<string, number>> {
@@ -93,6 +102,8 @@ export const presenceSessionRepository = {
 
     const sessions = await PresenceSession.find({
       userId: { $in: userIds },
+      organizationId,
+      guildId,
       startedAt: { $lt: now },
       $or: [{ endedAt: null }, { endedAt: { $gt: dayStart } }],
     })
@@ -124,6 +135,7 @@ export const presenceSessionRepository = {
   async aggregateByPeriod(
     start: Date,
     end: Date,
+    scope?: { organizationId: Types.ObjectId; guildId: string },
   ): Promise<
     Array<{
       _id: Types.ObjectId;
@@ -134,6 +146,7 @@ export const presenceSessionRepository = {
     return PresenceSession.aggregate([
       {
         $match: {
+          ...(scope ?? {}),
           startedAt: { $gte: start, $lt: end },
           durationSeconds: { $ne: null },
         },

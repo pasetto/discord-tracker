@@ -375,6 +375,8 @@ async function resolveOrganizationTimezone(organizationId: Types.ObjectId): Prom
 /**
  * Busca sessões do colaborador conforme o sinal escolhido.
  * @param coreUserId ID Mongo do usuário core
+ * @param organizationId ID Mongo da organização
+ * @param guildId ID do servidor Discord
  * @param signal Sinal de jornada (presença ou voz)
  * @param periodStart Início do período
  * @param windowEnd Fim efetivo da janela
@@ -382,6 +384,8 @@ async function resolveOrganizationTimezone(organizationId: Types.ObjectId): Prom
  */
 async function fetchJourneySessions(
   coreUserId: Types.ObjectId,
+  organizationId: Types.ObjectId,
+  guildId: string,
   signal: MemberJourneySignal,
   periodStart: Date,
   windowEnd: Date,
@@ -393,6 +397,8 @@ async function fetchJourneySessions(
 
   if (signal === 'voice') {
     const sessions = await VoiceSession.find({
+      organizationId,
+      guildId,
       userId: coreUserId,
       isIgnoredChannel: false,
       sessionType: 'VOICE',
@@ -405,6 +411,8 @@ async function fetchJourneySessions(
   }
 
   const sessions = await PresenceSession.find({
+    organizationId,
+    guildId,
     userId: coreUserId,
     status: { $in: [...ONLINE_PRESENCE_STATUSES] },
     ...timeFilter,
@@ -457,7 +465,14 @@ export async function getMemberJourneyReport(input: MemberJourneyReportInput): P
   const candidates =
     coreUser.length > 0
       ? computeDailyJourney(
-          await fetchJourneySessions(coreUser[0]._id as Types.ObjectId, signal, periodStart, windowEnd),
+          await fetchJourneySessions(
+            coreUser[0]._id as Types.ObjectId,
+            organizationId,
+            input.guildId,
+            signal,
+            periodStart,
+            windowEnd,
+          ),
           periodStart,
           windowEnd,
           timezone,

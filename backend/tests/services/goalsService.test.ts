@@ -221,6 +221,8 @@ describe('goalsService', () => {
       setBy,
     });
     await VoiceSession.create({
+      organizationId,
+      guildId,
       userId: coreUser._id,
       channelId: '10',
       channelName: 'Colaboração',
@@ -279,6 +281,8 @@ describe('goalsService', () => {
 
     await VoiceSession.create([
       {
+        organizationId,
+        guildId,
         userId: coreUser._id,
         channelId: '10',
         channelName: 'Colaboração',
@@ -289,6 +293,8 @@ describe('goalsService', () => {
         sessionType: 'VOICE',
       },
       {
+        organizationId,
+        guildId,
         userId: coreUser._id,
         channelId: '10',
         channelName: 'Colaboração',
@@ -347,6 +353,8 @@ describe('goalsService', () => {
 
     // Sessão iniciada às 09:00 e ainda aberta (endedAt null).
     await VoiceSession.create({
+      organizationId,
+      guildId,
       userId: coreUser._id,
       channelId: '10',
       channelName: 'Colaboração',
@@ -368,5 +376,89 @@ describe('goalsService', () => {
 
     // Deve contar apenas 09:00 → 12:00 (3h), e não até 23:59 (~15h).
     expect(report.entries[0]?.realizedHours).toBe(3);
+  });
+
+  it('isola horas realizadas por organização e guild, ignorando sessões legadas sem escopo', async () => {
+    const organizationId = new mongoose.Types.ObjectId();
+    const otherOrganizationId = new mongoose.Types.ObjectId();
+    const guildId = 'guild-target';
+    const otherGuildId = 'guild-other';
+
+    const [trackedUser] = await TrackedUserModel.create([
+      {
+        organizationId,
+        guildId,
+        discordId: 'd-multiguild',
+        username: 'multiguild',
+        displayName: 'Multi Guild',
+        firstSeenAt: new Date('2026-06-10T08:00:00.000Z'),
+        lastSeenAt: new Date('2026-06-10T08:00:00.000Z'),
+      },
+    ]);
+
+    const coreUser = await User.create({
+      discordId: 'd-multiguild',
+      username: 'multiguild',
+      displayName: 'Multi Guild',
+      firstSeenAt: new Date('2026-06-10T08:00:00.000Z'),
+      lastSeenAt: new Date('2026-06-10T08:00:00.000Z'),
+    });
+
+    await UserCollaborationGoalModel.create({
+      organizationId,
+      guildId,
+      trackedUserId: trackedUser._id,
+      weeklyCollaborationHours: 7,
+      source: 'manual',
+      setBy: new mongoose.Types.ObjectId(),
+    });
+
+    await VoiceSession.collection.insertMany([
+      {
+        organizationId,
+        guildId,
+        userId: coreUser._id,
+        channelId: '10',
+        channelName: 'Colaboração',
+        startedAt: new Date('2026-06-10T09:00:00.000Z'),
+        endedAt: new Date('2026-06-10T11:00:00.000Z'),
+        durationSeconds: 7200,
+        isIgnoredChannel: false,
+        sessionType: 'VOICE',
+      },
+      {
+        organizationId: otherOrganizationId,
+        guildId: otherGuildId,
+        userId: coreUser._id,
+        channelId: '20',
+        channelName: 'Outro servidor',
+        startedAt: new Date('2026-06-10T12:00:00.000Z'),
+        endedAt: new Date('2026-06-10T15:00:00.000Z'),
+        durationSeconds: 10800,
+        isIgnoredChannel: false,
+        sessionType: 'VOICE',
+      },
+      {
+        userId: coreUser._id,
+        channelId: 'legacy',
+        channelName: 'Sessão legada',
+        startedAt: new Date('2026-06-10T16:00:00.000Z'),
+        endedAt: new Date('2026-06-10T18:00:00.000Z'),
+        durationSeconds: 7200,
+        isIgnoredChannel: false,
+        sessionType: 'VOICE',
+      },
+    ]);
+
+    const report = await getGoalsWeeklyReport({
+      organizationId: organizationId.toHexString(),
+      guildId,
+      from: new Date('2026-06-10T00:00:00.000Z'),
+      to: new Date('2026-06-10T23:59:59.999Z'),
+      referenceDate: new Date('2026-06-10T23:59:59.999Z'),
+      now: new Date('2026-06-10T23:59:59.999Z'),
+    });
+
+    expect(report.entries[0]?.realizedHours).toBe(2);
   });
 });

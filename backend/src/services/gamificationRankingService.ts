@@ -221,12 +221,16 @@ function filterByVisibility(
 /**
  * Agrega horas online por usuário no período com sobreposição temporal.
  * @param coreUserIds IDs Mongo dos usuários core
+ * @param organizationId Organização tenant
+ * @param guildId Guild monitorada
  * @param periodStart Início do período
  * @param periodEnd Fim do período
  * @returns Mapa userId → horas online
  */
 async function aggregateOnlineHoursByUser(
   coreUserIds: Types.ObjectId[],
+  organizationId: Types.ObjectId,
+  guildId: string,
   periodStart: Date,
   periodEnd: Date,
 ): Promise<Map<string, number>> {
@@ -236,6 +240,8 @@ async function aggregateOnlineHoursByUser(
 
   const sessions = await PresenceSession.find({
     userId: { $in: coreUserIds },
+    organizationId,
+    guildId,
     startedAt: { $lte: periodEnd },
     $or: [{ endedAt: null }, { endedAt: { $gte: periodStart } }],
     status: { $in: Array.from(ONLINE_PRESENCE_STATUSES) },
@@ -262,6 +268,8 @@ async function aggregateOnlineHoursByUser(
 /**
  * Agrega horas de voz (produtivas e totais) por usuário no período.
  * @param coreUserIds IDs Mongo
+ * @param organizationId Organização tenant
+ * @param guildId Guild monitorada
  * @param periodStart Início
  * @param periodEnd Fim
  * @param includedChannelIds Filtro opcional de canais
@@ -269,6 +277,8 @@ async function aggregateOnlineHoursByUser(
  */
 async function aggregateVoiceHoursByUser(
   coreUserIds: Types.ObjectId[],
+  organizationId: Types.ObjectId,
+  guildId: string,
   periodStart: Date,
   periodEnd: Date,
   includedChannelIds: string[],
@@ -279,6 +289,8 @@ async function aggregateVoiceHoursByUser(
 
   const match: Record<string, unknown> = {
     userId: { $in: coreUserIds },
+    organizationId,
+    guildId,
     startedAt: { $gte: periodStart, $lte: periodEnd },
     durationSeconds: { $gt: 0 },
     sessionType: 'VOICE',
@@ -414,8 +426,8 @@ export async function getGamificationRankingReport(
 
   const includedChannelIds = settings.ranking.includedChannelIds ?? [];
   const [{ productive, voice }, onlineHoursByUserId] = await Promise.all([
-    aggregateVoiceHoursByUser(coreUserIds, periodStart, periodEnd, includedChannelIds),
-    aggregateOnlineHoursByUser(coreUserIds, periodStart, periodEnd),
+    aggregateVoiceHoursByUser(coreUserIds, organizationId, input.guildId, periodStart, periodEnd, includedChannelIds),
+    aggregateOnlineHoursByUser(coreUserIds, organizationId, input.guildId, periodStart, periodEnd),
   ]);
 
   const metricRows: MemberMetricRow[] = trackedUsers.map((trackedUser) => {

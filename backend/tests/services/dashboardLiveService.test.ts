@@ -300,7 +300,7 @@ describe('getGuildLiveDashboard', () => {
 
 
 
-    const snapshot = await getGuildLiveDashboard('guild-1', 'org-1');
+    const snapshot = await getGuildLiveDashboard('guild-1', '507f1f77bcf86cd799439011');
 
 
 

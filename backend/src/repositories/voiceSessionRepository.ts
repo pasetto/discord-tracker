@@ -13,6 +13,8 @@ export interface VoiceDailyTotals {
  * Dados para criação de sessão de voz.
  */
 export interface CreateVoiceSessionData {
+  organizationId: Types.ObjectId;
+  guildId: string;
   userId: Types.ObjectId;
   channelId: string;
   channelName: string;
@@ -62,16 +64,21 @@ export const voiceSessionRepository = {
    * @param userId ID Mongo do usuário
    * @returns Sessão aberta ou null
    */
-  async findOpenByUserId(userId: Types.ObjectId): Promise<IVoiceSession | null> {
-    return VoiceSession.findOne({ userId, endedAt: null }).sort({ startedAt: -1 });
+  async findOpenByUserId(
+    userId: Types.ObjectId,
+    organizationId: Types.ObjectId,
+    guildId: string,
+  ): Promise<IVoiceSession | null> {
+    return VoiceSession.findOne({ userId, organizationId, guildId, endedAt: null }).sort({ startedAt: -1 });
   },
 
   /**
-   * Lista todas as sessões de voz abertas.
+   * Lista sessões de voz abertas, opcionalmente limitadas a um tenant/guild.
+   * @param scope Escopo opcional de organização e guild
    * @returns Sessões sem endedAt
    */
-  async findAllOpen(): Promise<IVoiceSession[]> {
-    return VoiceSession.find({ endedAt: null }).populate('userId');
+  async findAllOpen(scope?: { organizationId: Types.ObjectId; guildId: string }): Promise<IVoiceSession[]> {
+    return VoiceSession.find({ endedAt: null, ...(scope ?? {}) }).populate('userId');
   },
 
   /**
@@ -91,6 +98,8 @@ export const voiceSessionRepository = {
    */
   async findOverlappingDay(
     userIds: Types.ObjectId[],
+    organizationId: Types.ObjectId,
+    guildId: string,
     dayStart: Date,
     now: Date,
   ): Promise<IVoiceSession[]> {
@@ -100,6 +109,8 @@ export const voiceSessionRepository = {
 
     return VoiceSession.find({
       userId: { $in: userIds },
+      organizationId,
+      guildId,
       startedAt: { $lt: now },
       $or: [{ endedAt: null }, { endedAt: { $gt: dayStart } }],
     })
@@ -117,10 +128,12 @@ export const voiceSessionRepository = {
    */
   async sumTodayByUserIds(
     userIds: Types.ObjectId[],
+    organizationId: Types.ObjectId,
+    guildId: string,
     dayStart: Date,
     now: Date,
   ): Promise<Map<string, VoiceDailyTotals>> {
-    const sessions = await this.findOverlappingDay(userIds, dayStart, now);
+    const sessions = await this.findOverlappingDay(userIds, organizationId, guildId, dayStart, now);
     const totals = new Map<string, VoiceDailyTotals>();
 
     for (const session of sessions) {
@@ -146,7 +159,11 @@ export const voiceSessionRepository = {
    * @param userIds IDs Mongo dos usuários core
    * @returns Mapa userId → instante da última sessão VOICE colaborativa
    */
-  async getLastCollaborationAtByUserIds(userIds: Types.ObjectId[]): Promise<Map<string, Date>> {
+  async getLastCollaborationAtByUserIds(
+    userIds: Types.ObjectId[],
+    organizationId: Types.ObjectId,
+    guildId: string,
+  ): Promise<Map<string, Date>> {
     if (userIds.length === 0) {
       return new Map();
     }
@@ -155,6 +172,8 @@ export const voiceSessionRepository = {
       {
         $match: {
           userId: { $in: userIds },
+          organizationId,
+          guildId,
           isIgnoredChannel: false,
           sessionType: 'VOICE',
         },
@@ -183,6 +202,7 @@ export const voiceSessionRepository = {
   async aggregateByPeriod(
     start: Date,
     end: Date,
+    scope?: { organizationId: Types.ObjectId; guildId: string },
   ): Promise<
     Array<{
       _id: Types.ObjectId;
@@ -195,6 +215,7 @@ export const voiceSessionRepository = {
     return VoiceSession.aggregate([
       {
         $match: {
+          ...(scope ?? {}),
           startedAt: { $gte: start, $lt: end },
           durationSeconds: { $ne: null },
         },

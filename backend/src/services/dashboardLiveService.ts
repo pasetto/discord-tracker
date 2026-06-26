@@ -72,13 +72,30 @@ export async function getGuildLiveDashboard(
     .lean<Array<{ _id: unknown; discordId: string }>>();
   const discordIdToUserId = new Map(users.map((user) => [user.discordId, String(user._id)]));
   const userObjectIds = users.map((user) => user._id);
+  const sessionScope = organizationId ? { organizationId: new Types.ObjectId(organizationId), guildId } : undefined;
 
   const [voiceTodayByUser, onlineTodayByUser, openSessions, openVoiceSessions, todayTransitions, recentTransitionsRaw] =
     await Promise.all([
-      voiceSessionRepository.sumTodayByUserIds(userObjectIds as Types.ObjectId[], dayStart, nowDate),
-      presenceSessionRepository.sumTodayOnlineByUserIds(userObjectIds as Types.ObjectId[], dayStart, nowDate),
-      presenceSessionRepository.findAllOpen(),
-      voiceSessionRepository.findAllOpen(),
+      sessionScope
+        ? voiceSessionRepository.sumTodayByUserIds(
+            userObjectIds as Types.ObjectId[],
+            sessionScope.organizationId,
+            sessionScope.guildId,
+            dayStart,
+            nowDate,
+          )
+        : Promise.resolve(new Map()),
+      sessionScope
+        ? presenceSessionRepository.sumTodayOnlineByUserIds(
+            userObjectIds as Types.ObjectId[],
+            sessionScope.organizationId,
+            sessionScope.guildId,
+            dayStart,
+            nowDate,
+          )
+        : Promise.resolve(new Map()),
+      presenceSessionRepository.findAllOpen(sessionScope),
+      voiceSessionRepository.findAllOpen(sessionScope),
       organizationId
         ? voiceChannelTransitionRepository.findSinceByGuild(organizationId, guildId, dayStart)
         : Promise.resolve([]),

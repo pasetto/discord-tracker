@@ -44,9 +44,23 @@ export const presenceService = {
    * @param userId ObjectId Mongo
    * @param status Status inicial
    * @param startedAt Timestamp de início
+   * @param organizationId ID da organização dona do monitoramento
+   * @param guildId ID do servidor Discord de origem
    */
-  async startSession(userId: Types.ObjectId, status: PresenceStatus, startedAt: Date): Promise<void> {
-    await presenceSessionRepository.create({ userId, status, startedAt });
+  async startSession(
+    userId: Types.ObjectId,
+    status: PresenceStatus,
+    startedAt: Date,
+    organizationId: string,
+    guildId: string,
+  ): Promise<void> {
+    await presenceSessionRepository.create({
+      organizationId: new Types.ObjectId(organizationId),
+      guildId,
+      userId,
+      status,
+      startedAt,
+    });
     await this.refreshMetrics();
   },
 
@@ -54,9 +68,11 @@ export const presenceService = {
    * Encerra a sessão de presença aberta do usuário.
    * @param userId ObjectId Mongo
    * @param endedAt Timestamp de fim
+   * @param organizationId ID da organização dona do monitoramento
+   * @param guildId ID do servidor Discord de origem
    */
-  async endOpenSession(userId: Types.ObjectId, endedAt: Date): Promise<void> {
-    const open = await presenceSessionRepository.findOpenByUserId(userId);
+  async endOpenSession(userId: Types.ObjectId, endedAt: Date, organizationId: string, guildId: string): Promise<void> {
+    const open = await presenceSessionRepository.findOpenByUserId(userId, new Types.ObjectId(organizationId), guildId);
     if (open) {
       await presenceSessionRepository.close(open._id, endedAt);
       await this.refreshMetrics();
@@ -86,7 +102,11 @@ export const presenceService = {
     const newStatus = mapDiscordPresenceStatus(newPresence.status);
     const now = new Date();
 
-    const openSession = await presenceSessionRepository.findOpenByUserId(userId);
+    const openSession = await presenceSessionRepository.findOpenByUserId(
+      userId,
+      new Types.ObjectId(monitored.organizationId),
+      monitored.guildId,
+    );
     const currentStatus = openSession?.status;
 
     if (currentStatus === newStatus) {
@@ -97,7 +117,13 @@ export const presenceService = {
       await presenceSessionRepository.close(openSession._id, now);
     }
 
-    await presenceSessionRepository.create({ userId, status: newStatus, startedAt: now });
+    await presenceSessionRepository.create({
+      organizationId: new Types.ObjectId(monitored.organizationId),
+      guildId: monitored.guildId,
+      userId,
+      status: newStatus,
+      startedAt: now,
+    });
 
     log.info(
       {

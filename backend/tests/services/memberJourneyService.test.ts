@@ -221,6 +221,8 @@ describe('memberJourneyService (integração)', () => {
     await PresenceSession.create([
       // Segunda: 09:30 → 18:00 local (UTC-3)
       {
+        organizationId,
+        guildId,
         userId: coreUser._id,
         status: 'ONLINE',
         startedAt: new Date('2026-06-22T12:30:00.000Z'),
@@ -229,6 +231,8 @@ describe('memberJourneyService (integração)', () => {
       },
       // Quarta: 11:00 → 19:00 local
       {
+        organizationId,
+        guildId,
         userId: coreUser._id,
         status: 'ONLINE',
         startedAt: new Date('2026-06-24T14:00:00.000Z'),
@@ -260,6 +264,74 @@ describe('memberJourneyService (integração)', () => {
     expect(wednesday?.entryLabel).toBe('11:00');
 
     expect(report.summary.daysWithActivity).toBe(2);
+  });
+
+  it('isola jornada por organização e guild, ignorando sessões legadas sem escopo', async () => {
+    const organizationId = await createOrganization(SAO_PAULO);
+    const otherOrganizationId = await createOrganization(SAO_PAULO);
+    const guildId = 'guild-target';
+    const otherGuildId = 'guild-other';
+
+    const [trackedUser] = await TrackedUserModel.create([
+      {
+        organizationId,
+        guildId,
+        discordId: 'd-same-user',
+        username: 'same-user',
+        displayName: 'Same User',
+        firstSeenAt: new Date('2026-06-22T00:00:00.000Z'),
+        lastSeenAt: new Date('2026-06-22T00:00:00.000Z'),
+      },
+    ]);
+
+    const coreUser = await User.create({
+      discordId: 'd-same-user',
+      username: 'same-user',
+      displayName: 'Same User',
+      firstSeenAt: new Date('2026-06-22T00:00:00.000Z'),
+      lastSeenAt: new Date('2026-06-22T00:00:00.000Z'),
+    });
+
+    await PresenceSession.collection.insertMany([
+      {
+        organizationId,
+        guildId,
+        userId: coreUser._id,
+        status: 'ONLINE',
+        startedAt: new Date('2026-06-22T12:00:00.000Z'), // 09:00 local
+        endedAt: new Date('2026-06-22T13:00:00.000Z'), // 10:00 local
+        durationSeconds: 3600,
+      },
+      {
+        organizationId: otherOrganizationId,
+        guildId: otherGuildId,
+        userId: coreUser._id,
+        status: 'ONLINE',
+        startedAt: new Date('2026-06-22T18:00:00.000Z'), // 15:00 local
+        endedAt: new Date('2026-06-22T21:00:00.000Z'), // 18:00 local
+        durationSeconds: 10800,
+      },
+      {
+        userId: coreUser._id,
+        status: 'ONLINE',
+        startedAt: new Date('2026-06-22T22:00:00.000Z'), // 19:00 local
+        endedAt: new Date('2026-06-22T23:00:00.000Z'), // 20:00 local
+        durationSeconds: 3600,
+      },
+    ]);
+
+    const report = await getMemberJourneyReport({
+      organizationId: organizationId.toHexString(),
+      guildId,
+      trackedUserId: String(trackedUser._id),
+      signal: 'presence',
+      from: new Date('2026-06-22T00:00:00.000Z'),
+      to: new Date('2026-06-22T23:59:59.999Z'),
+      now: new Date('2026-06-23T12:00:00.000Z'),
+    });
+
+    expect(report.days[0]?.entryLabel).toBe('09:00');
+    expect(report.days[0]?.exitLabel).toBe('10:00');
   });
 
   it('lança erro quando o colaborador não pertence à organização', async () => {

@@ -175,6 +175,8 @@ async function resolveWorkCalendar(
 /**
  * Soma colaboração em voz dentro da janela de trabalho por userId core.
  * @param userIds IDs Mongo dos usuários core
+ * @param organizationId Organização tenant
+ * @param guildId Guild monitorada
  * @param windowStart Início da janela UTC
  * @param windowEnd Fim da janela UTC
  * @param now Instante atual
@@ -182,6 +184,8 @@ async function resolveWorkCalendar(
  */
 async function sumCollaborationInWorkWindowByUserIds(
   userIds: Types.ObjectId[],
+  organizationId: Types.ObjectId,
+  guildId: string,
   windowStart: Date,
   windowEnd: Date,
   now: Date,
@@ -191,7 +195,13 @@ async function sumCollaborationInWorkWindowByUserIds(
   }
 
   const effectiveEnd = now.getTime() < windowEnd.getTime() ? now : windowEnd;
-  const sessions = await voiceSessionRepository.findOverlappingDay(userIds, windowStart, effectiveEnd);
+  const sessions = await voiceSessionRepository.findOverlappingDay(
+    userIds,
+    organizationId,
+    guildId,
+    windowStart,
+    effectiveEnd,
+  );
   const totals = new Map<string, number>();
 
   for (const session of sessions) {
@@ -210,12 +220,16 @@ async function sumCollaborationInWorkWindowByUserIds(
 /**
  * Indica se houve presença online dentro da janela de trabalho hoje.
  * @param userIds IDs Mongo dos usuários core
+ * @param organizationId Organização tenant
+ * @param guildId Guild monitorada
  * @param windowStart Início da janela UTC
  * @param now Instante atual
  * @returns Mapa userId → teve presença ativa
  */
 async function hasPresenceInWorkWindowByUserIds(
   userIds: Types.ObjectId[],
+  organizationId: Types.ObjectId,
+  guildId: string,
   windowStart: Date,
   now: Date,
 ): Promise<Map<string, boolean>> {
@@ -223,7 +237,13 @@ async function hasPresenceInWorkWindowByUserIds(
     return new Map();
   }
 
-  const onlineTotals = await presenceSessionRepository.sumTodayOnlineByUserIds(userIds, windowStart, now);
+  const onlineTotals = await presenceSessionRepository.sumTodayOnlineByUserIds(
+    userIds,
+    organizationId,
+    guildId,
+    windowStart,
+    now,
+  );
   const result = new Map<string, boolean>();
   for (const [userId, seconds] of onlineTotals.entries()) {
     result.set(userId, seconds > 0);
@@ -361,10 +381,10 @@ export async function getIntradayInactivityReport(
 
   const [collaborationByUserId, presenceByUserId, textByDiscordId] = await Promise.all([
     workMetrics.bounds
-      ? sumCollaborationInWorkWindowByUserIds(coreUserIds, windowStart, windowEnd, referenceDate)
+      ? sumCollaborationInWorkWindowByUserIds(coreUserIds, organizationObjectId, guildId, windowStart, windowEnd, referenceDate)
       : Promise.resolve(new Map<string, number>()),
     workMetrics.bounds
-      ? hasPresenceInWorkWindowByUserIds(coreUserIds, windowStart, referenceDate)
+      ? hasPresenceInWorkWindowByUserIds(coreUserIds, organizationObjectId, guildId, windowStart, referenceDate)
       : Promise.resolve(new Map<string, boolean>()),
     workMetrics.bounds
       ? hasTextInWorkWindowByDiscordId(organizationObjectId, guildId, discordIds, windowStart, referenceDate)

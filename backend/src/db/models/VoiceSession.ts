@@ -5,6 +5,8 @@ import { VoiceSessionType } from '../../config/env';
  * Documento de sessão de voz de um usuário.
  */
 export interface IVoiceSession extends Document {
+  organizationId?: Types.ObjectId;
+  guildId?: string;
   userId: Types.ObjectId;
   channelId: string;
   channelName: string;
@@ -18,6 +20,8 @@ export interface IVoiceSession extends Document {
 
 const voiceSessionSchema = new Schema<IVoiceSession>(
   {
+    organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: false, index: true },
+    guildId: { type: String, required: false, trim: true, index: true },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     channelId: { type: String, required: true },
     channelName: { type: String, required: true },
@@ -31,6 +35,8 @@ const voiceSessionSchema = new Schema<IVoiceSession>(
 );
 
 voiceSessionSchema.index({ userId: 1, endedAt: 1 });
+voiceSessionSchema.index({ organizationId: 1, guildId: 1, userId: 1, endedAt: 1 });
+voiceSessionSchema.index({ organizationId: 1, guildId: 1, startedAt: 1 });
 voiceSessionSchema.index({ startedAt: 1 });
 
 /** Model Mongoose para collection voice_sessions. */

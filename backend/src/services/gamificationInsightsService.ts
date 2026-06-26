@@ -134,12 +134,16 @@ function localHour(utcDate: Date, timezone: string): number {
 /**
  * Soma segundos produtivos em voz de um usuário em um intervalo.
  * @param coreUserId ID Mongo do usuário core
+ * @param organizationId Organização tenant
+ * @param guildId Guild monitorada
  * @param periodStart Início
  * @param periodEnd Fim
  * @returns Segundos colaborativos
  */
 async function sumProductiveVoiceSeconds(
   coreUserId: Types.ObjectId,
+  organizationId: Types.ObjectId,
+  guildId: string,
   periodStart: Date,
   periodEnd: Date,
 ): Promise<number> {
@@ -147,6 +151,8 @@ async function sumProductiveVoiceSeconds(
     {
       $match: {
         userId: coreUserId,
+        organizationId,
+        guildId,
         startedAt: { $gte: periodStart, $lte: periodEnd },
         durationSeconds: { $gt: 0 },
         isIgnoredChannel: false,
@@ -161,12 +167,16 @@ async function sumProductiveVoiceSeconds(
 /**
  * Soma segundos totais em voz (inclui canais ignorados).
  * @param coreUserId ID Mongo do usuário core
+ * @param organizationId Organização tenant
+ * @param guildId Guild monitorada
  * @param periodStart Início
  * @param periodEnd Fim
  * @returns Segundos em voz
  */
 async function sumVoiceSeconds(
   coreUserId: Types.ObjectId,
+  organizationId: Types.ObjectId,
+  guildId: string,
   periodStart: Date,
   periodEnd: Date,
 ): Promise<number> {
@@ -174,6 +184,8 @@ async function sumVoiceSeconds(
     {
       $match: {
         userId: coreUserId,
+        organizationId,
+        guildId,
         startedAt: { $gte: periodStart, $lte: periodEnd },
         durationSeconds: { $gt: 0 },
         sessionType: 'VOICE',
@@ -187,17 +199,23 @@ async function sumVoiceSeconds(
 /**
  * Soma segundos online (ONLINE/IDLE/DND) no período.
  * @param coreUserId ID Mongo
+ * @param organizationId Organização tenant
+ * @param guildId Guild monitorada
  * @param periodStart Início
  * @param periodEnd Fim
  * @returns Horas online
  */
 async function sumOnlineHours(
   coreUserId: Types.ObjectId,
+  organizationId: Types.ObjectId,
+  guildId: string,
   periodStart: Date,
   periodEnd: Date,
 ): Promise<number> {
   const sessions = await PresenceSession.find({
     userId: coreUserId,
+    organizationId,
+    guildId,
     startedAt: { $lte: periodEnd },
     $or: [{ endedAt: null }, { endedAt: { $gte: periodStart } }],
     status: { $in: Array.from(ONLINE_STATUSES) },
@@ -240,18 +258,24 @@ async function countTextEvents(
 /**
  * Verifica badge Madrugador (sessão de voz antes das 10h nos últimos 30 dias).
  * @param coreUserId Usuário core
+ * @param organizationId Organização tenant
+ * @param guildId Guild monitorada
  * @param timezone Timezone org
  * @param referenceDate Data de referência
  * @returns Se conquistado
  */
 async function hasEarlyBirdBadge(
   coreUserId: Types.ObjectId,
+  organizationId: Types.ObjectId,
+  guildId: string,
   timezone: string,
   referenceDate: Date,
 ): Promise<boolean> {
   const lookbackStart = new Date(referenceDate.getTime() - 30 * 24 * 60 * 60 * 1000);
   const sessions = await VoiceSession.find({
     userId: coreUserId,
+    organizationId,
+    guildId,
     startedAt: { $gte: lookbackStart, $lte: referenceDate },
     isIgnoredChannel: false,
     sessionType: 'VOICE',
@@ -266,12 +290,16 @@ async function hasEarlyBirdBadge(
 /**
  * Calcula streak de dias consecutivos com horas mínimas de colaboração.
  * @param coreUserId Usuário core
+ * @param organizationId Organização tenant
+ * @param guildId Guild monitorada
  * @param minHours Mínimo diário configurado
  * @param referenceDate Data de referência
  * @returns Dias consecutivos e última data qualificada
  */
 async function calculateStreak(
   coreUserId: Types.ObjectId,
+  organizationId: Types.ObjectId,
+  guildId: string,
   minHours: number,
   referenceDate: Date,
 ): Promise<{ currentDays: number; lastQualifiedDate: Date | null }> {
@@ -280,13 +308,13 @@ async function calculateStreak(
   let lastQualified: Date | null = null;
   const today = startOfUtcDay(referenceDate);
   const todayEnd = endOfUtcDay(today);
-  const todaySeconds = await sumProductiveVoiceSeconds(coreUserId, today, todayEnd);
+  const todaySeconds = await sumProductiveVoiceSeconds(coreUserId, organizationId, guildId, today, todayEnd);
   const startOffset = todaySeconds >= minSeconds ? 0 : 1;
 
   for (let day = startOffset; day < 90; day += 1) {
     const dayStart = new Date(today.getTime() - day * 24 * 60 * 60 * 1000);
     const dayEnd = endOfUtcDay(dayStart);
-    const seconds = await sumProductiveVoiceSeconds(coreUserId, dayStart, dayEnd);
+    const seconds = await sumProductiveVoiceSeconds(coreUserId, organizationId, guildId, dayStart, dayEnd);
     if (seconds >= minSeconds) {
       streak += 1;
       lastQualified = dayStart;
@@ -318,11 +346,13 @@ async function evaluateBadges(input: {
   const badgeIds = PACK_BADGE_IDS[input.presetPack];
 
   const [productiveSeconds, voiceSeconds, onlineHours, textCount, earlyBird] = await Promise.all([
-    sumProductiveVoiceSeconds(input.coreUserId, weekStart, weekEnd),
-    sumVoiceSeconds(input.coreUserId, weekStart, weekEnd),
-    sumOnlineHours(input.coreUserId, weekStart, weekEnd),
+    sumProductiveVoiceSeconds(input.coreUserId, input.organizationId, input.guildId, weekStart, weekEnd),
+    sumVoiceSeconds(input.coreUserId, input.organizationId, input.guildId, weekStart, weekEnd),
+    sumOnlineHours(input.coreUserId, input.organizationId, input.guildId, weekStart, weekEnd),
     countTextEvents(input.organizationId, input.guildId, input.discordId, weekStart, weekEnd),
-    badgeIds.includes('early_bird') ? hasEarlyBirdBadge(input.coreUserId, input.timezone, input.referenceDate) : false,
+    badgeIds.includes('early_bird')
+      ? hasEarlyBirdBadge(input.coreUserId, input.organizationId, input.guildId, input.timezone, input.referenceDate)
+      : false,
   ]);
 
   const productiveHours = productiveSeconds / 3600;
@@ -409,7 +439,7 @@ export async function getMemberGamificationInsights(input: {
         })
       : Promise.resolve([]),
     streaksEnabled
-      ? calculateStreak(coreUserId, minHours, referenceDate)
+      ? calculateStreak(coreUserId, organizationId, input.guildId, minHours, referenceDate)
       : Promise.resolve({ currentDays: 0, lastQualifiedDate: null }),
   ]);
 

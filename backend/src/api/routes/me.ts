@@ -308,10 +308,16 @@ async function findCoreUserIdByDiscordId(discordId: string): Promise<Types.Objec
 /**
  * Soma segundos de sessão de voz colaborativa no tenant.
  * @param userId Identificador do usuário da collection `users`
+ * @param organizationId Organização ativa do portal
+ * @param guildIds Guilds rastreadas do colaborador no tenant
  * @returns Total de segundos de colaboração em voz
  */
-async function getTotalVoiceSeconds(userId: Types.ObjectId | undefined): Promise<number> {
-  if (!userId) {
+async function getTotalVoiceSeconds(
+  userId: Types.ObjectId | undefined,
+  organizationId: string,
+  guildIds: string[],
+): Promise<number> {
+  if (!userId || guildIds.length === 0) {
     return 0;
   }
 
@@ -319,6 +325,8 @@ async function getTotalVoiceSeconds(userId: Types.ObjectId | undefined): Promise
     {
       $match: {
         userId,
+        organizationId: new Types.ObjectId(organizationId),
+        guildId: { $in: guildIds },
         durationSeconds: { $gt: 0 },
         sessionType: 'VOICE',
         isIgnoredChannel: false,
@@ -338,10 +346,16 @@ async function getTotalVoiceSeconds(userId: Types.ObjectId | undefined): Promise
 /**
  * Soma segundos de presença rastreada no tenant.
  * @param userId Identificador do usuário da collection `users`
+ * @param organizationId Organização ativa do portal
+ * @param guildIds Guilds rastreadas do colaborador no tenant
  * @returns Total de segundos de presença monitorada
  */
-async function getTotalPresenceSeconds(userId: Types.ObjectId | undefined): Promise<number> {
-  if (!userId) {
+async function getTotalPresenceSeconds(
+  userId: Types.ObjectId | undefined,
+  organizationId: string,
+  guildIds: string[],
+): Promise<number> {
+  if (!userId || guildIds.length === 0) {
     return 0;
   }
 
@@ -349,6 +363,8 @@ async function getTotalPresenceSeconds(userId: Types.ObjectId | undefined): Prom
     {
       $match: {
         userId,
+        organizationId: new Types.ObjectId(organizationId),
+        guildId: { $in: guildIds },
         durationSeconds: { $gt: 0 },
       },
     },
@@ -467,10 +483,11 @@ meRouter.get('/me/collaboration', async (ctx) => {
     const identity = await resolveMeIdentity(ctx);
     const trackedProfiles = await listTrackedProfiles(identity);
     const coreUserId = await findCoreUserIdByDiscordId(identity.discordId);
+    const trackedGuildIds = Array.from(new Set(trackedProfiles.map((profile) => profile.guildId)));
 
     const [voiceSeconds, presenceSeconds, textEventCount] = await Promise.all([
-      getTotalVoiceSeconds(coreUserId),
-      getTotalPresenceSeconds(coreUserId),
+      getTotalVoiceSeconds(coreUserId, identity.organizationId, trackedGuildIds),
+      getTotalPresenceSeconds(coreUserId, identity.organizationId, trackedGuildIds),
       countTextMetadataEvents(identity),
     ]);
 
@@ -665,10 +682,11 @@ meRouter.get('/me/data-export', async (ctx) => {
     const identity = await resolveMeIdentity(ctx);
     const trackedProfiles = await listTrackedProfiles(identity);
     const coreUserId = await findCoreUserIdByDiscordId(identity.discordId);
+    const trackedGuildIds = Array.from(new Set(trackedProfiles.map((profile) => profile.guildId)));
 
     const [voiceSeconds, presenceSeconds, textEventCount, absences, auditTrail] = await Promise.all([
-      getTotalVoiceSeconds(coreUserId),
-      getTotalPresenceSeconds(coreUserId),
+      getTotalVoiceSeconds(coreUserId, identity.organizationId, trackedGuildIds),
+      getTotalPresenceSeconds(coreUserId, identity.organizationId, trackedGuildIds),
       countTextMetadataEvents(identity),
       listOwnPlannedAbsences(identity, trackedProfiles),
       buildAuditTrailExportStub(ctx, identity),

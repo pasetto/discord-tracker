@@ -86,6 +86,7 @@ export const voiceService = {
    * @param channelId ID do canal
    * @param channelName Nome do canal
    * @param startedAt Início da sessão
+   * @param organizationId ID da organização dona do monitoramento
    * @param guildId ID do servidor Discord de origem
    */
   async startVoiceSession(
@@ -93,12 +94,15 @@ export const voiceService = {
     channelId: string,
     channelName: string,
     startedAt: Date,
+    organizationId: string,
     guildId: string,
   ): Promise<void> {
     const rules = await channelRuleRepository.getByGuildId(guildId);
     const classification = classifyVoiceChannel(channelId, channelName, rules);
 
     await voiceSessionRepository.create({
+      organizationId: new Types.ObjectId(organizationId),
+      guildId,
       userId,
       channelId,
       channelName,
@@ -114,9 +118,11 @@ export const voiceService = {
    * Encerra sessão de voz aberta do usuário.
    * @param userId ObjectId Mongo
    * @param endedAt Momento de encerramento
+   * @param organizationId ID da organização dona do monitoramento
+   * @param guildId ID do servidor Discord de origem
    */
-  async endOpenSession(userId: Types.ObjectId, endedAt: Date): Promise<void> {
-    const open = await voiceSessionRepository.findOpenByUserId(userId);
+  async endOpenSession(userId: Types.ObjectId, endedAt: Date, organizationId: string, guildId: string): Promise<void> {
+    const open = await voiceSessionRepository.findOpenByUserId(userId, new Types.ObjectId(organizationId), guildId);
     if (open) {
       await voiceSessionRepository.close(open._id, endedAt);
       await this.refreshMetrics();
@@ -216,9 +222,9 @@ export const voiceService = {
     switch (eventType) {
       case 'JOIN':
       case 'RECONNECT':
-        await this.endOpenSession(userId, now);
+        await this.endOpenSession(userId, now, monitored.organizationId, monitored.guildId);
         if (toChannel) {
-          await this.startVoiceSession(userId, toChannel.id, toChannel.name, now, guildId!);
+          await this.startVoiceSession(userId, toChannel.id, toChannel.name, now, monitored.organizationId, monitored.guildId);
         }
         log.info(
           {
@@ -234,7 +240,7 @@ export const voiceService = {
 
       case 'LEAVE':
       case 'DISCONNECT':
-        await this.endOpenSession(userId, now);
+        await this.endOpenSession(userId, now, monitored.organizationId, monitored.guildId);
         log.info(
           {
             discordId: oldState.id,
@@ -250,9 +256,9 @@ export const voiceService = {
       case 'SWITCH':
       case 'MOVED':
       case 'AFK_AUTO':
-        await this.endOpenSession(userId, now);
+        await this.endOpenSession(userId, now, monitored.organizationId, monitored.guildId);
         if (toChannel) {
-          await this.startVoiceSession(userId, toChannel.id, toChannel.name, now, guildId!);
+          await this.startVoiceSession(userId, toChannel.id, toChannel.name, now, monitored.organizationId, monitored.guildId);
         }
         log.info(
           {

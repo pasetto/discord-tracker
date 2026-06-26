@@ -432,7 +432,7 @@ export async function generateWeeklyInactivitySnapshot(
     getLastTextActivityByDiscordId(organizationObjectId, guildId, discordIds),
     getPlannedAbsencesByDiscordId(organizationObjectId, guildId, discordIds),
     getCategoryNamesById(organizationObjectId, guildId),
-    voiceSessionRepository.getLastCollaborationAtByUserIds(coreUserIds),
+    voiceSessionRepository.getLastCollaborationAtByUserIds(coreUserIds, organizationObjectId, guildId),
     InactivitySnapshotModel.findOne({
       organizationId: organizationObjectId,
       guildId,

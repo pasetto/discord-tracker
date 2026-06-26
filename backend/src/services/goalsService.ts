@@ -86,6 +86,8 @@ export interface GoalsWeeklyReport {
  */
 async function aggregateRealizedVoiceHoursByUserId(
   coreUserIds: Types.ObjectId[],
+  organizationId: Types.ObjectId,
+  guildId: string,
   periodStart: Date,
   windowEnd: Date,
 ): Promise<Map<string, number>> {
@@ -95,6 +97,8 @@ async function aggregateRealizedVoiceHoursByUserId(
 
   const sessions = await VoiceSession.find({
     userId: { $in: coreUserIds },
+    organizationId,
+    guildId,
     isIgnoredChannel: false,
     sessionType: 'VOICE',
     startedAt: { $lte: windowEnd },
@@ -346,7 +350,7 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
       .select({ trackedUserId: 1, weeklyCollaborationHours: 1, dailyMinimumHours: 1 })
       .lean()
       .exec(),
-    aggregateRealizedVoiceHoursByUserId(coreUserIds, periodStart, realizedWindowEnd),
+    aggregateRealizedVoiceHoursByUserId(coreUserIds, organizationId, input.guildId, periodStart, realizedWindowEnd),
   ]);
 
   const goalsByTrackedUserId = new Map(goals.map((goal) => [String(goal.trackedUserId), goal]));
