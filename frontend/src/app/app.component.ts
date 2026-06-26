@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { AuthService } from './core/auth/auth.service';
 import { PushNotificationService } from './core/push/push-notification.service';
+import { AppVersionBadgeComponent } from './shared/components/app-version-badge/app-version-badge.component';
 import { PwaUpdateBannerComponent } from './shared/components/pwa-update-banner/pwa-update-banner.component';
 
 @Component({
@@ -10,6 +11,7 @@ import { PwaUpdateBannerComponent } from './shared/components/pwa-update-banner/
   imports: [
     RouterModule,
     PwaUpdateBannerComponent,
+    AppVersionBadgeComponent,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
