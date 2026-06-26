@@ -27,6 +27,17 @@ import { ReportDateFilterComponent } from '../../../shared/components/report-dat
 /** Sinal usado para determinar entrada/saída. */
 type MemberJourneySignal = 'presence' | 'voice';
 
+/** Segmento individual de sessão em um dia civil. */
+interface MemberJourneySessionDto {
+  entryMinute: number;
+  exitMinute: number;
+  entryLabel: string;
+  exitLabel: string;
+  channelName: string;
+  isIgnoredChannel: boolean;
+  spanMinutes: number;
+}
+
 /** Jornada de um dia civil. */
 interface MemberJourneyDayDto {
   date: string;
@@ -37,6 +48,7 @@ interface MemberJourneyDayDto {
   entryLabel: string | null;
   exitLabel: string | null;
   spanMinutes: number;
+  sessions: MemberJourneySessionDto[];
 }
 
 /** Padrão agregado por dia da semana. */
@@ -62,6 +74,10 @@ interface MemberJourneySummaryDto {
   avgEntryLabel: string | null;
   avgExitLabel: string | null;
   avgSpanHours: number;
+  voiceEntryCount: number;
+  collaborationEntryLabels: string[];
+  totalCollaborationMinutes: number;
+  avgDailyCollaborationHours: number;
 }
 
 /** Relatório completo de jornada do colaborador. */
@@ -79,13 +95,21 @@ interface MemberJourneyReportDto {
   summary: MemberJourneySummaryDto;
 }
 
+/** Cor das barras de colaboração em voz. */
+const VOICE_COLLABORATION_COLOR = '#465fff';
+
+/** Cor das barras de canais ignorados em voz. */
+const VOICE_IGNORED_COLOR = '#94a3b8';
+
+/** Cor de dias que destoam do padrão semanal (presença). */
+const PRESENCE_OUTLIER_COLOR = '#f59e0b';
+
 /** Limite considerado alta variabilidade na entrada (em minutos). */
 const HIGH_ENTRY_SPREAD_MINUTES = 60;
 
 /**
- * Relatório de padrões de jornada por colaborador: mostra o horário de entrada e
- * saída de cada dia em um gráfico de faixa, ajudando a identificar comportamentos
- * (ex.: entra 09:30, mas às quartas entra 11:00).
+ * Relatório de padrões de jornada por colaborador: mostra cada sessão de voz como
+ * barra individual (entrada → saída) e mantém visão agregada para presença online.
  */
 @Component({
   selector: 'app-member-journey-report',
@@ -97,6 +121,7 @@ export class MemberJourneyReportComponent implements OnInit {
   members: TrackedMemberOption[] = [];
   selectedTrackedUserId = '';
   signal: MemberJourneySignal = 'presence';
+  includeIgnoredChannels = false;
   dateRange: ReportDateRangeValue = resolveReportDateRange('last_7_days');
   report: MemberJourneyReportDto | null = null;
   loading = false;
@@ -144,11 +169,14 @@ export class MemberJourneyReportComponent implements OnInit {
   readonly tooltip: ApexTooltip = {
     custom: ({ seriesIndex, dataPointIndex, w }): string => {
       const point = w?.config?.series?.[seriesIndex]?.data?.[dataPointIndex] as
-        | { x?: string; meta?: { label?: string } }
+        | { x?: string; meta?: { label?: string; channelName?: string; ignored?: boolean } }
         | undefined;
       const day = point?.x ?? '';
       const label = point?.meta?.label ?? 'Sem atividade';
-      return `<div class="px-3 py-2 text-xs"><strong>${day}</strong><br/>${label}</div>`;
+      const channel = point?.meta?.channelName;
+      const ignoredNote = point?.meta?.ignored ? '<br/><em>Canal ignorado</em>' : '';
+      const channelLine = channel ? `<br/>Canal: ${channel}` : '';
+      return `<div class="px-3 py-2 text-xs"><strong>${day}</strong><br/>${label}${channelLine}${ignoredNote}</div>`;
     },
   };
 
@@ -173,6 +201,13 @@ export class MemberJourneyReportComponent implements OnInit {
   }
 
   /**
+   * Indica se o relatório está no modo voz.
+   */
+  get isVoiceMode(): boolean {
+    return this.signal === 'voice';
+  }
+
+  /**
    * Dias com atividade no período (para listagem detalhada).
    */
   get activeDays(): MemberJourneyDayDto[] {
@@ -184,6 +219,22 @@ export class MemberJourneyReportComponent implements OnInit {
    */
   get patternsWithVariability(): MemberJourneyWeekdayPatternDto[] {
     return this.report?.weekdayPatterns ?? [];
+  }
+
+  /**
+   * Total de horas de colaboração em voz no período.
+   */
+  get totalCollaborationHours(): number {
+    const minutes = this.report?.summary.totalCollaborationMinutes ?? 0;
+    return Number((minutes / 60).toFixed(2));
+  }
+
+  /**
+   * Texto compacto com todos os horários de entrada em colaboração.
+   */
+  get collaborationEntriesText(): string {
+    const labels = this.report?.summary.collaborationEntryLabels ?? [];
+    return labels.length > 0 ? labels.join(', ') : '—';
   }
 
   /**
@@ -228,6 +279,16 @@ export class MemberJourneyReportComponent implements OnInit {
    */
   onSignalChange(signal: MemberJourneySignal): void {
     this.signal = signal;
+    if (signal !== 'voice') {
+      this.includeIgnoredChannels = false;
+    }
+    this.loadReport();
+  }
+
+  /**
+   * Recarrega ao alternar inclusão de canais ignorados.
+   */
+  onIncludeIgnoredChange(): void {
     this.loadReport();
   }
 
@@ -255,9 +316,13 @@ export class MemberJourneyReportComponent implements OnInit {
     this.loading = true;
     this.errorMessage = '';
 
-    const params = toReportDateHttpParams(this.dateRange)
+    let params = toReportDateHttpParams(this.dateRange)
       .set('trackedUserId', this.selectedTrackedUserId)
       .set('signal', this.signal);
+
+    if (this.isVoiceMode && this.includeIgnoredChannels) {
+      params = params.set('includeIgnoredChannels', 'true');
+    }
 
     this.httpClient
       .get<{ report: MemberJourneyReportDto }>(`${this.tenantContext.getGuildApiBaseUrl()}/reports/member-journey`, {
@@ -277,17 +342,51 @@ export class MemberJourneyReportComponent implements OnInit {
   }
 
   /**
-   * Converte os dias do relatório em série do gráfico de faixa (entrada→saída).
+   * Monta a série do gráfico conforme o sinal selecionado.
    * @param report Relatório recebido
    * @returns Série pronta para o ApexCharts
    */
   private buildChartSeries(report: MemberJourneyReportDto): ApexAxisChartSeries {
+    if (report.signal === 'voice') {
+      return this.buildVoiceChartSeries(report);
+    }
+    return this.buildPresenceChartSeries(report);
+  }
+
+  /**
+   * Converte sessões de voz em barras individuais por entrada em canal.
+   * @param report Relatório de voz
+   * @returns Série com uma barra por sessão
+   */
+  private buildVoiceChartSeries(report: MemberJourneyReportDto): ApexAxisChartSeries {
+    const data = report.days.flatMap((day) =>
+      day.sessions.map((session) => ({
+        x: this.formatDayLabel(day),
+        y: [session.entryMinute, session.exitMinute],
+        fillColor: session.isIgnoredChannel ? VOICE_IGNORED_COLOR : VOICE_COLLABORATION_COLOR,
+        meta: {
+          label: `${session.entryLabel} → ${session.exitLabel}`,
+          channelName: session.channelName,
+          ignored: session.isIgnoredChannel,
+        },
+      })),
+    );
+
+    return [{ name: 'Voz', data }];
+  }
+
+  /**
+   * Converte os dias de presença em série agregada (entrada→saída por dia).
+   * @param report Relatório de presença
+   * @returns Série com uma barra por dia
+   */
+  private buildPresenceChartSeries(report: MemberJourneyReportDto): ApexAxisChartSeries {
     const data = report.days
       .filter((day) => day.hasActivity && day.entryMinute !== null && day.exitMinute !== null)
       .map((day) => ({
         x: this.formatDayLabel(day),
         y: [day.entryMinute as number, day.exitMinute as number],
-        fillColor: this.isOutlierDay(report, day) ? '#f59e0b' : '#465fff',
+        fillColor: this.isOutlierDay(report, day) ? PRESENCE_OUTLIER_COLOR : VOICE_COLLABORATION_COLOR,
         meta: { label: `${day.entryLabel} → ${day.exitLabel}` },
       }));
 

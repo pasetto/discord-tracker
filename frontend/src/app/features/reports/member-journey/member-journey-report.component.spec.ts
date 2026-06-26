@@ -4,6 +4,21 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { provideRouter } from '@angular/router';
 import { MemberJourneyReportComponent } from './member-journey-report.component';
 
+/** Resumo padrão usado como fixture nos testes. */
+const JOURNEY_SUMMARY = {
+  totalDays: 3,
+  daysWithActivity: 2,
+  avgEntryMinute: 615,
+  avgExitMinute: 1110,
+  avgEntryLabel: '10:15',
+  avgExitLabel: '18:30',
+  avgSpanHours: 8.25,
+  voiceEntryCount: 0,
+  collaborationEntryLabels: [] as string[],
+  totalCollaborationMinutes: 0,
+  avgDailyCollaborationHours: 0,
+};
+
 /** Relatório de jornada usado como fixture nos testes. */
 const JOURNEY_REPORT = {
   trackedUserId: 'tu-1',
@@ -24,6 +39,7 @@ const JOURNEY_REPORT = {
       entryLabel: '09:30',
       exitLabel: '18:00',
       spanMinutes: 510,
+      sessions: [],
     },
     {
       date: '2026-06-23',
@@ -34,6 +50,7 @@ const JOURNEY_REPORT = {
       entryLabel: null,
       exitLabel: null,
       spanMinutes: 0,
+      sessions: [],
     },
     {
       date: '2026-06-24',
@@ -44,6 +61,7 @@ const JOURNEY_REPORT = {
       entryLabel: '11:00',
       exitLabel: '19:00',
       spanMinutes: 480,
+      sessions: [],
     },
   ],
   weekdayPatterns: [
@@ -72,14 +90,74 @@ const JOURNEY_REPORT = {
       entrySpreadMinutes: 0,
     },
   ],
+  summary: JOURNEY_SUMMARY,
+};
+
+/** Relatório de voz com duas sessões no mesmo dia. */
+const VOICE_JOURNEY_REPORT = {
+  ...JOURNEY_REPORT,
+  signal: 'voice' as const,
+  days: [
+    {
+      date: '2026-06-22',
+      weekday: 1,
+      hasActivity: true,
+      entryMinute: 570,
+      exitMinute: 1080,
+      entryLabel: '09:30',
+      exitLabel: '18:00',
+      spanMinutes: 510,
+      sessions: [
+        {
+          entryMinute: 570,
+          exitMinute: 720,
+          entryLabel: '09:30',
+          exitLabel: '12:00',
+          channelName: 'Geral',
+          isIgnoredChannel: false,
+          spanMinutes: 150,
+        },
+        {
+          entryMinute: 760,
+          exitMinute: 1080,
+          entryLabel: '12:40',
+          exitLabel: '18:00',
+          channelName: 'Dev',
+          isIgnoredChannel: false,
+          spanMinutes: 320,
+        },
+      ],
+    },
+    {
+      date: '2026-06-23',
+      weekday: 2,
+      hasActivity: false,
+      entryMinute: null,
+      exitMinute: null,
+      entryLabel: null,
+      exitLabel: null,
+      spanMinutes: 0,
+      sessions: [],
+    },
+    {
+      date: '2026-06-24',
+      weekday: 3,
+      hasActivity: false,
+      entryMinute: null,
+      exitMinute: null,
+      entryLabel: null,
+      exitLabel: null,
+      spanMinutes: 0,
+      sessions: [],
+    },
+  ],
   summary: {
-    totalDays: 3,
-    daysWithActivity: 2,
-    avgEntryMinute: 615,
-    avgExitMinute: 1110,
-    avgEntryLabel: '10:15',
-    avgExitLabel: '18:30',
-    avgSpanHours: 8.25,
+    ...JOURNEY_SUMMARY,
+    daysWithActivity: 1,
+    voiceEntryCount: 2,
+    collaborationEntryLabels: ['09:30', '12:40'],
+    totalCollaborationMinutes: 470,
+    avgDailyCollaborationHours: 7.83,
   },
 };
 
@@ -125,13 +203,13 @@ describe('MemberJourneyReportComponent', () => {
     request.flush({ report: JOURNEY_REPORT });
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement.textContent as string);
+    const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('Entrada média');
     expect(text).toContain('10:15');
     expect(text).toContain('Quarta');
   });
 
-  it('constrói a série do gráfico apenas com dias que têm atividade', () => {
+  it('constrói a série do gráfico apenas com dias que têm atividade (presença)', () => {
     httpMock
       .expectOne((req) => req.url.includes('/reports/member-journey'))
       .flush({ report: JOURNEY_REPORT });
@@ -145,7 +223,7 @@ describe('MemberJourneyReportComponent', () => {
     expect(data[1].y).toEqual([660, 1140]);
   });
 
-  it('recarrega ao trocar o sinal para voz', () => {
+  it('recarrega ao trocar o sinal para voz e monta uma barra por sessão', () => {
     httpMock
       .expectOne((req) => req.url.includes('/reports/member-journey'))
       .flush({ report: JOURNEY_REPORT });
@@ -156,9 +234,45 @@ describe('MemberJourneyReportComponent', () => {
     const voiceRequest = httpMock.expectOne(
       (req) => req.url.includes('/reports/member-journey') && req.params.get('signal') === 'voice',
     );
-    voiceRequest.flush({ report: { ...JOURNEY_REPORT, signal: 'voice' } });
+    voiceRequest.flush({ report: VOICE_JOURNEY_REPORT });
     fixture.detectChanges();
 
     expect(fixture.componentInstance.signal).toBe('voice');
+
+    const data = fixture.componentInstance.chartSeries[0].data as Array<{ y: number[]; fillColor: string }>;
+    expect(data).toHaveSize(2);
+    expect(data[0].y).toEqual([570, 720]);
+    expect(data[1].y).toEqual([760, 1080]);
+    expect(data[0].fillColor).toBe('#465fff');
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Entradas em colaboração');
+    expect(text).toContain('09:30, 12:40');
+  });
+
+  it('envia includeIgnoredChannels ao marcar o checkbox em modo voz', () => {
+    httpMock
+      .expectOne((req) => req.url.includes('/reports/member-journey'))
+      .flush({ report: JOURNEY_REPORT });
+    fixture.detectChanges();
+
+    fixture.componentInstance.onSignalChange('voice');
+    httpMock
+      .expectOne((req) => req.url.includes('/reports/member-journey'))
+      .flush({ report: VOICE_JOURNEY_REPORT });
+    fixture.detectChanges();
+
+    fixture.componentInstance.includeIgnoredChannels = true;
+    fixture.componentInstance.onIncludeIgnoredChange();
+
+    const ignoredRequest = httpMock.expectOne(
+      (req) =>
+        req.url.includes('/reports/member-journey') &&
+        req.params.get('includeIgnoredChannels') === 'true',
+    );
+    ignoredRequest.flush({ report: VOICE_JOURNEY_REPORT });
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.includeIgnoredChannels).toBeTrue();
   });
 });

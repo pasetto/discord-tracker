@@ -6,8 +6,10 @@ import { PlanModel } from '../../src/db/models/Plan';
 import { PresenceSession } from '../../src/db/models/PresenceSession';
 import { TrackedUserModel } from '../../src/db/models/TrackedUser';
 import { User } from '../../src/db/models/User';
+import { VoiceSession } from '../../src/db/models/VoiceSession';
 import {
   computeDailyJourney,
+  computeDailySessionSegments,
   getMemberJourneyReport,
   listCivilDays,
   minutesToLabel,
@@ -83,6 +85,35 @@ describe('memberJourneyService (helpers puros)', () => {
     expect(day?.exit).toBe(18 * 60); // última saída
   });
 
+  it('mantém cada sessão de voz como segmento separado no mesmo dia', () => {
+    const result = computeDailySessionSegments(
+      [
+        {
+          startedAt: new Date('2026-06-22T12:30:00.000Z'),
+          endedAt: new Date('2026-06-22T15:00:00.000Z'),
+          channelName: 'Geral',
+          isIgnoredChannel: false,
+        },
+        {
+          startedAt: new Date('2026-06-22T15:40:00.000Z'),
+          endedAt: new Date('2026-06-22T18:40:00.000Z'),
+          channelName: 'Dev',
+          isIgnoredChannel: false,
+        },
+      ],
+      new Date('2026-06-22T03:00:00.000Z'),
+      new Date('2026-06-23T02:59:59.999Z'),
+      SAO_PAULO,
+    );
+
+    const segments = result.get('2026-06-22');
+    expect(segments).toHaveLength(2);
+    expect(segments?.[0].entryLabel).toBe('09:30');
+    expect(segments?.[0].exitLabel).toBe('12:00');
+    expect(segments?.[1].entryLabel).toBe('12:40');
+    expect(segments?.[1].exitLabel).toBe('15:40');
+  });
+
   it('agrega padrões por dia da semana com média e variabilidade', () => {
     const days: MemberJourneyDay[] = [
       buildDay('2026-06-22', 1, 9 * 60, 18 * 60), // segunda 09:00
@@ -114,6 +145,7 @@ function buildDay(date: string, weekday: number, entry: number, exit: number): M
     entryLabel: minutesToLabel(entry),
     exitLabel: minutesToLabel(exit),
     spanMinutes: exit - entry,
+    sessions: [],
   };
 }
 
@@ -129,6 +161,7 @@ describe('memberJourneyService (integração)', () => {
       TrackedUserModel.syncIndexes(),
       PresenceSession.syncIndexes(),
       User.syncIndexes(),
+      VoiceSession.syncIndexes(),
     ]);
   }, 60000);
 
@@ -146,6 +179,7 @@ describe('memberJourneyService (integração)', () => {
       TrackedUserModel.deleteMany({}),
       PresenceSession.deleteMany({}),
       User.deleteMany({}),
+      VoiceSession.deleteMany({}),
     ]);
   });
 
@@ -264,6 +298,89 @@ describe('memberJourneyService (integração)', () => {
     expect(wednesday?.entryLabel).toBe('11:00');
 
     expect(report.summary.daysWithActivity).toBe(2);
+  });
+
+  it('retorna segmentos individuais de voz e distingue canais ignorados', async () => {
+    const organizationId = await createOrganization(SAO_PAULO);
+    const guildId = 'guild-voice-journey';
+
+    const [trackedUser] = await TrackedUserModel.create([
+      {
+        organizationId,
+        guildId,
+        discordId: 'd-voice',
+        username: 'voice',
+        displayName: 'Voice User',
+        firstSeenAt: new Date('2026-06-22T00:00:00.000Z'),
+        lastSeenAt: new Date('2026-06-22T00:00:00.000Z'),
+      },
+    ]);
+
+    const coreUser = await User.create({
+      discordId: 'd-voice',
+      username: 'voice',
+      displayName: 'Voice User',
+      firstSeenAt: new Date('2026-06-22T00:00:00.000Z'),
+      lastSeenAt: new Date('2026-06-22T00:00:00.000Z'),
+    });
+
+    await VoiceSession.create([
+      {
+        organizationId,
+        guildId,
+        userId: coreUser._id,
+        channelId: 'ch-1',
+        channelName: 'Colaboração',
+        sessionType: 'VOICE',
+        isIgnoredChannel: false,
+        startedAt: new Date('2026-06-22T12:30:00.000Z'),
+        endedAt: new Date('2026-06-22T15:00:00.000Z'),
+        durationSeconds: 2.5 * 3600,
+      },
+      {
+        organizationId,
+        guildId,
+        userId: coreUser._id,
+        channelId: 'ch-2',
+        channelName: 'AFK',
+        sessionType: 'VOICE',
+        isIgnoredChannel: true,
+        startedAt: new Date('2026-06-22T16:00:00.000Z'),
+        endedAt: new Date('2026-06-22T17:00:00.000Z'),
+        durationSeconds: 3600,
+      },
+    ]);
+
+    const withoutIgnored = await getMemberJourneyReport({
+      organizationId: organizationId.toHexString(),
+      guildId,
+      trackedUserId: String(trackedUser._id),
+      signal: 'voice',
+      from: new Date('2026-06-22T00:00:00.000Z'),
+      to: new Date('2026-06-22T23:59:59.999Z'),
+      now: new Date('2026-06-23T12:00:00.000Z'),
+    });
+
+    const monday = withoutIgnored.days.find((day) => day.date === '2026-06-22');
+    expect(monday?.sessions).toHaveLength(1);
+    expect(monday?.sessions[0].channelName).toBe('Colaboração');
+    expect(withoutIgnored.summary.voiceEntryCount).toBe(1);
+    expect(withoutIgnored.summary.collaborationEntryLabels).toEqual(['09:30']);
+
+    const withIgnored = await getMemberJourneyReport({
+      organizationId: organizationId.toHexString(),
+      guildId,
+      trackedUserId: String(trackedUser._id),
+      signal: 'voice',
+      includeIgnoredChannels: true,
+      from: new Date('2026-06-22T00:00:00.000Z'),
+      to: new Date('2026-06-22T23:59:59.999Z'),
+      now: new Date('2026-06-23T12:00:00.000Z'),
+    });
+
+    expect(withIgnored.days[0]?.sessions).toHaveLength(2);
+    expect(withIgnored.days[0]?.sessions[1].isIgnoredChannel).toBe(true);
+    expect(withIgnored.summary.voiceEntryCount).toBe(1);
   });
 
   it('isola jornada por organização e guild, ignorando sessões legadas sem escopo', async () => {

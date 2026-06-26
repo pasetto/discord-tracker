@@ -425,6 +425,11 @@ goalsRouter.get('/guilds/:guildId/reports/goals', async (ctx) => {
  *           type: string
  *           enum: [presence, voice]
  *       - in: query
+ *         name: includeIgnoredChannels
+ *         schema:
+ *           type: boolean
+ *         description: Inclui sessões em canais ignorados (somente sinal voice). Default false.
+ *       - in: query
  *         name: preset
  *         schema:
  *           type: string
@@ -457,6 +462,7 @@ goalsRouter.get('/guilds/:guildId/reports/member-journey', async (ctx) => {
 
     const signalParam = typeof ctx.query.signal === 'string' ? ctx.query.signal : undefined;
     const signal: MemberJourneySignal = signalParam === 'voice' ? 'voice' : 'presence';
+    const includeIgnoredChannels = ctx.query.includeIgnoredChannels === 'true';
 
     const range = parseReportDateRangeQuery({
       preset: typeof ctx.query.preset === 'string' ? ctx.query.preset : undefined,
@@ -471,6 +477,7 @@ goalsRouter.get('/guilds/:guildId/reports/member-journey', async (ctx) => {
       signal,
       from: range.from,
       to: range.to,
+      includeIgnoredChannels,
     });
 
     ctx.body = { report };

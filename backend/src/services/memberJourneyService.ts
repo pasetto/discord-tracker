@@ -31,6 +31,30 @@ export type MemberJourneySignal = 'presence' | 'voice';
 export interface JourneySessionInput {
   startedAt: Date;
   endedAt: Date | null;
+  /** Nome do canal de voz (apenas sinal `voice`). */
+  channelName?: string;
+  /** Indica se o canal está marcado como ignorado nas regras da guild. */
+  isIgnoredChannel?: boolean;
+}
+
+/**
+ * Segmento individual de atividade em um dia civil (uma entrada em canal de voz).
+ */
+export interface MemberJourneySessionSegment {
+  /** Minutos desde a meia-noite local da entrada neste segmento. */
+  entryMinute: number;
+  /** Minutos desde a meia-noite local da saída neste segmento. */
+  exitMinute: number;
+  /** Rótulo HH:MM da entrada. */
+  entryLabel: string;
+  /** Rótulo HH:MM da saída. */
+  exitLabel: string;
+  /** Nome do canal de voz. */
+  channelName: string;
+  /** Indica se o canal é ignorado nas regras de colaboração. */
+  isIgnoredChannel: boolean;
+  /** Duração do segmento em minutos. */
+  spanMinutes: number;
 }
 
 /**
@@ -53,6 +77,11 @@ export interface MemberJourneyDay {
   exitLabel: string | null;
   /** Janela bruta entre entrada e saída em minutos. */
   spanMinutes: number;
+  /**
+   * Sessões individuais do dia (preenchido no sinal `voice`).
+   * Cada item representa uma entrada em canal com início e fim no mesmo dia civil.
+   */
+  sessions: MemberJourneySessionSegment[];
 }
 
 /**
@@ -83,6 +112,14 @@ export interface MemberJourneySummary {
   avgEntryLabel: string | null;
   avgExitLabel: string | null;
   avgSpanHours: number;
+  /** Quantidade de entradas em canais de colaboração (somente sinal `voice`). */
+  voiceEntryCount: number;
+  /** Horários de entrada em colaboração no período, em ordem cronológica. */
+  collaborationEntryLabels: string[];
+  /** Total de minutos em canais de colaboração no período. */
+  totalCollaborationMinutes: number;
+  /** Média de horas de colaboração por dia com atividade. */
+  avgDailyCollaborationHours: number;
 }
 
 /**
@@ -114,6 +151,11 @@ export interface MemberJourneyReportInput {
   to?: Date;
   /** Instante atual (limita sessões abertas e o período ao presente). Default: agora. */
   now?: Date;
+  /**
+   * Inclui sessões em canais ignorados (somente sinal `voice`).
+   * Default: `false` — apenas canais de colaboração.
+   */
+  includeIgnoredChannels?: boolean;
 }
 
 /**
@@ -251,6 +293,76 @@ export function computeDailyJourney(
 }
 
 /**
+ * Divide sessões em segmentos individuais por dia civil, sem agregar entrada/saída.
+ *
+ * Cada segmento corresponde a uma permanência contínua em canal (ou presença) dentro
+ * de um único dia. Sessões que cruzam a meia-noite geram um segmento por dia civil.
+ * @param sessions Sessões com início e fim (fim nulo = ainda aberta)
+ * @param periodStart Início do período (UTC)
+ * @param windowEnd Fim efetivo da janela (UTC, já limitado ao presente)
+ * @param timezone Timezone IANA da organização
+ * @returns Mapa data civil → lista de segmentos ordenados por entrada
+ */
+export function computeDailySessionSegments(
+  sessions: JourneySessionInput[],
+  periodStart: Date,
+  windowEnd: Date,
+  timezone: string,
+): Map<string, MemberJourneySessionSegment[]> {
+  const segmentsByDay = new Map<string, MemberJourneySessionSegment[]>();
+
+  const appendSegment = (key: string, segment: MemberJourneySessionSegment): void => {
+    const list = segmentsByDay.get(key) ?? [];
+    list.push(segment);
+    segmentsByDay.set(key, list);
+  };
+
+  for (const session of sessions) {
+    const startMs = Math.max(session.startedAt.getTime(), periodStart.getTime());
+    const rawEndMs = session.endedAt ? session.endedAt.getTime() : windowEnd.getTime();
+    const endMs = Math.min(rawEndMs, windowEnd.getTime());
+    if (endMs <= startMs) {
+      continue;
+    }
+
+    let bounds = getDayBounds(new Date(startMs), timezone);
+    let safety = 0;
+
+    while (bounds.start.getTime() < endMs && safety < 400) {
+      const dayStartMs = bounds.start.getTime();
+      const dayEndMs = bounds.end.getTime();
+      const segStart = Math.max(startMs, dayStartMs);
+      const segEnd = Math.min(endMs, dayEndMs);
+
+      if (segEnd > segStart) {
+        const key = formatDateString(bounds.start, timezone);
+        const entry = segStart === dayStartMs ? 0 : zonedMinuteOfDay(new Date(segStart), timezone);
+        const exit = segEnd === dayEndMs ? MINUTES_IN_DAY : zonedMinuteOfDay(new Date(segEnd), timezone);
+        appendSegment(key, {
+          entryMinute: entry,
+          exitMinute: exit,
+          entryLabel: minutesToLabel(entry),
+          exitLabel: minutesToLabel(exit),
+          channelName: session.channelName ?? '',
+          isIgnoredChannel: session.isIgnoredChannel ?? false,
+          spanMinutes: Math.max(0, exit - entry),
+        });
+      }
+
+      bounds = getDayBounds(bounds.end, timezone);
+      safety += 1;
+    }
+  }
+
+  for (const [key, list] of segmentsByDay.entries()) {
+    list.sort((left, right) => left.entryMinute - right.entryMinute);
+    segmentsByDay.set(key, list);
+  }
+
+  return segmentsByDay;
+}
+
+/**
  * Calcula a média inteira de uma lista de valores.
  * @param values Lista de números
  * @returns Média arredondada ou null quando vazia
@@ -380,6 +492,7 @@ async function resolveOrganizationTimezone(organizationId: Types.ObjectId): Prom
  * @param signal Sinal de jornada (presença ou voz)
  * @param periodStart Início do período
  * @param windowEnd Fim efetivo da janela
+ * @param includeIgnoredChannels Inclui canais ignorados (somente voz)
  * @returns Lista de sessões normalizadas
  */
 async function fetchJourneySessions(
@@ -389,6 +502,7 @@ async function fetchJourneySessions(
   signal: MemberJourneySignal,
   periodStart: Date,
   windowEnd: Date,
+  includeIgnoredChannels: boolean,
 ): Promise<JourneySessionInput[]> {
   const timeFilter = {
     startedAt: { $lte: windowEnd },
@@ -396,18 +510,27 @@ async function fetchJourneySessions(
   };
 
   if (signal === 'voice') {
-    const sessions = await VoiceSession.find({
+    const voiceFilter: Record<string, unknown> = {
       organizationId,
       guildId,
       userId: coreUserId,
-      isIgnoredChannel: false,
       sessionType: 'VOICE',
       ...timeFilter,
-    })
-      .select({ startedAt: 1, endedAt: 1 })
+    };
+    if (!includeIgnoredChannels) {
+      voiceFilter.isIgnoredChannel = false;
+    }
+
+    const sessions = await VoiceSession.find(voiceFilter)
+      .select({ startedAt: 1, endedAt: 1, channelName: 1, isIgnoredChannel: 1 })
       .lean()
       .exec();
-    return sessions.map((session) => ({ startedAt: session.startedAt, endedAt: session.endedAt ?? null }));
+    return sessions.map((session) => ({
+      startedAt: session.startedAt,
+      endedAt: session.endedAt ?? null,
+      channelName: session.channelName,
+      isIgnoredChannel: session.isIgnoredChannel,
+    }));
   }
 
   const sessions = await PresenceSession.find({
@@ -437,6 +560,7 @@ export async function getMemberJourneyReport(input: MemberJourneyReportInput): P
   const organizationId = parseObjectId(input.organizationId, 'organizationId');
   const trackedUserId = parseObjectId(input.trackedUserId, 'trackedUserId');
   const signal: MemberJourneySignal = input.signal === 'voice' ? 'voice' : 'presence';
+  const includeIgnoredChannels = input.includeIgnoredChannels === true;
   const now = input.now ?? new Date();
 
   const trackedUser = await TrackedUserModel.findOne({
@@ -462,28 +586,35 @@ export async function getMemberJourneyReport(input: MemberJourneyReportInput): P
     .lean()
     .exec();
 
-  const candidates =
+  const journeySessions =
     coreUser.length > 0
-      ? computeDailyJourney(
-          await fetchJourneySessions(
-            coreUser[0]._id as Types.ObjectId,
-            organizationId,
-            input.guildId,
-            signal,
-            periodStart,
-            windowEnd,
-          ),
+      ? await fetchJourneySessions(
+          coreUser[0]._id as Types.ObjectId,
+          organizationId,
+          input.guildId,
+          signal,
           periodStart,
           windowEnd,
-          timezone,
+          includeIgnoredChannels,
         )
+      : [];
+
+  const candidates =
+    journeySessions.length > 0
+      ? computeDailyJourney(journeySessions, periodStart, windowEnd, timezone)
       : new Map<string, { entry: number; exit: number }>();
+
+  const sessionSegmentsByDay =
+    signal === 'voice' && journeySessions.length > 0
+      ? computeDailySessionSegments(journeySessions, periodStart, windowEnd, timezone)
+      : new Map<string, MemberJourneySessionSegment[]>();
 
   const listEnd = windowEnd.getTime() >= periodStart.getTime() ? windowEnd : periodStart;
   const civilDays = listCivilDays(periodStart, listEnd, timezone);
   const days: MemberJourneyDay[] = civilDays.map((date) => {
     const candidate = candidates.get(date);
     const weekday = weekdayOfCivilDate(date);
+    const sessions = sessionSegmentsByDay.get(date) ?? [];
     if (!candidate) {
       return {
         date,
@@ -494,6 +625,7 @@ export async function getMemberJourneyReport(input: MemberJourneyReportInput): P
         entryLabel: null,
         exitLabel: null,
         spanMinutes: 0,
+        sessions,
       };
     }
 
@@ -506,6 +638,7 @@ export async function getMemberJourneyReport(input: MemberJourneyReportInput): P
       entryLabel: minutesToLabel(candidate.entry),
       exitLabel: minutesToLabel(candidate.exit),
       spanMinutes: Math.max(0, candidate.exit - candidate.entry),
+      sessions,
     };
   });
 
@@ -514,6 +647,23 @@ export async function getMemberJourneyReport(input: MemberJourneyReportInput): P
   const avgEntry = averageMinutes(activeDays.map((day) => day.entryMinute as number));
   const avgExit = averageMinutes(activeDays.map((day) => day.exitMinute as number));
   const avgSpanMinutes = averageMinutes(activeDays.map((day) => day.spanMinutes)) ?? 0;
+
+  const collaborationSegments =
+    signal === 'voice'
+      ? days.flatMap((day) => day.sessions.filter((segment) => !segment.isIgnoredChannel))
+      : [];
+  const collaborationEntryLabels = collaborationSegments.map((segment) => segment.entryLabel);
+  const totalCollaborationMinutes = collaborationSegments.reduce(
+    (acc, segment) => acc + segment.spanMinutes,
+    0,
+  );
+  const collaborationActiveDays = days.filter((day) =>
+    day.sessions.some((segment) => !segment.isIgnoredChannel),
+  ).length;
+  const avgDailyCollaborationHours =
+    collaborationActiveDays > 0
+      ? Number((totalCollaborationMinutes / collaborationActiveDays / 60).toFixed(2))
+      : 0;
 
   return {
     trackedUserId: String(trackedUser._id),
@@ -534,6 +684,10 @@ export async function getMemberJourneyReport(input: MemberJourneyReportInput): P
       avgEntryLabel: avgEntry === null ? null : minutesToLabel(avgEntry),
       avgExitLabel: avgExit === null ? null : minutesToLabel(avgExit),
       avgSpanHours: Number((avgSpanMinutes / 60).toFixed(2)),
+      voiceEntryCount: collaborationEntryLabels.length,
+      collaborationEntryLabels,
+      totalCollaborationMinutes,
+      avgDailyCollaborationHours,
     },
   };
 }
