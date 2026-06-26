@@ -192,26 +192,33 @@ describe('MemberJourneyReportComponent', () => {
     httpMock.verify();
   });
 
-  it('seleciona o primeiro membro e carrega a jornada com sinal de presença', () => {
+  it('seleciona o primeiro membro e carrega a jornada com sinal de voz por padrão', () => {
     const request = httpMock.expectOne(
       (req) =>
         req.url.includes('/reports/member-journey') &&
         req.params.get('trackedUserId') === 'tu-1' &&
-        req.params.get('signal') === 'presence' &&
+        req.params.get('signal') === 'voice' &&
         req.params.get('preset') === 'last_7_days',
     );
-    request.flush({ report: JOURNEY_REPORT });
+    request.flush({ report: VOICE_JOURNEY_REPORT });
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent as string;
-    expect(text).toContain('Entrada média');
-    expect(text).toContain('10:15');
-    expect(text).toContain('Quarta');
+    expect(text).toContain('Entradas em colaboração');
+    expect(text).toContain('09:30, 12:40');
+    expect(fixture.componentInstance.signal).toBe('voice');
   });
 
   it('constrói a série do gráfico apenas com dias que têm atividade (presença)', () => {
     httpMock
-      .expectOne((req) => req.url.includes('/reports/member-journey'))
+      .expectOne((req) => req.url.includes('/reports/member-journey') && req.params.get('signal') === 'voice')
+      .flush({ report: VOICE_JOURNEY_REPORT });
+    fixture.detectChanges();
+
+    fixture.componentInstance.onSignalChange('presence');
+
+    httpMock
+      .expectOne((req) => req.url.includes('/reports/member-journey') && req.params.get('signal') === 'presence')
       .flush({ report: JOURNEY_REPORT });
     fixture.detectChanges();
 
@@ -223,18 +230,10 @@ describe('MemberJourneyReportComponent', () => {
     expect(data[1].y).toEqual([660, 1140]);
   });
 
-  it('recarrega ao trocar o sinal para voz e monta uma barra por sessão', () => {
+  it('monta uma barra por sessão de voz no carregamento inicial', () => {
     httpMock
-      .expectOne((req) => req.url.includes('/reports/member-journey'))
-      .flush({ report: JOURNEY_REPORT });
-    fixture.detectChanges();
-
-    fixture.componentInstance.onSignalChange('voice');
-
-    const voiceRequest = httpMock.expectOne(
-      (req) => req.url.includes('/reports/member-journey') && req.params.get('signal') === 'voice',
-    );
-    voiceRequest.flush({ report: VOICE_JOURNEY_REPORT });
+      .expectOne((req) => req.url.includes('/reports/member-journey') && req.params.get('signal') === 'voice')
+      .flush({ report: VOICE_JOURNEY_REPORT });
     fixture.detectChanges();
 
     expect(fixture.componentInstance.signal).toBe('voice');
@@ -252,16 +251,9 @@ describe('MemberJourneyReportComponent', () => {
 
   it('envia includeIgnoredChannels ao marcar o checkbox em modo voz', () => {
     httpMock
-      .expectOne((req) => req.url.includes('/reports/member-journey'))
-      .flush({ report: JOURNEY_REPORT });
-    fixture.detectChanges();
-
-    fixture.componentInstance.onSignalChange('voice');
-    httpMock
-      .expectOne((req) => req.url.includes('/reports/member-journey'))
+      .expectOne((req) => req.url.includes('/reports/member-journey') && req.params.get('signal') === 'voice')
       .flush({ report: VOICE_JOURNEY_REPORT });
     fixture.detectChanges();
-
     fixture.componentInstance.includeIgnoredChannels = true;
     fixture.componentInstance.onIncludeIgnoredChange();
 
