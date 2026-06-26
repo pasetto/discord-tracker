@@ -11,7 +11,7 @@ export class ThemeService {
 
   constructor() {
     // Dark mode é o tema padrão quando o usuário ainda não escolheu uma preferência.
-    const savedTheme = (localStorage.getItem('theme') as Theme) || 'dark';
+    const savedTheme = (localStorage.getItem('theme') as Theme) || 'light';
     this.setTheme(savedTheme);
   }
 
