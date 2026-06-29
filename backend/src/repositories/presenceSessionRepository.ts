@@ -172,6 +172,9 @@ export const presenceSessionRepository = {
 
   /**
    * Agrega tempo de presença por usuário em um intervalo.
+   *
+   * Calcula a união dos intervalos por status para não duplicar sessões
+   * sobrepostas em relatórios históricos.
    * @param start Início do período
    * @param end Fim do período
    * @returns Agregação por userId e status
@@ -187,33 +190,43 @@ export const presenceSessionRepository = {
       offlineSeconds: number;
     }>
   > {
-    return PresenceSession.aggregate([
-      {
-        $match: {
-          ...(scope ?? {}),
-          startedAt: { $gte: start, $lt: end },
-          durationSeconds: { $ne: null },
-        },
-      },
-      {
-        $group: {
-          _id: '$userId',
-          idleSeconds: {
-            $sum: {
-              $cond: [{ $eq: ['$status', 'IDLE'] }, '$durationSeconds', 0],
-            },
-          },
-          offlineSeconds: {
-            $sum: {
-              $cond: [
-                { $in: ['$status', ['OFFLINE', 'INVISIBLE']] },
-                '$durationSeconds',
-                0,
-              ],
-            },
-          },
-        },
-      },
-    ]);
+    const sessions = await PresenceSession.find({
+      ...(scope ?? {}),
+      startedAt: { $lt: end },
+      $or: [{ endedAt: null }, { endedAt: { $gt: start } }],
+    })
+      .select('userId status startedAt endedAt')
+      .lean<IPresenceSession[]>()
+      .exec();
+
+    const idByKey = new Map<string, Types.ObjectId>();
+    const idleByUser = new Map<string, TimeIntervalMs[]>();
+    const offlineByUser = new Map<string, TimeIntervalMs[]>();
+
+    for (const session of sessions) {
+      const interval = clipToWindow(session.startedAt, session.endedAt, start, end);
+      if (!interval) {
+        continue;
+      }
+
+      const userKey = String(session.userId);
+      idByKey.set(userKey, session.userId);
+
+      if (session.status === 'IDLE') {
+        const list = idleByUser.get(userKey) ?? [];
+        list.push(interval);
+        idleByUser.set(userKey, list);
+      } else if (session.status === 'OFFLINE' || session.status === 'INVISIBLE') {
+        const list = offlineByUser.get(userKey) ?? [];
+        list.push(interval);
+        offlineByUser.set(userKey, list);
+      }
+    }
+
+    return [...idByKey.entries()].map(([userKey, userId]) => ({
+      _id: userId,
+      idleSeconds: unionDurationSeconds(idleByUser.get(userKey) ?? []),
+      offlineSeconds: unionDurationSeconds(offlineByUser.get(userKey) ?? []),
+    }));
   },
 };

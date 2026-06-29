@@ -239,6 +239,9 @@ export const voiceSessionRepository = {
 
   /**
    * Agrega tempo de voz por usuário em um intervalo de datas.
+   *
+   * Calcula a união dos intervalos por bucket para não duplicar sessões
+   * sobrepostas em relatórios históricos.
    * @param start Início do período
    * @param end Fim do período
    * @returns Agregação por userId e sessionType
@@ -256,35 +259,59 @@ export const voiceSessionRepository = {
       lunchSeconds: number;
     }>
   > {
-    return VoiceSession.aggregate([
-      {
-        $match: {
-          ...(scope ?? {}),
-          startedAt: { $gte: start, $lt: end },
-          durationSeconds: { $ne: null },
-        },
-      },
-      {
-        $group: {
-          _id: '$userId',
-          voiceSeconds: { $sum: '$durationSeconds' },
-          productiveSeconds: {
-            $sum: {
-              $cond: [{ $eq: ['$sessionType', 'VOICE'] }, '$durationSeconds', 0],
-            },
-          },
-          afkSeconds: {
-            $sum: {
-              $cond: [{ $eq: ['$sessionType', 'AFK'] }, '$durationSeconds', 0],
-            },
-          },
-          lunchSeconds: {
-            $sum: {
-              $cond: [{ $eq: ['$sessionType', 'LUNCH'] }, '$durationSeconds', 0],
-            },
-          },
-        },
-      },
-    ]);
+    const sessions = await VoiceSession.find({
+      ...(scope ?? {}),
+      startedAt: { $lt: end },
+      $or: [{ endedAt: null }, { endedAt: { $gt: start } }],
+    })
+      .select('userId startedAt endedAt sessionType')
+      .lean<IVoiceSession[]>()
+      .exec();
+
+    const idByKey = new Map<string, Types.ObjectId>();
+    const voiceByUser = new Map<string, TimeIntervalMs[]>();
+    const productiveByUser = new Map<string, TimeIntervalMs[]>();
+    const afkByUser = new Map<string, TimeIntervalMs[]>();
+    const lunchByUser = new Map<string, TimeIntervalMs[]>();
+
+    for (const session of sessions) {
+      const interval = clipToWindow(session.startedAt, session.endedAt, start, end);
+      if (!interval) {
+        continue;
+      }
+
+      const userKey = String(session.userId);
+      idByKey.set(userKey, session.userId);
+      appendInterval(voiceByUser, userKey, interval);
+
+      if (session.sessionType === 'VOICE') {
+        appendInterval(productiveByUser, userKey, interval);
+      } else if (session.sessionType === 'AFK') {
+        appendInterval(afkByUser, userKey, interval);
+      } else if (session.sessionType === 'LUNCH') {
+        appendInterval(lunchByUser, userKey, interval);
+      }
+    }
+
+    return [...idByKey.entries()].map(([userKey, userId]) => ({
+      _id: userId,
+      productiveSeconds: unionDurationSeconds(productiveByUser.get(userKey) ?? []),
+      voiceSeconds: unionDurationSeconds(voiceByUser.get(userKey) ?? []),
+      afkSeconds: unionDurationSeconds(afkByUser.get(userKey) ?? []),
+      lunchSeconds: unionDurationSeconds(lunchByUser.get(userKey) ?? []),
+    }));
   },
 };
+
+/**
+ * Adiciona um intervalo em um mapa por usuário.
+ * @param map Mapa de intervalos por userId serializado
+ * @param userKey Chave textual do usuário
+ * @param interval Intervalo a adicionar
+ * @returns void
+ */
+function appendInterval(map: Map<string, TimeIntervalMs[]>, userKey: string, interval: TimeIntervalMs): void {
+  const list = map.get(userKey) ?? [];
+  list.push(interval);
+  map.set(userKey, list);
+}

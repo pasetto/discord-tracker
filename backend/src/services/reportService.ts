@@ -2,7 +2,7 @@ import { dailyReportRepository } from '../repositories/dailyReportRepository';
 import { voiceSessionRepository } from '../repositories/voiceSessionRepository';
 import { presenceSessionRepository } from '../repositories/presenceSessionRepository';
 import { userRepository } from '../repositories/userRepository';
-import { getDayBounds, formatDateString, getCurrentYearMonth } from '../utils/timezone';
+import { getDayBounds, formatDateString, getCurrentYearMonth, zonedDateTimeToUtc } from '../utils/timezone';
 import { secondsToHours } from './channelClassifier';
 import { config } from '../config/env';
 import { Types } from 'mongoose';
@@ -125,6 +125,7 @@ export const reportService = {
     const y = year ?? current.year;
     const m = month ?? current.month;
 
+    await regenerateMonthlyDailyReports(y, m);
     const totals = await dailyReportRepository.aggregateMonthly(y, m);
 
     return {
@@ -174,6 +175,7 @@ export const reportService = {
     const y = year ?? current.year;
     const m = month ?? current.month;
 
+    await regenerateMonthlyDailyReports(y, m);
     const ranking = await dailyReportRepository.rankingMonthly(y, m, limit);
     const users = await userRepository.findAll();
     const userMap = new Map(users.map((u) => [u._id.toString(), u]));
@@ -190,3 +192,21 @@ export const reportService = {
     });
   },
 };
+
+/**
+ * Regenera os relatórios diários persistidos de todos os dias de um mês.
+ *
+ * Mantém os agregados mensais consistentes quando a lógica de cálculo diário é
+ * corrigida, evitando que documentos antigos inflados continuem impactando o
+ * mês e o ranking mensal.
+ * @param year Ano civil
+ * @param month Mês civil (1-12)
+ * @returns void
+ */
+async function regenerateMonthlyDailyReports(year: number, month: number): Promise<void> {
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    await reportService.generateDailyReports(zonedDateTimeToUtc(year, month, day, 12));
+  }
+}

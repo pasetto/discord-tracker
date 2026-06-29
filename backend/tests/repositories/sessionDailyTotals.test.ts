@@ -3,10 +3,12 @@ import { Types } from 'mongoose';
 
 const presenceModelMocks = vi.hoisted(() => ({
   find: vi.fn(),
+  aggregate: vi.fn(),
 }));
 
 const voiceModelMocks = vi.hoisted(() => ({
   find: vi.fn(),
+  aggregate: vi.fn(),
 }));
 
 vi.mock('../../src/db/models/PresenceSession', () => ({
@@ -121,6 +123,105 @@ describe('totais diários de sessão (união de intervalos)', () => {
     const bucket = totals.get(userKey);
     expect(bucket?.collaborationSeconds).toBe(7 * 3600);
     expect(bucket?.inactiveSeconds).toBe(1 * 3600);
+  });
+});
+
+describe('aggregateByPeriod (relatórios históricos com união de intervalos)', () => {
+  const orgId = new Types.ObjectId();
+  const guildId = 'guild-1';
+  const userId = new Types.ObjectId();
+  const periodStart = new Date(10 * HOUR);
+  const periodEnd = new Date(17 * HOUR);
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('presença: relatório histórico não duplica sessões IDLE/OFFLINE sobrepostas', async () => {
+    presenceModelMocks.aggregate.mockResolvedValue([
+      { _id: userId, idleSeconds: 4 * 3600, offlineSeconds: 2 * 3600 },
+    ]);
+    presenceModelMocks.find.mockReturnValue(
+      mockFindChain([
+        { userId, status: 'IDLE', startedAt: new Date(10 * HOUR), endedAt: new Date(12 * HOUR) },
+        { userId, status: 'IDLE', startedAt: new Date(10 * HOUR), endedAt: new Date(12 * HOUR) },
+        { userId, status: 'OFFLINE', startedAt: new Date(14 * HOUR), endedAt: new Date(15 * HOUR) },
+        { userId, status: 'INVISIBLE', startedAt: new Date(14 * HOUR), endedAt: new Date(15 * HOUR) },
+      ]),
+    );
+
+    const rows = await presenceSessionRepository.aggregateByPeriod(periodStart, periodEnd, {
+      organizationId: orgId,
+      guildId,
+    });
+
+    expect(rows).toEqual([{ _id: userId, idleSeconds: 2 * 3600, offlineSeconds: 1 * 3600 }]);
+  });
+
+  it('voz: relatório histórico não duplica sessões VOICE/AFK/LUNCH sobrepostas', async () => {
+    voiceModelMocks.aggregate.mockResolvedValue([
+      {
+        _id: userId,
+        productiveSeconds: 6 * 3600,
+        voiceSeconds: 9 * 3600,
+        afkSeconds: 2 * 3600,
+        lunchSeconds: 1 * 3600,
+      },
+    ]);
+    voiceModelMocks.find.mockReturnValue(
+      mockFindChain([
+        {
+          userId,
+          startedAt: new Date(10 * HOUR),
+          endedAt: new Date(13 * HOUR),
+          isIgnoredChannel: false,
+          sessionType: 'VOICE',
+        },
+        {
+          userId,
+          startedAt: new Date(10 * HOUR),
+          endedAt: new Date(13 * HOUR),
+          isIgnoredChannel: false,
+          sessionType: 'VOICE',
+        },
+        {
+          userId,
+          startedAt: new Date(14 * HOUR),
+          endedAt: new Date(15 * HOUR),
+          isIgnoredChannel: true,
+          sessionType: 'AFK',
+        },
+        {
+          userId,
+          startedAt: new Date(14 * HOUR),
+          endedAt: new Date(15 * HOUR),
+          isIgnoredChannel: true,
+          sessionType: 'AFK',
+        },
+        {
+          userId,
+          startedAt: new Date(16 * HOUR),
+          endedAt: new Date(17 * HOUR),
+          isIgnoredChannel: false,
+          sessionType: 'LUNCH',
+        },
+      ]),
+    );
+
+    const rows = await voiceSessionRepository.aggregateByPeriod(periodStart, periodEnd, {
+      organizationId: orgId,
+      guildId,
+    });
+
+    expect(rows).toEqual([
+      {
+        _id: userId,
+        productiveSeconds: 3 * 3600,
+        voiceSeconds: 5 * 3600,
+        afkSeconds: 1 * 3600,
+        lunchSeconds: 1 * 3600,
+      },
+    ]);
   });
 });
 
