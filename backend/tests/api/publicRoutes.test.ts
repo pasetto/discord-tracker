@@ -43,6 +43,7 @@ describe('public routes', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.appName).toBe('Syntra');
+    expect(response.body.apiVersion).toBe('1.2.0');
     expect(response.body.discordClientId).toBe('discord-client-id-test');
     expect(response.body.authMode).toBe('email_password');
     expect(response.body.botConfigured).toBe(true);

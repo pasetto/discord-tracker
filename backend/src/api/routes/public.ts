@@ -3,6 +3,7 @@ import { config } from '../../config/env';
 import { listPublicPlans } from '../../services/billingService';
 import { getPublicDiscordClientId } from '../../services/discordApplicationService';
 import { previewOrganizationInvite } from '../../services/organizationTeamService';
+import { API_VERSION } from '../../version/appVersion';
 
 /** Rotas públicas sem autenticação para bootstrap do frontend. */
 export const publicRouter = new Router();
@@ -20,6 +21,7 @@ publicRouter.get('/public/config', async (ctx) => {
 
   ctx.body = {
     appName: 'Syntra',
+    apiVersion: API_VERSION,
     apiBaseUrl: config.apiPublicUrl,
     discordClientId,
     pricingEnabled: true,

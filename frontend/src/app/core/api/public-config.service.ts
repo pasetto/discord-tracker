@@ -26,6 +26,10 @@ export interface PublicApiConfig {
    * Client ID público do aplicativo Discord.
    */
   discordClientId?: string | null;
+  /**
+   * Versão semver da API em execução (ex.: `1.2.0`).
+   */
+  apiVersion?: string;
 }
 
 /**

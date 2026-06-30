@@ -1,12 +1,13 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import type { Options } from 'swagger-jsdoc';
+import { API_VERSION } from '../version/appVersion';
 
 const swaggerOptions: Options = {
   definition: {
     openapi: '3.0.3',
     info: {
       title: 'Syntra Backend API',
-      version: '1.0.0',
+      version: API_VERSION,
       description: 'Documentação HTTP da API do backend Syntra.',
     },
     servers: [{ url: '/api/v1' }],
