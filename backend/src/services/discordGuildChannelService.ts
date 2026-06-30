@@ -1,5 +1,6 @@
 import { ChannelType } from 'discord.js';
-import { discordClient, ensureDiscordGuildAccessible } from '../bot/client';
+import { discordClient } from '../bot/client';
+import { runWithDiscordBot } from './discordClusterProxy';
 
 /** Canal Discord disponível para seleção na UI de regras. */
 export interface DiscordGuildChannelOption {
@@ -15,20 +16,35 @@ const TEXT_CHANNEL_TYPES = new Set<number>([ChannelType.GuildText, ChannelType.G
 /**
  * Lista canais de voz e texto do servidor onde o bot está presente.
  *
- * Aguarda a conexão do bot (retry/fallback) antes de falhar, evitando o falso
- * "Bot não conectado" quando o gateway está apenas em reconexão transitória.
+ * Em cluster PM2, encaminha para a instância bot quando este worker é API-only.
  * @param guildId ID do servidor Discord monitorado
  * @returns Canais ordenados por nome para exibição na UI
  * @throws {Error} Quando o bot não está conectado ou não está no servidor
  */
 export async function listGuildDiscordChannels(guildId: string): Promise<DiscordGuildChannelOption[]> {
-  if (!(await ensureDiscordGuildAccessible(guildId))) {
-    throw new Error('Bot Discord não conectado. Verifique a configuração em Configurações → Discord.');
-  }
+  return runWithDiscordBot({
+    guildId,
+    internalPath: `/internal/discord/guilds/${guildId}/channels`,
+    onBotInstance: () => listGuildDiscordChannelsOnBotInstance(guildId),
+  });
+}
 
-  const guild = discordClient.guilds.cache.get(guildId);
+/**
+ * Lista canais no processo que hospeda o bot Discord (sem proxy de cluster).
+ * @param guildId ID do servidor Discord monitorado
+ * @returns Canais ordenados por nome para exibição na UI
+ * @throws {Error} Quando o guild não existe para o bot
+ */
+export async function listGuildDiscordChannelsOnBotInstance(
+  guildId: string,
+): Promise<DiscordGuildChannelOption[]> {
+  let guild = discordClient.guilds.cache.get(guildId);
   if (!guild) {
-    throw new Error('Bot não encontrou este servidor. Adicione o bot ao servidor e selecione-o novamente.');
+    try {
+      guild = await discordClient.guilds.fetch(guildId);
+    } catch {
+      throw new Error('Bot não encontrou este servidor. Adicione o bot ao servidor e selecione-o novamente.');
+    }
   }
 
   return [...guild.channels.cache.values()]

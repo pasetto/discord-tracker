@@ -9,6 +9,7 @@ import {
   setDiscordConnected,
   setDiscordPing,
 } from '../metrics/prometheus';
+import { shouldRunBackgroundJobs } from '../runtime/clusterRole';
 import { systemLogRepository } from '../repositories/systemLogRepository';
 import { BotManager } from '../services/botManager';
 import { registerMessageCreateHandler } from './events/messageCreate';
@@ -247,6 +248,10 @@ export async function connectDiscord(): Promise<Client> {
  * @throws {Error} Quando a conexão não ficar pronta dentro do timeout
  */
 export async function ensureDiscordClientReady(timeoutMs = DISCORD_READY_TIMEOUT_MS): Promise<void> {
+  if (!shouldRunBackgroundJobs()) {
+    throw new Error('Bot Discord não está disponível neste worker de API');
+  }
+
   if (discordClient.isReady() || isDiscordReady) {
     isDiscordReady = true;
     return;
@@ -298,6 +303,11 @@ export async function ensureDiscordGuildAccessible(
   guildId?: string,
   timeoutMs = DISCORD_READY_TIMEOUT_MS,
 ): Promise<boolean> {
+  if (!shouldRunBackgroundJobs()) {
+    const { isDiscordBotInstanceReachable } = await import('../services/discordClusterProxy');
+    return isDiscordBotInstanceReachable();
+  }
+
   if (canAccessDiscordGuild(guildId)) {
     return true;
   }

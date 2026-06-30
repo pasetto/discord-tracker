@@ -13,6 +13,7 @@ import { startIntradayInactivityCron } from './workers/intradayInactivityCron';
 import { startWebhookWorker } from './workers/webhookWorker';
 import { markApplicationStarting, markApplicationShuttingDown } from './runtime/applicationState';
 import { shouldRunBackgroundJobs, getClusterInstanceId } from './runtime/clusterRole';
+import { startInternalDiscordServer } from './api/internalDiscordServer';
 import {
   registerPm2GracefulShutdown,
   signalPm2Ready,
@@ -28,6 +29,7 @@ let stopInactivityCron: (() => void) | undefined;
 let stopIntradayInactivityCron: (() => void) | undefined;
 let stopWebhookWorker: (() => void) | undefined;
 let stopPingInterval: (() => void) | undefined;
+let stopInternalDiscordServer: (() => void) | undefined;
 let shutdownInProgress = false;
 
 /**
@@ -80,6 +82,7 @@ async function bootstrap(): Promise<void> {
     stopInactivityCron = startInactivityCron();
     stopIntradayInactivityCron = startIntradayInactivityCron();
     stopWebhookWorker = startWebhookWorker();
+    stopInternalDiscordServer = startInternalDiscordServer();
 
     const pingTimer = setInterval(() => {
       setDiscordPing(getDiscordPing());
@@ -125,6 +128,7 @@ async function shutdown(signal: string): Promise<void> {
 
   try {
     stopPingInterval?.();
+    stopInternalDiscordServer?.();
     stopAbsenceStatusCron?.();
     stopInactivityCron?.();
     stopIntradayInactivityCron?.();

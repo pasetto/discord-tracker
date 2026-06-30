@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const discordMocks = vi.hoisted(() => ({
 
-  ensureDiscordGuildAccessible: vi.fn(async () => true),
+  runWithDiscordBot: vi.fn(async ({ onBotInstance }: { onBotInstance: () => Promise<unknown> }) => onBotInstance()),
 
   guildsCache: new Map<
 
@@ -48,9 +48,35 @@ const discordMocks = vi.hoisted(() => ({
 
 
 
-vi.mock('../../src/bot/client', () => ({
+vi.mock('../../src/services/discordClusterProxy', () => ({
 
-  ensureDiscordGuildAccessible: discordMocks.ensureDiscordGuildAccessible,
+  runWithDiscordBot: discordMocks.runWithDiscordBot,
+
+}));
+
+vi.mock('../../src/db/models/Organization', () => ({
+
+  OrganizationModel: {
+
+    findById: () => ({
+
+      select: () => ({
+
+        lean: () => ({
+
+          exec: async () => ({ settings: { timezone: 'America/Sao_Paulo' } }),
+
+        }),
+
+      }),
+
+    }),
+
+  },
+
+}));
+
+vi.mock('../../src/bot/client', () => ({
 
   discordClient: {
 
@@ -162,7 +188,7 @@ describe('getGuildLiveDashboard', () => {
 
   it('retorna membros ativos e ranking por colaboração acumulada hoje', async () => {
 
-    discordMocks.ensureDiscordGuildAccessible.mockResolvedValue(true);
+    discordMocks.runWithDiscordBot.mockImplementation(async ({ onBotInstance }) => onBotInstance());
 
     discordMocks.guildsCache.set('guild-1', {
 
@@ -316,7 +342,7 @@ describe('getGuildLiveDashboard', () => {
 
   it('falha quando o bot não fica acessível mesmo após o retry', async () => {
 
-    discordMocks.ensureDiscordGuildAccessible.mockResolvedValue(false);
+    discordMocks.runWithDiscordBot.mockRejectedValue(new Error('Bot Discord não conectado. Verifique a configuração em Configurações → Discord.'));
 
     await expect(getGuildLiveDashboard('guild-1', '507f1f77bcf86cd799439011')).rejects.toThrow(
 
@@ -324,7 +350,7 @@ describe('getGuildLiveDashboard', () => {
 
     );
 
-    discordMocks.ensureDiscordGuildAccessible.mockResolvedValue(true);
+    discordMocks.runWithDiscordBot.mockImplementation(async ({ onBotInstance }) => onBotInstance());
 
   });
 

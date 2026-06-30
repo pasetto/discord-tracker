@@ -1,14 +1,18 @@
 import { Types } from 'mongoose';
-import type { GuildMember, PresenceStatus as DiscordPresenceStatus } from 'discord.js';
-import { discordClient, ensureDiscordGuildAccessible } from '../bot/client';
+import type { Guild, GuildMember, PresenceStatus as DiscordPresenceStatus } from 'discord.js';
+import { discordClient } from '../bot/client';
 import { mapDiscordPresenceStatus } from './channelClassifier';
 import { presenceSessionRepository } from '../repositories/presenceSessionRepository';
 import { voiceSessionRepository } from '../repositories/voiceSessionRepository';
 import { voiceChannelTransitionRepository } from '../repositories/voiceChannelTransitionRepository';
 import { User } from '../db/models/User';
+import { OrganizationModel } from '../db/models/Organization';
 import type { PresenceStatus, VoiceEventType, VoiceSessionType } from '../config/env';
 import type { LiveVoiceTransitionEvent } from './liveActivityBroadcaster';
-import { startOfUtcDay } from '../utils/sessionTimeUtils';
+import { clampSecondsToWindow } from '../utils/sessionTimeUtils';
+import { getDayBounds } from '../utils/timezone';
+import { config } from '../config/env';
+import { runWithDiscordBot } from './discordClusterProxy';
 
 /** Membro ativo no servidor com localização e tempos de colaboração. */
 export interface LiveMemberSnapshot {
@@ -51,18 +55,31 @@ export async function getGuildLiveDashboard(
   guildId: string,
   organizationId?: string,
 ): Promise<DashboardLiveSnapshot> {
-  if (!(await ensureDiscordGuildAccessible(guildId))) {
-    throw new Error('Bot Discord não conectado. Verifique a configuração em Configurações → Discord.');
-  }
+  const orgQuery = organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : '';
+  return runWithDiscordBot({
+    guildId,
+    internalPath: `/internal/discord/guilds/${guildId}/live-dashboard${orgQuery}`,
+    onBotInstance: () => buildGuildLiveDashboardOnBotInstance(guildId, organizationId),
+  });
+}
 
-  const guild = discordClient.guilds.cache.get(guildId);
-  if (!guild) {
-    throw new Error('Bot não encontrou este servidor. Adicione o bot ao servidor e selecione-o novamente.');
-  }
+/**
+ * Monta snapshot ao vivo no processo que hospeda o bot Discord (sem proxy de cluster).
+ * @param guildId ID do servidor Discord monitorado
+ * @param organizationId ID da organização (opcional; usado para histórico de canais)
+ * @returns Membros ativos, ranking e feed de transições
+ * @throws {Error} Quando o bot não está conectado ou não está no servidor
+ */
+export async function buildGuildLiveDashboardOnBotInstance(
+  guildId: string,
+  organizationId?: string,
+): Promise<DashboardLiveSnapshot> {
+  const guild = await resolveDiscordGuild(guildId);
 
   const now = Date.now();
   const nowDate = new Date(now);
-  const dayStart = startOfUtcDay(nowDate);
+  const timezone = await resolveOrganizationTimezone(organizationId);
+  const { start: dayStart } = getDayBounds(nowDate, timezone);
 
   const humanMembers = [...guild.members.cache.values()].filter((member) => !member.user.bot);
   const allDiscordIds = humanMembers.map((member) => member.id);
@@ -125,6 +142,8 @@ export async function getGuildLiveDashboard(
       sessionByUserId,
       voiceByUserId,
       channelsVisitedByDiscordId,
+      dayStart,
+      nowDate,
     );
 
     const inVoice = member.voice.channelId !== null;
@@ -178,6 +197,8 @@ export async function getGuildLiveDashboard(
  * @param sessionByUserId Sessões de presença abertas
  * @param voiceByUserId Sessões de voz abertas
  * @param channelsVisitedByDiscordId Histórico de salas visitadas hoje
+ * @param dayStart Início do dia civil (timezone da aplicação)
+ * @param windowEnd Fim da janela de cálculo ("agora")
  * @returns Snapshot do membro
  */
 function buildMemberSnapshot(
@@ -188,6 +209,8 @@ function buildMemberSnapshot(
   sessionByUserId: Map<string, { startedAt: Date; status: PresenceStatus }>,
   voiceByUserId: Map<string, { isIgnoredChannel: boolean; sessionType: VoiceSessionType }>,
   channelsVisitedByDiscordId: Map<string, string[]>,
+  dayStart: Date,
+  windowEnd: Date,
 ): LiveMemberSnapshot {
   const voiceTotals = userId ? voiceTodayByUser.get(userId) : undefined;
   const onlineSeconds = userId ? (onlineTodayByUser.get(userId) ?? 0) : 0;
@@ -201,10 +224,10 @@ function buildMemberSnapshot(
     status: mapDiscordPresenceStatus(discordPresenceStatus),
     voiceChannelId: member.voice.channelId,
     voiceChannelName: member.voice.channel?.name ?? null,
-    onlineSeconds,
+    onlineSeconds: clampSecondsToWindow(onlineSeconds, dayStart, windowEnd),
     onlineSince: openSession?.startedAt?.toISOString() ?? null,
-    collaborationActiveSeconds: voiceTotals?.collaborationSeconds ?? 0,
-    inactiveSeconds: voiceTotals?.inactiveSeconds ?? 0,
+    collaborationActiveSeconds: clampSecondsToWindow(voiceTotals?.collaborationSeconds ?? 0, dayStart, windowEnd),
+    inactiveSeconds: clampSecondsToWindow(voiceTotals?.inactiveSeconds ?? 0, dayStart, windowEnd),
     isCollaborationActive: openVoice !== undefined && !openVoice.isIgnoredChannel && openVoice.sessionType === 'VOICE',
     inIgnoredChannel: openVoice?.isIgnoredChannel ?? false,
     voiceSessionType: openVoice?.sessionType ?? null,
@@ -298,6 +321,43 @@ function mapTransitionToEvent(
     countsAsCollaboration: transition.countsAsCollaboration,
     occurredAt: transition.occurredAt.toISOString(),
   };
+}
+
+/**
+ * Resolve guild no cache Discord ou via API quando ausente do cache.
+ * @param guildId ID do servidor Discord
+ * @returns Guild carregado
+ * @throws {Error} Quando o bot não está no servidor
+ */
+async function resolveDiscordGuild(guildId: string): Promise<Guild> {
+  const cached = discordClient.guilds.cache.get(guildId);
+  if (cached) {
+    return cached;
+  }
+
+  try {
+    return await discordClient.guilds.fetch(guildId);
+  } catch {
+    throw new Error('Bot não encontrou este servidor. Adicione o bot ao servidor e selecione-o novamente.');
+  }
+}
+
+/**
+ * Obtém timezone IANA da organização para limites do dia civil.
+ * @param organizationId ID da organização (opcional)
+ * @returns Timezone IANA
+ */
+async function resolveOrganizationTimezone(organizationId?: string): Promise<string> {
+  if (!organizationId) {
+    return config.timezone;
+  }
+
+  const organization = await OrganizationModel.findById(organizationId)
+    .select('settings.timezone')
+    .lean<{ settings?: { timezone?: string } }>()
+    .exec();
+
+  return organization?.settings?.timezone ?? config.timezone;
 }
 
 /**

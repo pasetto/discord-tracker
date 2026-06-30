@@ -197,6 +197,7 @@ export class LiveActivitySocketService implements OnDestroy {
         break;
       case 'subscribed':
         this.connectedSubject.next(true);
+        this.errorSubject.next('');
         break;
       case 'snapshot':
         this.snapshotSubject.next(message.data);

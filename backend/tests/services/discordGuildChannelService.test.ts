@@ -1,15 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
 
 const discordMocks = vi.hoisted(() => ({
-  ensureDiscordGuildAccessible: vi.fn(async () => true),
+  runWithDiscordBot: vi.fn(async ({ onBotInstance }: { onBotInstance: () => Promise<unknown> }) => onBotInstance()),
   guildsCache: new Map<string, { channels: { cache: Map<string, { id: string; name: string; type: number; parent?: { name: string } }> } }>(),
+  guildsFetch: vi.fn(),
+}));
+
+vi.mock('../../src/services/discordClusterProxy', () => ({
+  runWithDiscordBot: discordMocks.runWithDiscordBot,
 }));
 
 vi.mock('../../src/bot/client', () => ({
-  ensureDiscordGuildAccessible: discordMocks.ensureDiscordGuildAccessible,
   discordClient: {
     guilds: {
       cache: discordMocks.guildsCache,
+      fetch: discordMocks.guildsFetch,
     },
   },
 }));
@@ -19,7 +24,7 @@ import { listGuildDiscordChannels } from '../../src/services/discordGuildChannel
 
 describe('listGuildDiscordChannels', () => {
   it('retorna canais de voz e texto ordenados por nome', async () => {
-    discordMocks.ensureDiscordGuildAccessible.mockResolvedValue(true);
+    discordMocks.runWithDiscordBot.mockImplementation(async ({ onBotInstance }) => onBotInstance());
     discordMocks.guildsCache.set('guild-1', {
       channels: {
         cache: new Map([
@@ -38,24 +43,24 @@ describe('listGuildDiscordChannels', () => {
   });
 
   it('falha quando o bot não fica acessível mesmo após o retry', async () => {
-    discordMocks.ensureDiscordGuildAccessible.mockResolvedValue(false);
+    discordMocks.runWithDiscordBot.mockRejectedValue(new Error('Bot Discord não conectado. Verifique a configuração em Configurações → Discord.'));
     discordMocks.guildsCache.clear();
 
     await expect(listGuildDiscordChannels('guild-1')).rejects.toThrow(/Bot Discord não conectado/);
-    discordMocks.ensureDiscordGuildAccessible.mockResolvedValue(true);
+    discordMocks.runWithDiscordBot.mockImplementation(async ({ onBotInstance }) => onBotInstance());
   });
 
-  it('lista canais quando o retry restabelece a conexão do bot', async () => {
-    discordMocks.guildsCache.set('guild-1', {
-      channels: {
-        cache: new Map([['1', { id: '1', name: 'geral', type: ChannelType.GuildText }]]),
-      },
-    });
-    discordMocks.ensureDiscordGuildAccessible.mockResolvedValue(true);
+  it('usa proxy de cluster quando worker é API-only', async () => {
+    discordMocks.guildsCache.clear();
+    discordMocks.runWithDiscordBot.mockResolvedValue([
+      { channelId: '1', channelName: 'geral', channelType: 'text' },
+    ]);
 
     const channels = await listGuildDiscordChannels('guild-1');
 
-    expect(discordMocks.ensureDiscordGuildAccessible).toHaveBeenCalledWith('guild-1');
+    expect(discordMocks.runWithDiscordBot).toHaveBeenCalledWith(
+      expect.objectContaining({ guildId: 'guild-1', internalPath: '/internal/discord/guilds/guild-1/channels' }),
+    );
     expect(channels).toHaveLength(1);
   });
 });

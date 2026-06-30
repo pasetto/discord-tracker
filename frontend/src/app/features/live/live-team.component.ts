@@ -66,6 +66,7 @@ export class LiveTeamComponent implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.liveActivitySocket.snapshot$.subscribe((snapshot) => {
         this.applySnapshot(snapshot);
+        this.errorMessage = '';
         this.liveLoading = false;
       }),
     );
