@@ -1,5 +1,5 @@
 import { ChannelType } from 'discord.js';
-import { discordClient, isDiscordReady } from '../bot/client';
+import { discordClient, ensureDiscordGuildAccessible } from '../bot/client';
 
 /** Canal Discord disponível para seleção na UI de regras. */
 export interface DiscordGuildChannelOption {
@@ -14,12 +14,15 @@ const TEXT_CHANNEL_TYPES = new Set<number>([ChannelType.GuildText, ChannelType.G
 
 /**
  * Lista canais de voz e texto do servidor onde o bot está presente.
+ *
+ * Aguarda a conexão do bot (retry/fallback) antes de falhar, evitando o falso
+ * "Bot não conectado" quando o gateway está apenas em reconexão transitória.
  * @param guildId ID do servidor Discord monitorado
  * @returns Canais ordenados por nome para exibição na UI
  * @throws {Error} Quando o bot não está conectado ou não está no servidor
  */
-export function listGuildDiscordChannels(guildId: string): DiscordGuildChannelOption[] {
-  if (!isDiscordReady) {
+export async function listGuildDiscordChannels(guildId: string): Promise<DiscordGuildChannelOption[]> {
+  if (!(await ensureDiscordGuildAccessible(guildId))) {
     throw new Error('Bot Discord não conectado. Verifique a configuração em Configurações → Discord.');
   }
 

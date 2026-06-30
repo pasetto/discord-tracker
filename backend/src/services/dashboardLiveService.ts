@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import type { GuildMember, PresenceStatus as DiscordPresenceStatus } from 'discord.js';
-import { discordClient, isDiscordReady } from '../bot/client';
+import { discordClient, ensureDiscordGuildAccessible } from '../bot/client';
 import { mapDiscordPresenceStatus } from './channelClassifier';
 import { presenceSessionRepository } from '../repositories/presenceSessionRepository';
 import { voiceSessionRepository } from '../repositories/voiceSessionRepository';
@@ -51,7 +51,7 @@ export async function getGuildLiveDashboard(
   guildId: string,
   organizationId?: string,
 ): Promise<DashboardLiveSnapshot> {
-  if (!isDiscordReady) {
+  if (!(await ensureDiscordGuildAccessible(guildId))) {
     throw new Error('Bot Discord não conectado. Verifique a configuração em Configurações → Discord.');
   }
 

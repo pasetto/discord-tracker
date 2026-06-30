@@ -30,7 +30,7 @@ channelsRouter.get('/guilds/:guildId/channels/discord', async (ctx) => {
   }
 
   try {
-    const channels = listGuildDiscordChannels(guildId);
+    const channels = await listGuildDiscordChannels(guildId);
     ctx.body = { channels };
   } catch (error) {
     ctx.status = 503;

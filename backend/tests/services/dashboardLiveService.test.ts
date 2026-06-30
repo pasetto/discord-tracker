@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const discordMocks = vi.hoisted(() => ({
 
-  isDiscordReady: true,
+  ensureDiscordGuildAccessible: vi.fn(async () => true),
 
   guildsCache: new Map<
 
@@ -50,11 +50,7 @@ const discordMocks = vi.hoisted(() => ({
 
 vi.mock('../../src/bot/client', () => ({
 
-  get isDiscordReady() {
-
-    return discordMocks.isDiscordReady;
-
-  },
+  ensureDiscordGuildAccessible: discordMocks.ensureDiscordGuildAccessible,
 
   discordClient: {
 
@@ -166,7 +162,7 @@ describe('getGuildLiveDashboard', () => {
 
   it('retorna membros ativos e ranking por colaboração acumulada hoje', async () => {
 
-    discordMocks.isDiscordReady = true;
+    discordMocks.ensureDiscordGuildAccessible.mockResolvedValue(true);
 
     discordMocks.guildsCache.set('guild-1', {
 
@@ -315,6 +311,20 @@ describe('getGuildLiveDashboard', () => {
     expect(snapshot.onlineRanking[1]?.discordId).toBe('u-short');
 
     expect(snapshot.recentTransitions).toEqual([]);
+
+  });
+
+  it('falha quando o bot não fica acessível mesmo após o retry', async () => {
+
+    discordMocks.ensureDiscordGuildAccessible.mockResolvedValue(false);
+
+    await expect(getGuildLiveDashboard('guild-1', '507f1f77bcf86cd799439011')).rejects.toThrow(
+
+      /Bot Discord não conectado/,
+
+    );
+
+    discordMocks.ensureDiscordGuildAccessible.mockResolvedValue(true);
 
   });
 

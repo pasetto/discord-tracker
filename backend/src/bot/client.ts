@@ -284,6 +284,34 @@ export function canAccessDiscordGuild(guildId?: string): boolean {
 }
 
 /**
+ * Garante acesso a um guild com retry/fallback: se o bot ainda não estiver
+ * acessível, aguarda o gateway ficar pronto antes de desistir.
+ *
+ * Resolve o caso comum em que a flag `isDiscordReady` está temporariamente
+ * dessincronizada (ex.: após um `shardDisconnect` transitório) enquanto o
+ * cliente já está, de fato, conectado — evitando o falso "Bot não conectado".
+ * @param guildId ID opcional do servidor para validar presença no cache
+ * @param timeoutMs Tempo máximo de espera pela conexão do gateway
+ * @returns `true` quando o bot pode acessar o guild; `false` caso contrário
+ */
+export async function ensureDiscordGuildAccessible(
+  guildId?: string,
+  timeoutMs = DISCORD_READY_TIMEOUT_MS,
+): Promise<boolean> {
+  if (canAccessDiscordGuild(guildId)) {
+    return true;
+  }
+
+  try {
+    await ensureDiscordClientReady(timeoutMs);
+  } catch {
+    return false;
+  }
+
+  return canAccessDiscordGuild(guildId);
+}
+
+/**
  * Recarrega credenciais do Discord a partir do banco e reaplica conexão.
  * @returns Promise resolvida após recarga do token
  */
