@@ -13,7 +13,7 @@ describe('AppVersionBadgeComponent', () => {
         {
           provide: PublicConfigService,
           useValue: {
-            getConfig: () => ({ apiVersion: '1.2.0' }),
+            getConfig: () => ({ apiBuildVersion: '1.1.9', apiVersion: '1.1.9' }),
           },
         },
       ],
@@ -23,11 +23,11 @@ describe('AppVersionBadgeComponent', () => {
     fixture.detectChanges();
   });
 
-  it('exibe versões do frontend e da API de forma discreta', () => {
+  it('exibe frontend e build da API no formato v1.x - v1.y', () => {
     const badge: HTMLElement = fixture.nativeElement.querySelector('p');
     expect(badge).not.toBeNull();
-    expect(badge.textContent?.trim()).toBe(`v${APP_VERSION} · API v1.2.0`);
+    expect(badge.textContent?.trim()).toBe(`v${APP_VERSION} - v1.1.9`);
     expect(badge.className).toContain('text-[10px]');
-    expect(badge.getAttribute('aria-label')).toBe(`Frontend v${APP_VERSION}, API v1.2.0`);
+    expect(badge.getAttribute('aria-label')).toBe(`Frontend v${APP_VERSION}, API build v1.1.9`);
   });
 });

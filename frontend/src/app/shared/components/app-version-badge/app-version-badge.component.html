@@ -2,5 +2,5 @@
   class="pointer-events-none fixed bottom-20 left-3 z-50 select-none text-[10px] font-medium tracking-wide text-gray-400/70 dark:text-gray-600 lg:bottom-2"
   [attr.aria-label]="ariaLabel"
 >
-  v{{ frontendVersion }}@if (apiVersion) {<span> · API v{{ apiVersion }}</span>}
+  v{{ frontendVersion }}@if (apiBuildVersion) { - v{{ apiBuildVersion }}}
 </p>

@@ -30,6 +30,10 @@ export interface PublicApiConfig {
    * Versão semver da API em execução (ex.: `1.2.0`).
    */
   apiVersion?: string;
+  /**
+   * Versão semver do build da API carimbada no deploy (ex.: `1.2.0`).
+   */
+  apiBuildVersion?: string;
 }
 
 /**
