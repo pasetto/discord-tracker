@@ -17,8 +17,15 @@ import {
   type LiveVoiceTransitionEvent,
 } from './liveActivityBroadcaster';
 import { upsertTrackedUser } from './trackedUserService';
+import { createKeyedMutex } from '../utils/keyedMutex';
 
 const log = createLogger('voice');
+
+/**
+ * Serializa o processamento de eventos de voz por usuário/guild, evitando que
+ * múltiplas trocas de canal quase simultâneas criem sessões abertas duplicadas.
+ */
+const voiceEventMutex = createKeyedMutex();
 
 /**
  * Determina o tipo de evento de voz com base na transição de estados.
@@ -82,6 +89,10 @@ export const voiceService = {
 
   /**
    * Abre sessão de voz para o canal informado.
+   *
+   * Garante que nenhuma sessão de voz anterior do mesmo usuário fique aberta:
+   * fecha todas as abertas antes de criar a nova (uma pessoa só pode estar em um
+   * canal por vez). Protege também chamadas fora do fluxo normal (ex.: recovery).
    * @param userId ObjectId Mongo
    * @param channelId ID do canal
    * @param channelName Nome do canal
@@ -99,6 +110,13 @@ export const voiceService = {
   ): Promise<void> {
     const rules = await channelRuleRepository.getByGuildId(guildId);
     const classification = classifyVoiceChannel(channelId, channelName, rules);
+
+    await voiceSessionRepository.closeAllOpenByUserId(
+      userId,
+      new Types.ObjectId(organizationId),
+      guildId,
+      startedAt,
+    );
 
     await voiceSessionRepository.create({
       organizationId: new Types.ObjectId(organizationId),
@@ -135,10 +153,29 @@ export const voiceService = {
 
   /**
    * Processa evento voiceStateUpdate completo.
+   *
+   * Serializa o processamento por usuário/guild para que o fluxo de fechar a
+   * sessão anterior e abrir a nova nunca se intercale com outro evento do mesmo
+   * usuário (causa raiz de sessões abertas duplicadas em trocas rápidas).
    * @param oldState Estado anterior
    * @param newState Novo estado
    */
   async handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceState): Promise<void> {
+    const guildId = newState.guild?.id ?? oldState.guild?.id;
+    const discordUserId = newState.id ?? oldState.id;
+    const mutexKey = `${guildId ?? 'unknown'}:${discordUserId ?? 'unknown'}`;
+
+    await voiceEventMutex.runExclusive(mutexKey, () =>
+      this.processVoiceStateUpdate(oldState, newState),
+    );
+  },
+
+  /**
+   * Lógica de processamento de um evento de voz (executada sob exclusão mútua).
+   * @param oldState Estado anterior
+   * @param newState Novo estado
+   */
+  async processVoiceStateUpdate(oldState: VoiceState, newState: VoiceState): Promise<void> {
     const guildId = newState.guild?.id ?? oldState.guild?.id;
     if (!(await isMonitoredGuild(guildId))) {
       return;

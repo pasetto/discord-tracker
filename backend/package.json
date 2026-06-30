@@ -12,6 +12,7 @@
     "seed:plans": "tsx src/scripts/seedPlans.ts",
     "seed:discord-app": "tsx src/scripts/seedDiscordApp.ts",
     "backfill:session-scope": "tsx src/scripts/backfillSessionScope.ts",
+    "backfill:session-legacy": "tsx src/scripts/backfillSessionLegacy.ts",
     "generate:encryption-key": "node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\"",
     "test": "vitest run",
     "test:watch": "vitest",

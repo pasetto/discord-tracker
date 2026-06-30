@@ -11,8 +11,15 @@ import { voiceSessionRepository } from '../repositories/voiceSessionRepository';
 import { isMonitoredGuild, resolveMonitoredGuild } from './guildMonitoringService';
 import { publishLiveGuildSnapshot } from './liveActivityBroadcaster';
 import { upsertTrackedUser } from './trackedUserService';
+import { createKeyedMutex } from '../utils/keyedMutex';
 
 const log = createLogger('presence');
+
+/**
+ * Serializa o processamento de mudanças de presença por usuário/guild, evitando
+ * que eventos quase simultâneos criem sessões de presença abertas duplicadas.
+ */
+const presenceEventMutex = createKeyedMutex();
 
 /**
  * Serviço de monitoramento e persistência de sessões de presença.
@@ -85,10 +92,28 @@ export const presenceService = {
 
   /**
    * Processa mudança de presença (presenceUpdate).
+   *
+   * Serializa por usuário/guild para que o fechamento da sessão anterior e a
+   * abertura da nova nunca se intercalem com outro evento do mesmo usuário.
+   * @param oldPresence Presença anterior (pode ser parcial)
+   * @param newPresence Nova presença
+   */
+  async handlePresenceUpdate(oldPresence: Presence | null, newPresence: Presence): Promise<void> {
+    const guildId = newPresence.guild?.id;
+    const discordUserId = newPresence.user?.id;
+    const mutexKey = `${guildId ?? 'unknown'}:${discordUserId ?? 'unknown'}`;
+
+    await presenceEventMutex.runExclusive(mutexKey, () =>
+      this.processPresenceUpdate(oldPresence, newPresence),
+    );
+  },
+
+  /**
+   * Lógica de processamento de uma mudança de presença (sob exclusão mútua).
    * @param _oldPresence Presença anterior (pode ser parcial)
    * @param newPresence Nova presença
    */
-  async handlePresenceUpdate(_oldPresence: Presence | null, newPresence: Presence): Promise<void> {
+  async processPresenceUpdate(_oldPresence: Presence | null, newPresence: Presence): Promise<void> {
     if (!(await isMonitoredGuild(newPresence.guild?.id))) {
       return;
     }
