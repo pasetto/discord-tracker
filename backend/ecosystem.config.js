@@ -19,6 +19,7 @@ module.exports = {
       cwd: __dirname,
       instances,
       exec_mode: 'cluster',
+      instance_var: 'NODE_APP_INSTANCE',
       autorestart: true,
       watch: false,
       max_memory_restart: '512M',

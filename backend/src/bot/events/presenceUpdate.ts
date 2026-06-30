@@ -1,4 +1,5 @@
 import { Events, GuildMember, Presence } from 'discord.js';
+import { shouldRunBackgroundJobs } from '../../runtime/clusterRole';
 import { discordClient } from '../client';
 import { presenceService } from '../../services/presenceService';
 import { createLogger } from '../../logger';
@@ -10,6 +11,10 @@ const log = createLogger('events:presence');
  */
 export function registerPresenceUpdateHandler(): void {
   discordClient.on(Events.PresenceUpdate, async (_oldPresence: Presence | null, newPresence: Presence) => {
+    if (!shouldRunBackgroundJobs()) {
+      return;
+    }
+
     try {
       await presenceService.handlePresenceUpdate(_oldPresence, newPresence);
     } catch (error) {

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  clampSecondsToWindow,
   clipToWindow,
+  maxElapsedSecondsInWindow,
   overlapSeconds,
   unionDurationSeconds,
 } from '../../src/utils/sessionTimeUtils';
@@ -73,5 +75,19 @@ describe('clipToWindow', () => {
     const interval = clipToWindow(start, end, windowStart, windowEnd);
     const seconds = interval ? Math.floor((interval.end - interval.start) / 1000) : 0;
     expect(seconds).toBe(overlapSeconds(start, end, windowStart, windowEnd));
+  });
+});
+
+describe('clampSecondsToWindow', () => {
+  const windowStart = new Date(10 * HOUR);
+  const windowEnd = new Date(17 * HOUR);
+
+  it('limita totais inflados ao tempo máximo da janela', () => {
+    const max = maxElapsedSecondsInWindow(windowStart, windowEnd);
+    expect(clampSecondsToWindow(200_000, windowStart, windowEnd)).toBe(max);
+  });
+
+  it('preserva totais válidos dentro da janela', () => {
+    expect(clampSecondsToWindow(3 * 3600, windowStart, windowEnd)).toBe(3 * 3600);
   });
 });

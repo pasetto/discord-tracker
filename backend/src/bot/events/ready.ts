@@ -7,6 +7,10 @@ import { reportService } from '../../services/reportService';
 import { guildService } from '../../services/guildService';
 import { listEnabledMonitoredGuilds } from '../../services/guildMonitoringService';
 import { syncTrackedUsersFromDiscordGuild } from '../../services/trackedUserService';
+import {
+  cleanupDuplicateOpenPresenceSessions,
+  cleanupDuplicateOpenVoiceSessions,
+} from '../../services/sessionLegacyCleanupService';
 
 const log = createLogger('events:ready');
 
@@ -48,6 +52,19 @@ export function registerReadyHandler(): void {
         }
         await recoverSessions(guild);
         await seedInitialPresence([...guild.members.cache.values()]);
+
+        if (monitored) {
+          await cleanupDuplicateOpenVoiceSessions({
+            apply: true,
+            organizationId: monitored.organizationId,
+            guildId: guild.id,
+          });
+          await cleanupDuplicateOpenPresenceSessions({
+            apply: true,
+            organizationId: monitored.organizationId,
+            guildId: guild.id,
+          });
+        }
       } catch (error) {
         log.error({ err: error, guildId }, 'Erro ao inicializar guild monitorado');
       }

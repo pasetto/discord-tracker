@@ -1,4 +1,5 @@
 import { Events, MessageReaction, PartialMessageReaction, PartialUser, User } from 'discord.js';
+import { shouldRunBackgroundJobs } from '../../runtime/clusterRole';
 import { discordClient } from '../client';
 import { createLogger } from '../../logger';
 import { guildService } from '../../services/guildService';
@@ -13,6 +14,10 @@ export function registerMessageReactionAddHandler(): void {
   discordClient.on(
     Events.MessageReactionAdd,
     async (reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser) => {
+      if (!shouldRunBackgroundJobs()) {
+        return;
+      }
+
       try {
         if (user.bot) {
           return;

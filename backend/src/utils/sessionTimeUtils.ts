@@ -154,3 +154,26 @@ export function countInclusiveUtcDays(from: Date, to: Date): number {
 export function startOfUtcMonth(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 }
+
+/**
+ * Retorna o máximo de segundos decorridos em uma janela temporal.
+ * @param windowStart Início da janela
+ * @param windowEnd Fim da janela (exclusivo ou inclusivo — usa diferença em ms)
+ * @returns Segundos de relógio na janela (>= 0)
+ */
+export function maxElapsedSecondsInWindow(windowStart: Date, windowEnd: Date): number {
+  const deltaMs = windowEnd.getTime() - windowStart.getTime();
+  return deltaMs > 0 ? Math.floor(deltaMs / 1000) : 0;
+}
+
+/**
+ * Limita um total diário ao tempo máximo possível na janela (defesa contra sessões órfãs somadas).
+ * @param totalSeconds Total calculado
+ * @param windowStart Início do dia/janela
+ * @param windowEnd Fim da janela (geralmente "agora")
+ * @returns Segundos limitados ao intervalo físico do dia
+ */
+export function clampSecondsToWindow(totalSeconds: number, windowStart: Date, windowEnd: Date): number {
+  const maxSeconds = maxElapsedSecondsInWindow(windowStart, windowEnd);
+  return Math.min(Math.max(0, totalSeconds), maxSeconds);
+}

@@ -222,7 +222,7 @@ export const voiceService = {
     const countsAsCollaboration =
       toClassification !== null && !toClassification.isIgnored && toClassification.sessionType === 'VOICE';
 
-    await voiceChannelTransitionRepository.create({
+    const transitionPayload = {
       organizationId: monitored.organizationId,
       guildId: monitored.guildId,
       userId,
@@ -239,26 +239,31 @@ export const voiceService = {
       toIgnored: toClassification?.isIgnored ?? false,
       countsAsCollaboration,
       occurredAt: now,
-    });
-
-    const transitionEvent: LiveVoiceTransitionEvent = {
-      organizationId: monitored.organizationId,
-      guildId: monitored.guildId,
-      discordId: voiceState.id,
-      displayName,
-      eventType,
-      fromChannelName: fromChannel?.name,
-      toChannelName: toChannel?.name,
-      fromIgnored: fromClassification?.isIgnored ?? false,
-      toIgnored: toClassification?.isIgnored ?? false,
-      countsAsCollaboration,
-      occurredAt: now.toISOString(),
     };
-    liveActivityBroadcaster.publishTransition(
-      monitored.organizationId,
-      monitored.guildId,
-      transitionEvent,
-    );
+
+    const isDuplicateTransition = await voiceChannelTransitionRepository.hasRecentDuplicate(transitionPayload);
+    if (!isDuplicateTransition) {
+      await voiceChannelTransitionRepository.create(transitionPayload);
+
+      const transitionEvent: LiveVoiceTransitionEvent = {
+        organizationId: monitored.organizationId,
+        guildId: monitored.guildId,
+        discordId: voiceState.id,
+        displayName,
+        eventType,
+        fromChannelName: fromChannel?.name,
+        toChannelName: toChannel?.name,
+        fromIgnored: fromClassification?.isIgnored ?? false,
+        toIgnored: toClassification?.isIgnored ?? false,
+        countsAsCollaboration,
+        occurredAt: now.toISOString(),
+      };
+      liveActivityBroadcaster.publishTransition(
+        monitored.organizationId,
+        monitored.guildId,
+        transitionEvent,
+      );
+    }
 
     switch (eventType) {
       case 'JOIN':

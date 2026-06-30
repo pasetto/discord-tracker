@@ -1,6 +1,8 @@
 import Router from '@koa/router';
 import { Types } from 'mongoose';
-import { checkDiscordHealth, discordClient, reloadDiscordFromDatabase } from '../../bot/client';import { GuildConnectionModel } from '../../db/models/GuildConnection';
+import { discordClient, reloadDiscordFromDatabase } from '../../bot/client';
+import { GuildConnectionModel } from '../../db/models/GuildConnection';
+import { resolveDiscordBotConnected } from '../../services/discordClusterProxy';
 import type { AuthUserPayload } from '../../services/authService';
 import {
   buildDiscordBotInstallUrl,
@@ -63,9 +65,11 @@ discordSettingsRouter.get('/discord/status', async (ctx) => {
     .lean()
     .exec();
 
+  const botConnected = await resolveDiscordBotConnected();
+
   ctx.body = {
-    botConnected: checkDiscordHealth(),
-    guildCount: discordClient.isReady() ? discordClient.guilds.cache.size : 0,
+    botConnected,
+    guildCount: botConnected && discordClient.isReady() ? discordClient.guilds.cache.size : 0,
     activeConnection: activeConnection
       ? {
           guildId: activeConnection.guildId,
@@ -93,7 +97,7 @@ discordSettingsRouter.get('/discord/guilds', async (ctx) => {
     return;
   }
 
-  if (!checkDiscordHealth()) {
+  if (!(await resolveDiscordBotConnected())) {
     ctx.status = 503;
     ctx.body = {
       error: 'Bot Discord não conectado',
@@ -148,7 +152,7 @@ discordSettingsRouter.post('/discord/guilds/:guildId/select', async (ctx) => {
 
   assertAdminRole(ctx, organizationId);
 
-  if (!checkDiscordHealth()) {
+  if (!(await resolveDiscordBotConnected())) {
     ctx.status = 503;
     ctx.body = { error: 'Bot Discord não conectado' };
     return;

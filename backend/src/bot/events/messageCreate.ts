@@ -1,4 +1,5 @@
 import { Events, Message } from 'discord.js';
+import { shouldRunBackgroundJobs } from '../../runtime/clusterRole';
 import { discordClient } from '../client';
 import { createLogger } from '../../logger';
 import { guildService } from '../../services/guildService';
@@ -20,6 +21,10 @@ function resolveTextEventType(message: Message): 'message' | 'thread_reply' {
  */
 export function registerMessageCreateHandler(): void {
   discordClient.on(Events.MessageCreate, async (message: Message) => {
+    if (!shouldRunBackgroundJobs()) {
+      return;
+    }
+
     try {
       if (message.author.bot) {
         return;
