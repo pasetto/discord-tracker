@@ -27,7 +27,5 @@ jobs:
             npm ci
             npm run build --workspace=backend
             npm run build --workspace=frontend
-            docker compose pull
-            docker compose up -d --build
-            docker compose exec -T backend npm run migrate || true
-            curl -sf http://localhost:3000/health
+            pm2 reload syntra || pm2 start backend/ecosystem.config.js
+            curl -sf http://localhost:3322/api/v1/health
