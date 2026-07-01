@@ -110,9 +110,9 @@ export async function runWithDiscordBot<T>(params: {
   internalPath: string;
   onBotInstance: () => Promise<T>;
 }): Promise<T> {
-  const useInternalLoopback = shouldRunBackgroundJobs() && isPm2ClusterWorker();
-
-  if (useInternalLoopback) {
+  // Em cluster PM2, TODOS os workers (incluindo instância 0) usam o servidor interno
+  // da instância bot — evita snapshots divergentes entre workers com código em memória diferente.
+  if (isPm2ClusterWorker()) {
     if (!(await isDiscordBotInstanceReachable())) {
       throw new Error(DISCORD_NOT_CONNECTED_MESSAGE);
     }

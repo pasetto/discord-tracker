@@ -21,6 +21,7 @@ dashboardRouter.get('/guilds/:guildId/dashboard/live', async (ctx) => {
   try {
     await assertGuildMonitoredByOrganization(organizationId, guildId);
     const snapshot = await getGuildLiveDashboard(guildId, organizationId);
+    ctx.set('Cache-Control', 'no-store');
     ctx.body = snapshot;
   } catch (error) {
     const message = (error as Error).message;

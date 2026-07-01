@@ -132,7 +132,12 @@
       >
         <div>
           <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Ranking de colaboração hoje</h2>
-          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Horas acumuladas — permanecem após sair do canal.</p>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Horas acumuladas no dia civil
+            <span *ngIf="snapshotDayDate"> ({{ snapshotDayDate }})</span>
+            <span *ngIf="snapshotTimezone" class="text-xs"> — {{ snapshotTimezone }}</span>
+            . Permanecem após sair do canal.
+          </p>
         </div>
         <span class="text-sm text-gray-500">{{ showRanking ? 'Ocultar' : 'Mostrar' }}</span>
       </button>

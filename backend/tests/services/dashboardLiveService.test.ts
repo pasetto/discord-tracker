@@ -187,6 +187,8 @@ import { getGuildLiveDashboard } from '../../src/services/dashboardLiveService';
 describe('getGuildLiveDashboard', () => {
 
   it('retorna membros ativos e ranking por colaboração acumulada hoje', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-01T15:00:00.000Z'));
 
     discordMocks.runWithDiscordBot.mockImplementation(async ({ onBotInstance }) => onBotInstance());
 
@@ -338,6 +340,7 @@ describe('getGuildLiveDashboard', () => {
 
     expect(snapshot.recentTransitions).toEqual([]);
 
+    vi.useRealTimers();
   });
 
   it('falha quando o bot não fica acessível mesmo após o retry', async () => {

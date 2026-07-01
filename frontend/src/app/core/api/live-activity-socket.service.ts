@@ -36,6 +36,8 @@ export interface LiveVoiceTransitionEvent {
 /** Snapshot em tempo real do dashboard. */
 export interface DashboardLiveSnapshot {
   generatedAt: string;
+  dayDate: string;
+  timezone: string;
   guildId: string;
   guildName: string;
   activeCount: number;

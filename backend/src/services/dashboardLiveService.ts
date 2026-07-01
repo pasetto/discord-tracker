@@ -10,7 +10,7 @@ import { OrganizationModel } from '../db/models/Organization';
 import type { PresenceStatus, VoiceEventType, VoiceSessionType } from '../config/env';
 import type { LiveVoiceTransitionEvent } from './liveActivityBroadcaster';
 import { clampSecondsToWindow } from '../utils/sessionTimeUtils';
-import { getDayBounds } from '../utils/timezone';
+import { getDayBounds, formatDateString } from '../utils/timezone';
 import { config } from '../config/env';
 import { runWithDiscordBot } from './discordClusterProxy';
 
@@ -34,6 +34,10 @@ export interface LiveMemberSnapshot {
 /** Snapshot em tempo real do dashboard por guild. */
 export interface DashboardLiveSnapshot {
   generatedAt: string;
+  /** Data civil (YYYY-MM-DD) usada nos totais "hoje". */
+  dayDate: string;
+  /** Timezone IANA usada para o dia civil. */
+  timezone: string;
   guildId: string;
   guildName: string;
   activeCount: number;
@@ -74,6 +78,10 @@ export async function buildGuildLiveDashboardOnBotInstance(
   guildId: string,
   organizationId?: string,
 ): Promise<DashboardLiveSnapshot> {
+  if (!organizationId?.trim()) {
+    throw new Error('organizationId é obrigatório para o dashboard ao vivo');
+  }
+
   const guild = await resolveDiscordGuild(guildId);
 
   const now = Date.now();
@@ -89,36 +97,28 @@ export async function buildGuildLiveDashboardOnBotInstance(
     .lean<Array<{ _id: unknown; discordId: string }>>();
   const discordIdToUserId = new Map(users.map((user) => [user.discordId, String(user._id)]));
   const userObjectIds = users.map((user) => user._id);
-  const sessionScope = organizationId ? { organizationId: new Types.ObjectId(organizationId), guildId } : undefined;
+  const sessionScope = { organizationId: new Types.ObjectId(organizationId), guildId };
 
   const [voiceTodayByUser, onlineTodayByUser, openSessions, openVoiceSessions, todayTransitions, recentTransitionsRaw] =
     await Promise.all([
-      sessionScope
-        ? voiceSessionRepository.sumTodayByUserIds(
-            userObjectIds as Types.ObjectId[],
-            sessionScope.organizationId,
-            sessionScope.guildId,
-            dayStart,
-            nowDate,
-          )
-        : Promise.resolve(new Map()),
-      sessionScope
-        ? presenceSessionRepository.sumTodayOnlineByUserIds(
-            userObjectIds as Types.ObjectId[],
-            sessionScope.organizationId,
-            sessionScope.guildId,
-            dayStart,
-            nowDate,
-          )
-        : Promise.resolve(new Map()),
+      voiceSessionRepository.sumTodayByUserIds(
+        userObjectIds as Types.ObjectId[],
+        sessionScope.organizationId,
+        sessionScope.guildId,
+        dayStart,
+        nowDate,
+      ),
+      presenceSessionRepository.sumTodayOnlineByUserIds(
+        userObjectIds as Types.ObjectId[],
+        sessionScope.organizationId,
+        sessionScope.guildId,
+        dayStart,
+        nowDate,
+      ),
       presenceSessionRepository.findAllOpen(sessionScope),
       voiceSessionRepository.findAllOpen(sessionScope),
-      organizationId
-        ? voiceChannelTransitionRepository.findSinceByGuild(organizationId, guildId, dayStart)
-        : Promise.resolve([]),
-      organizationId
-        ? voiceChannelTransitionRepository.findRecentByGuild(organizationId, guildId, 20)
-        : Promise.resolve([]),
+      voiceChannelTransitionRepository.findSinceByGuild(organizationId, guildId, dayStart),
+      voiceChannelTransitionRepository.findRecentByGuild(organizationId, guildId, 20),
     ]);
 
   const sessionByUserId = new Map(
@@ -174,11 +174,13 @@ export async function buildGuildLiveDashboardOnBotInstance(
   });
 
   const recentTransitions = recentTransitionsRaw.map((transition) =>
-    mapTransitionToEvent(transition, organizationId ?? ''),
+    mapTransitionToEvent(transition, organizationId),
   );
 
   return {
     generatedAt: nowDate.toISOString(),
+    dayDate: formatDateString(nowDate, timezone),
+    timezone,
     guildId: guild.id,
     guildName: guild.name,
     activeCount: activeMembers.length,

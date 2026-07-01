@@ -49,6 +49,7 @@ describe('discordClusterProxy', () => {
   });
 
   it('executa localmente na instância bot fora do cluster PM2', async () => {
+    clusterMocks.isPm2ClusterWorker.mockReturnValue(false);
     const result = await runWithDiscordBot({
       guildId: 'guild-1',
       internalPath: '/internal/discord/guilds/guild-1/channels',
@@ -59,8 +60,9 @@ describe('discordClusterProxy', () => {
     expect(clusterMocks.ensureDiscordGuildAccessible).toHaveBeenCalledWith('guild-1');
   });
 
-  it('usa loopback interno na instância bot em cluster PM2', async () => {
+  it('instância bot em cluster PM2 também encaminha via servidor interno', async () => {
     clusterMocks.isPm2ClusterWorker.mockReturnValue(true);
+    clusterMocks.shouldRunBackgroundJobs.mockReturnValue(true);
     global.fetch = vi
       .fn()
       .mockResolvedValueOnce({

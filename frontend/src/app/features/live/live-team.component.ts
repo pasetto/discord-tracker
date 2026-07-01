@@ -39,6 +39,8 @@ export class LiveTeamComponent implements OnInit, OnDestroy {
   liveConnected = false;
   errorMessage = '';
   lastUpdatedAt: string | null = null;
+  snapshotDayDate: string | null = null;
+  snapshotTimezone: string | null = null;
   showMovement = true;
   showRanking = true;
 
@@ -138,6 +140,8 @@ export class LiveTeamComponent implements OnInit, OnDestroy {
     this.onlineRanking = [];
     this.recentTransitions = [];
     this.lastUpdatedAt = null;
+    this.snapshotDayDate = null;
+    this.snapshotTimezone = null;
     this.liveActivitySocket.connect(this.tenantContext.orgId, this.tenantContext.guildId, token);
   }
 
@@ -165,6 +169,8 @@ export class LiveTeamComponent implements OnInit, OnDestroy {
     this.onlineRanking = snapshot.onlineRanking ?? [];
     this.recentTransitions = snapshot.recentTransitions ?? [];
     this.lastUpdatedAt = snapshot.generatedAt;
+    this.snapshotDayDate = snapshot.dayDate ?? null;
+    this.snapshotTimezone = snapshot.timezone ?? null;
   }
 
   /**

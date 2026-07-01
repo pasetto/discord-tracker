@@ -30,6 +30,7 @@ jobs:
             npm ci
             npm run build --workspace=backend
             npm run build --workspace=frontend
-            # restart (não reload) garante que TODAS as instâncias do cluster carreguem o build novo
-            pm2 restart syntra --update-env || pm2 start backend/ecosystem.config.js
+            # restart garante que TODAS as instâncias do cluster carreguem o build novo
+            pm2 delete syntra 2>/dev/null || true
+            pm2 start backend/ecosystem.config.js
             curl -sf http://localhost:3322/api/v1/health
