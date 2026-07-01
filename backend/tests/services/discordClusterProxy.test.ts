@@ -2,11 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const clusterMocks = vi.hoisted(() => ({
   shouldRunBackgroundJobs: vi.fn(() => true),
+  isPm2ClusterWorker: vi.fn(() => false),
   ensureDiscordGuildAccessible: vi.fn(async () => true),
 }));
 
 vi.mock('../../src/runtime/clusterRole', () => ({
   shouldRunBackgroundJobs: clusterMocks.shouldRunBackgroundJobs,
+  isPm2ClusterWorker: clusterMocks.isPm2ClusterWorker,
 }));
 
 vi.mock('../../src/bot/client', () => ({
@@ -32,6 +34,7 @@ describe('discordClusterProxy', () => {
 
   beforeEach(() => {
     clusterMocks.shouldRunBackgroundJobs.mockReturnValue(true);
+    clusterMocks.isPm2ClusterWorker.mockReturnValue(false);
     clusterMocks.ensureDiscordGuildAccessible.mockResolvedValue(true);
     delete process.env.INTERNAL_DISCORD_PORT;
   });
@@ -45,7 +48,7 @@ describe('discordClusterProxy', () => {
     expect(getInternalDiscordPort()).toBe(4000);
   });
 
-  it('executa localmente na instância bot', async () => {
+  it('executa localmente na instância bot fora do cluster PM2', async () => {
     const result = await runWithDiscordBot({
       guildId: 'guild-1',
       internalPath: '/internal/discord/guilds/guild-1/channels',
@@ -54,6 +57,30 @@ describe('discordClusterProxy', () => {
 
     expect(result).toEqual({ ok: true });
     expect(clusterMocks.ensureDiscordGuildAccessible).toHaveBeenCalledWith('guild-1');
+  });
+
+  it('usa loopback interno na instância bot em cluster PM2', async () => {
+    clusterMocks.isPm2ClusterWorker.mockReturnValue(true);
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ discordConnected: true }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      }) as typeof fetch;
+
+    const result = await runWithDiscordBot({
+      guildId: 'guild-1',
+      internalPath: '/internal/discord/guilds/guild-1/live-dashboard',
+      onBotInstance: async () => ({ stale: true }),
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(clusterMocks.ensureDiscordGuildAccessible).not.toHaveBeenCalled();
   });
 
   it('encaminha para servidor interno em worker API-only', async () => {

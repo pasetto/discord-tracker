@@ -134,6 +134,10 @@ export class LiveTeamComponent implements OnInit, OnDestroy {
 
     this.liveLoading = true;
     this.errorMessage = '';
+    this.activeMembers = [];
+    this.onlineRanking = [];
+    this.recentTransitions = [];
+    this.lastUpdatedAt = null;
     this.liveActivitySocket.connect(this.tenantContext.orgId, this.tenantContext.guildId, token);
   }
 

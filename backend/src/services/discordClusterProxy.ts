@@ -1,6 +1,6 @@
 import { config } from '../config/env';
 import { checkDiscordHealth } from '../bot/client';
-import { shouldRunBackgroundJobs } from '../runtime/clusterRole';
+import { shouldRunBackgroundJobs, isPm2ClusterWorker } from '../runtime/clusterRole';
 
 /** Mensagem padrão quando o bot Discord não está acessível. */
 export const DISCORD_NOT_CONNECTED_MESSAGE =
@@ -110,6 +110,15 @@ export async function runWithDiscordBot<T>(params: {
   internalPath: string;
   onBotInstance: () => Promise<T>;
 }): Promise<T> {
+  const useInternalLoopback = shouldRunBackgroundJobs() && isPm2ClusterWorker();
+
+  if (useInternalLoopback) {
+    if (!(await isDiscordBotInstanceReachable())) {
+      throw new Error(DISCORD_NOT_CONNECTED_MESSAGE);
+    }
+    return callInternalDiscordApi<T>(params.internalPath);
+  }
+
   if (shouldRunBackgroundJobs()) {
     const { ensureDiscordGuildAccessible } = await import('../bot/client');
     if (!(await ensureDiscordGuildAccessible(params.guildId))) {
