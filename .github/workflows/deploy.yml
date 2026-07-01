@@ -30,10 +30,9 @@ jobs:
             npm ci
             npm run build --workspace=backend
             npm run build --workspace=frontend
-            # restart garante que TODAS as instâncias do cluster carreguem o build novo
+            # restart limpo: delete + start garante workers homogêneos (sem pkill global)
             pm2 delete syntra 2>/dev/null || true
-            sleep 2
-            pkill -f "node.*dist/index.js" 2>/dev/null || true
-            pm2 start backend/ecosystem.config.js
+            pm2 start backend/ecosystem.config.js --update-env
             pm2 save
-            curl -sf http://localhost:3322/api/v1/health
+            sleep 8
+            curl -sf --retry 5 --retry-delay 3 http://localhost:3322/api/v1/health
