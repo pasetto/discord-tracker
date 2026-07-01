@@ -318,12 +318,13 @@ describe('goalsService', () => {
       from: new Date('2026-06-10T00:00:00.000Z'),
       to: new Date('2026-06-10T23:59:59.999Z'),
       referenceDate: new Date('2026-06-10T23:59:59.999Z'),
+      datePreset: 'custom',
     });
 
     expect(report.entries[0]?.realizedHours).toBe(1);
-    expect(report.entries[0]?.weeklyGoalHours).toBe(7);
+    expect(report.entries[0]?.weeklyGoalHours).toBe(1.4);
     expect(report.entries[0]?.periodMinimumHours).toBeNull();
-    expect(report.entries[0]?.progressPercent).toBeCloseTo(14.29, 1);
+    expect(report.entries[0]?.progressPercent).toBeCloseTo(71.43, 1);
   });
 
   it('limita sessão de voz ainda aberta ao instante atual (não soma até o fim do dia)', async () => {
@@ -521,15 +522,14 @@ describe('goalsService', () => {
     const report = await getGoalsWeeklyReport({
       organizationId: organizationId.toHexString(),
       guildId,
-      from: new Date('2026-06-30T00:00:00.000Z'),
-      to: new Date('2026-07-02T23:59:59.999Z'),
       referenceDate: new Date('2026-07-02T12:00:00.000Z'),
       now: new Date('2026-07-02T12:00:00.000Z'),
+      datePreset: 'this_week',
     });
 
     expect(report.entries[0]?.weeklyGoalHours).toBe(40);
-    expect(report.entries[0]?.businessDaysInPeriod).toBe(3);
-    expect(report.entries[0]?.periodMinimumHours).toBe(21);
+    expect(report.entries[0]?.businessDaysInPeriod).toBe(4);
+    expect(report.entries[0]?.periodMinimumHours).toBe(28);
     expect(report.entries[0]?.realizedHours).toBeCloseTo(16.54, 1);
     expect(report.entries[0]?.progressPercent).toBeCloseTo(41.35, 1);
   });
@@ -587,9 +587,10 @@ describe('goalsService', () => {
       to: new Date('2026-06-10T23:59:59.999Z'),
       referenceDate: new Date('2026-06-10T23:59:59.999Z'),
       now: new Date('2026-06-10T23:59:59.999Z'),
+      datePreset: 'custom',
     });
 
-    expect(report.entries[0]?.progressPercent).toBeCloseTo(125, 1);
+    expect(report.entries[0]?.progressPercent).toBeCloseTo(625, 0);
   });
 
   it('calcula periodMinimumHours null quando dailyMinimumHours ausente', async () => {
@@ -725,5 +726,69 @@ describe('goalsService', () => {
 
     expect(report.entries[0]?.businessDaysInPeriod).toBe(2);
     expect(report.entries[0]?.periodMinimumHours).toBe(14);
+  });
+
+  it('rateia meta pelos dias úteis do período quando preset é today', async () => {
+    const organizationId = new mongoose.Types.ObjectId();
+    const setBy = new mongoose.Types.ObjectId();
+    const guildId = 'guild-today';
+
+    const [trackedUser] = await TrackedUserModel.create([
+      {
+        organizationId,
+        guildId,
+        discordId: 'd-today',
+        username: 'today',
+        displayName: 'Today',
+        firstSeenAt: new Date('2026-06-01T10:00:00.000Z'),
+        lastSeenAt: new Date('2026-06-10T10:00:00.000Z'),
+      },
+    ]);
+
+    const coreUser = await User.create({
+      discordId: 'd-today',
+      username: 'today',
+      displayName: 'Today',
+      firstSeenAt: new Date('2026-06-01T10:00:00.000Z'),
+      lastSeenAt: new Date('2026-06-10T10:00:00.000Z'),
+    });
+
+    await UserCollaborationGoalModel.create({
+      organizationId,
+      guildId,
+      trackedUserId: trackedUser._id,
+      weeklyCollaborationHours: 40,
+      dailyMinimumHours: 7,
+      source: 'manual',
+      setBy,
+    });
+
+    await VoiceSession.create({
+      organizationId,
+      guildId,
+      userId: coreUser._id,
+      channelId: '10',
+      channelName: 'Colaboração',
+      startedAt: new Date('2026-07-01T09:00:00.000Z'),
+      endedAt: new Date('2026-07-01T13:13:12.000Z'),
+      durationSeconds: Math.round(4.22 * 3600),
+      isIgnoredChannel: false,
+      sessionType: 'VOICE',
+    });
+
+    const report = await getGoalsWeeklyReport({
+      organizationId: organizationId.toHexString(),
+      guildId,
+      from: new Date('2026-07-01T00:00:00.000Z'),
+      to: new Date('2026-07-01T23:59:59.999Z'),
+      referenceDate: new Date('2026-07-01T23:59:59.999Z'),
+      now: new Date('2026-07-01T23:59:59.999Z'),
+      datePreset: 'today',
+    });
+
+    expect(report.entries[0]?.businessDaysInPeriod).toBe(1);
+    expect(report.entries[0]?.weeklyGoalHours).toBe(8);
+    expect(report.entries[0]?.realizedHours).toBeCloseTo(4.22, 1);
+    expect(report.entries[0]?.progressPercent).toBeCloseTo(52.75, 1);
   });
 });

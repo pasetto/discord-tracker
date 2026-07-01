@@ -143,6 +143,15 @@ export async function getWorkCalendarForGuild(
 }
 
 /**
+ * Conta quantos dias da semana estão habilitados na jornada configurada.
+ * @param workWeek Jornada semanal da organização
+ * @returns Total de dias úteis padrão por semana (ex.: 5 para seg–sex)
+ */
+export function countEnabledBusinessDaysInWorkWeek(workWeek: WorkWeek): number {
+  return Object.values(workWeek).filter((day) => day.enabled).length;
+}
+
+/**
  * Conta dias úteis inclusivos no intervalo [from, to], respeitando calendário e exclusões opcionais.
  * Diferente de computeBusinessDaysBetween (inatividade), que é exclusivo em `from`.
  * @param calendar Calendário com jornada e feriados

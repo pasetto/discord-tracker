@@ -383,7 +383,7 @@ goalsRouter.post('/guilds/:guildId/members/apply-all-category-goals', async (ctx
  *                           weeklyGoalHours:
  *                             type: number
  *                             nullable: true
- *                             description: Meta semanal configurada do colaborador (horas)
+ *                             description: Meta do período (semanal integral em esta/semana passada; rateada pelos dias úteis nos demais presets)
  *                           periodMinimumHours:
  *                             type: number
  *                             nullable: true
@@ -393,7 +393,7 @@ goalsRouter.post('/guilds/:guildId/members/apply-all-category-goals', async (ctx
  *                             description: Dias úteis do colaborador no intervalo selecionado
  *                           progressPercent:
  *                             type: number
- *                             description: Percentual sobre meta semanal (pode exceder 100)
+ *                             description: Percentual sobre meta do período (pode exceder 100)
  */
 goalsRouter.get('/guilds/:guildId/reports/goals', async (ctx) => {
   try {
@@ -420,6 +420,7 @@ goalsRouter.get('/guilds/:guildId/reports/goals', async (ctx) => {
       from: range.from,
       to: range.to,
       referenceDate: range.to,
+      datePreset: range.preset,
     });
 
     ctx.body = { report };

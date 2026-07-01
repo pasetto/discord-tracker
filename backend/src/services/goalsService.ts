@@ -8,9 +8,11 @@ import { UserCollaborationGoalModel } from '../db/models/UserCollaborationGoal';
 import { VoiceSession } from '../db/models/VoiceSession';
 import { isOnPlannedAbsence } from './plannedAbsenceService';
 import {
+  countEnabledBusinessDaysInWorkWeek,
   countInclusiveBusinessDaysInPeriod,
   getWorkCalendarForGuild,
 } from './workCalendarService';
+import type { ReportDatePreset } from '../utils/reportDateRange';
 import {
   endOfUtcDay,
   overlapSeconds,
@@ -50,6 +52,8 @@ export interface GoalsWeeklyReportInput {
   to?: Date;
   /** Instante atual usado para limitar horas realizadas (default: agora). Útil em testes. */
   now?: Date;
+  /** Preset do filtro de data — define meta integral (semana) ou rateada (dia/janela parcial) */
+  datePreset?: ReportDatePreset;
 }
 
 /**
@@ -61,6 +65,7 @@ export interface GoalWeeklyReportEntry {
   displayName: string;
   categoryId?: Types.ObjectId;
   categoryName?: string;
+  /** Meta do período exibida (semanal integral ou rateada pelos dias úteis do filtro) */
   weeklyGoalHours: number | null;
   dailyMinimumHours: number | null;
   /** Mínimo diário acumulado no período (dailyMinimum × dias úteis efetivos), ou null */
@@ -306,6 +311,41 @@ export async function applyAllCategoryGoalsToTrackedUsers(
 }
 
 /**
+ * Indica se a meta exibida deve ser a semanal integral (40h) em vez de rateada pelo período.
+ * @param preset Preset do filtro de data do relatório
+ * @returns true para esta semana e semana passada
+ */
+function usesFullWeeklyGoalDisplay(preset: ReportDatePreset): boolean {
+  return preset === 'this_week' || preset === 'last_week';
+}
+
+/**
+ * Resolve horas de meta para exibição e cálculo de progresso conforme o preset.
+ * @param configuredWeekly Meta semanal configurada do colaborador
+ * @param businessDaysInPeriod Dias úteis efetivos no intervalo
+ * @param enabledDaysPerWeek Dias úteis habilitados na jornada semanal
+ * @param preset Preset do filtro de data
+ * @returns Meta do período em horas, ou null quando indisponível
+ */
+function resolvePeriodGoalHours(
+  configuredWeekly: number | null,
+  businessDaysInPeriod: number,
+  enabledDaysPerWeek: number,
+  preset: ReportDatePreset,
+): number | null {
+  if (!configuredWeekly || configuredWeekly <= 0) {
+    return null;
+  }
+  if (usesFullWeeklyGoalDisplay(preset)) {
+    return configuredWeekly;
+  }
+  if (businessDaysInPeriod <= 0 || enabledDaysPerWeek <= 0) {
+    return null;
+  }
+  return Number((configuredWeekly * (businessDaysInPeriod / enabledDaysPerWeek)).toFixed(2));
+}
+
+/**
  * Monta relatório semanal de metas individuais com progresso por usuário.
  * @param {GoalsWeeklyReportInput} input Filtros de tenant, guild, categoria e data de referência
  * @returns {Promise<GoalsWeeklyReport>} Relatório de meta versus realizado por membro
@@ -315,6 +355,8 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
   const organizationId = parseObjectId(input.organizationId, 'organizationId');
   const categoryId = input.categoryId ? parseObjectId(input.categoryId, 'categoryId') : undefined;
   const referenceDate = input.referenceDate ?? new Date();
+  const datePreset: ReportDatePreset =
+    input.datePreset ?? (input.from && input.to ? 'custom' : 'this_week');
 
   let periodStart: Date;
   let periodEnd: Date;
@@ -382,6 +424,7 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
   ]);
 
   const goalsByTrackedUserId = new Map(goals.map((goal) => [String(goal.trackedUserId), goal]));
+  const enabledDaysPerWeek = countEnabledBusinessDaysInWorkWeek(calendar.workWeek);
 
   const entries: GoalWeeklyReportEntry[] = trackedUsers.map((trackedUser) => {
     const goal = goalsByTrackedUserId.get(String(trackedUser._id));
@@ -403,9 +446,16 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
         ? Number((dailyMinimum * businessDaysInPeriod).toFixed(2))
         : null;
 
+    const periodGoalHours = resolvePeriodGoalHours(
+      configuredWeeklyGoal,
+      businessDaysInPeriod,
+      enabledDaysPerWeek,
+      datePreset,
+    );
+
     const progressPercent =
-      configuredWeeklyGoal && configuredWeeklyGoal > 0
-        ? Number(((realizedHours / configuredWeeklyGoal) * 100).toFixed(2))
+      periodGoalHours && periodGoalHours > 0
+        ? Number(((realizedHours / periodGoalHours) * 100).toFixed(2))
         : 0;
 
     const trackedCategoryId = trackedUser.categoryId as Types.ObjectId | undefined;
@@ -416,13 +466,13 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
       displayName: trackedUser.displayName,
       categoryId: trackedCategoryId,
       categoryName: trackedCategoryId ? categoryNameById.get(String(trackedCategoryId)) : undefined,
-      weeklyGoalHours: configuredWeeklyGoal,
+      weeklyGoalHours: periodGoalHours,
       dailyMinimumHours: dailyMinimum,
       periodMinimumHours,
       businessDaysInPeriod,
       realizedHours,
       progressPercent,
-      shouldAlertLowProgress: configuredWeeklyGoal
+      shouldAlertLowProgress: periodGoalHours
         ? shouldTriggerLowProgressThursdayAlert(referenceDate, progressPercent)
         : false,
     };

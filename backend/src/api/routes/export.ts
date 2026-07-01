@@ -271,6 +271,7 @@ exportRouter.post('/guilds/:guildId/export/csv', async (ctx) => {
       from: range.from,
       to: range.to,
       referenceDate: range.to,
+      datePreset: range.preset,
     });
 
     const headers = [
