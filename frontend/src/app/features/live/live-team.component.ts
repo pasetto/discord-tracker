@@ -6,6 +6,7 @@ import { Subscription } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import {
   DashboardLiveSnapshot,
+  isValidLiveDashboardSnapshot,
   LiveActivitySocketService,
   LiveMemberSnapshot,
   LiveVoiceTransitionEvent,
@@ -67,6 +68,9 @@ export class LiveTeamComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.subscriptions.add(
       this.liveActivitySocket.snapshot$.subscribe((snapshot) => {
+        if (!this.isAcceptableSnapshot(snapshot)) {
+          return;
+        }
         this.applySnapshot(snapshot);
         this.errorMessage = '';
         this.liveLoading = false;
@@ -158,6 +162,15 @@ export class LiveTeamComponent implements OnInit, OnDestroy {
           this.activeAbsences = response.absences ?? [];
         },
       });
+  }
+
+  /**
+   * Valida snapshot antes de aplicar na UI (camada extra além do serviço WebSocket).
+   * @param snapshot Dados ao vivo do guild
+   * @returns true quando seguro para renderizar
+   */
+  private isAcceptableSnapshot(snapshot: DashboardLiveSnapshot): boolean {
+    return isValidLiveDashboardSnapshot(snapshot);
   }
 
   /**

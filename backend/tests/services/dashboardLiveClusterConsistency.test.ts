@@ -6,13 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 describe('consistência cluster PM2 — dashboard ao vivo', () => {
   const clusterMocks = vi.hoisted(() => ({
     shouldRunBackgroundJobs: vi.fn(() => false),
-    isPm2ClusterWorker: vi.fn(() => true),
     ensureDiscordGuildAccessible: vi.fn(async () => true),
   }));
 
   vi.mock('../../src/runtime/clusterRole', () => ({
     shouldRunBackgroundJobs: clusterMocks.shouldRunBackgroundJobs,
-    isPm2ClusterWorker: clusterMocks.isPm2ClusterWorker,
   }));
 
   vi.mock('../../src/bot/client', () => ({
@@ -30,7 +28,6 @@ describe('consistência cluster PM2 — dashboard ao vivo', () => {
 
   beforeEach(() => {
     clusterMocks.shouldRunBackgroundJobs.mockReturnValue(false);
-    clusterMocks.isPm2ClusterWorker.mockReturnValue(true);
     delete process.env.INTERNAL_DISCORD_PORT;
   });
 

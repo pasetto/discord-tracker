@@ -1,6 +1,6 @@
 import { config } from '../config/env';
 import { checkDiscordHealth } from '../bot/client';
-import { shouldRunBackgroundJobs, isPm2ClusterWorker } from '../runtime/clusterRole';
+import { shouldRunBackgroundJobs } from '../runtime/clusterRole';
 
 /** Mensagem padrão quando o bot Discord não está acessível. */
 export const DISCORD_NOT_CONNECTED_MESSAGE =
@@ -110,12 +110,8 @@ export async function runWithDiscordBot<T>(params: {
   internalPath: string;
   onBotInstance: () => Promise<T>;
 }): Promise<T> {
-  // Em cluster PM2, TODOS os workers (incluindo instância 0) usam o servidor interno
-  // da instância bot — evita snapshots divergentes entre workers com código em memória diferente.
-  if (isPm2ClusterWorker()) {
-    if (!(await isDiscordBotInstanceReachable())) {
-      throw new Error(DISCORD_NOT_CONNECTED_MESSAGE);
-    }
+  // Preferência absoluta: servidor interno da instância bot (fonte única de verdade).
+  if (await isDiscordBotInstanceReachable()) {
     return callInternalDiscordApi<T>(params.internalPath);
   }
 
@@ -127,11 +123,7 @@ export async function runWithDiscordBot<T>(params: {
     return params.onBotInstance();
   }
 
-  if (!(await isDiscordBotInstanceReachable())) {
-    throw new Error(DISCORD_NOT_CONNECTED_MESSAGE);
-  }
-
-  return callInternalDiscordApi<T>(params.internalPath);
+  throw new Error(DISCORD_NOT_CONNECTED_MESSAGE);
 }
 
 /**

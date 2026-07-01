@@ -1,5 +1,5 @@
 import { Injectable, NgZone, OnDestroy } from '@angular/core';
-import { Observable, Subject } from 'rxjs';
+import { Subject } from 'rxjs';
 
 /** Membro ativo retornado pelo snapshot ao vivo. */
 export interface LiveMemberSnapshot {
@@ -56,6 +56,33 @@ type LiveActivityServerMessage =
   | { type: 'error'; message: string }
   | { type: 'pong' };
 
+/** Máximo de segundos em um único dia civil (defesa contra snapshots legados/incorretos). */
+const MAX_DAILY_SECONDS = 24 * 60 * 60;
+
+/**
+ * Valida se o snapshot respeita o dia civil (rejeita respostas de workers legados no cluster).
+ * @param snapshot Snapshot recebido via WebSocket
+ * @returns true quando o payload é confiável para exibição
+ */
+export function isValidLiveDashboardSnapshot(snapshot: DashboardLiveSnapshot | null | undefined): boolean {
+  if (!snapshot?.dayDate?.trim() || !snapshot.timezone?.trim()) {
+    return false;
+  }
+
+  const members = [...(snapshot.activeMembers ?? []), ...(snapshot.onlineRanking ?? [])];
+  for (const member of members) {
+    if (
+      member.onlineSeconds > MAX_DAILY_SECONDS ||
+      member.collaborationActiveSeconds > MAX_DAILY_SECONDS ||
+      member.inactiveSeconds > MAX_DAILY_SECONDS
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 /**
  * Conecta ao WebSocket de atividade ao vivo e expõe snapshots e transições.
  */
@@ -63,6 +90,7 @@ type LiveActivityServerMessage =
 export class LiveActivitySocketService implements OnDestroy {
   private socket: WebSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private connectionEpoch = 0;
   private readonly snapshotSubject = new Subject<DashboardLiveSnapshot>();
   private readonly transitionSubject = new Subject<LiveVoiceTransitionEvent>();
   private readonly errorSubject = new Subject<string>();
@@ -92,34 +120,51 @@ export class LiveActivitySocketService implements OnDestroy {
    * @param token JWT de acesso
    */
   connect(organizationId: string, guildId: string, token: string): void {
-    this.disconnect(false);
+    this.clearReconnectTimer();
+    const epoch = ++this.connectionEpoch;
+    this.teardownSocket(this.socket);
+    this.socket = null;
+
     this.currentOrgId = organizationId;
     this.currentGuildId = guildId;
     this.currentToken = token;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${protocol}//${window.location.host}/api/v1/ws/live`;
-    this.socket = new WebSocket(url);
+    const socket = new WebSocket(url);
+    this.socket = socket;
 
-    this.socket.onopen = () => {
-      this.socket?.send(JSON.stringify({ type: 'auth', token: this.currentToken }));
+    socket.onopen = () => {
+      if (epoch !== this.connectionEpoch) {
+        return;
+      }
+      socket.send(JSON.stringify({ type: 'auth', token: this.currentToken }));
     };
 
-    this.socket.onmessage = (event) => {
+    socket.onmessage = (event) => {
       this.ngZone.run(() => {
+        if (epoch !== this.connectionEpoch) {
+          return;
+        }
         this.handleMessage(event.data as string);
       });
     };
 
-    this.socket.onerror = () => {
+    socket.onerror = () => {
       this.ngZone.run(() => {
+        if (epoch !== this.connectionEpoch) {
+          return;
+        }
         this.errorSubject.next('Falha na conexão em tempo real.');
         this.connectedSubject.next(false);
       });
     };
 
-    this.socket.onclose = () => {
+    socket.onclose = () => {
       this.ngZone.run(() => {
+        if (epoch !== this.connectionEpoch) {
+          return;
+        }
         this.connectedSubject.next(false);
         this.scheduleReconnect();
       });
@@ -131,16 +176,10 @@ export class LiveActivitySocketService implements OnDestroy {
    * @param clearContext Limpa org/guild/token quando true
    */
   disconnect(clearContext = true): void {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-
-    if (this.socket) {
-      this.socket.onclose = null;
-      this.socket.close();
-      this.socket = null;
-    }
+    this.connectionEpoch += 1;
+    this.clearReconnectTimer();
+    this.teardownSocket(this.socket);
+    this.socket = null;
 
     if (clearContext) {
       this.currentOrgId = '';
@@ -160,6 +199,35 @@ export class LiveActivitySocketService implements OnDestroy {
     this.transitionSubject.complete();
     this.errorSubject.complete();
     this.connectedSubject.complete();
+  }
+
+  /**
+   * Remove listeners e fecha socket sem disparar reconexão automática.
+   * @param socket Conexão WebSocket ativa ou encerrada
+   */
+  private teardownSocket(socket: WebSocket | null): void {
+    if (!socket) {
+      return;
+    }
+
+    socket.onopen = null;
+    socket.onmessage = null;
+    socket.onerror = null;
+    socket.onclose = null;
+
+    if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+      socket.close();
+    }
+  }
+
+  /**
+   * Cancela timer de reconexão automática pendente.
+   */
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
   }
 
   /**
@@ -202,6 +270,9 @@ export class LiveActivitySocketService implements OnDestroy {
         this.errorSubject.next('');
         break;
       case 'snapshot':
+        if (!isValidLiveDashboardSnapshot(message.data)) {
+          return;
+        }
         this.snapshotSubject.next(message.data);
         break;
       case 'transition':
@@ -223,6 +294,7 @@ export class LiveActivitySocketService implements OnDestroy {
       return;
     }
 
+    this.clearReconnectTimer();
     this.reconnectTimer = setTimeout(() => {
       this.connect(this.currentOrgId, this.currentGuildId, this.currentToken);
     }, 5_000);

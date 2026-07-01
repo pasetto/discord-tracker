@@ -32,5 +32,8 @@ jobs:
             npm run build --workspace=frontend
             # restart garante que TODAS as instâncias do cluster carreguem o build novo
             pm2 delete syntra 2>/dev/null || true
+            sleep 2
+            pkill -f "node.*dist/index.js" 2>/dev/null || true
             pm2 start backend/ecosystem.config.js
+            pm2 save
             curl -sf http://localhost:3322/api/v1/health

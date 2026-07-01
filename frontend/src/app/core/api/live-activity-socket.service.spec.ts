@@ -1,5 +1,9 @@
 import { TestBed } from '@angular/core/testing';
-import { DashboardLiveSnapshot, LiveActivitySocketService, LiveVoiceTransitionEvent } from './live-activity-socket.service';
+import {
+  DashboardLiveSnapshot,
+  LiveActivitySocketService,
+  LiveVoiceTransitionEvent,
+} from './live-activity-socket.service';
 
 /** Mock de WebSocket para testes do serviço em tempo real. */
 class MockWebSocket {
@@ -84,6 +88,8 @@ describe('LiveActivitySocketService', () => {
         type: 'snapshot',
         data: {
           generatedAt: '2026-06-24T12:00:00.000Z',
+          dayDate: '2026-06-24',
+          timezone: 'America/Sao_Paulo',
           guildId: 'guild-1',
           guildName: 'Servidor',
           activeCount: 1,
@@ -147,6 +153,79 @@ describe('LiveActivitySocketService', () => {
     jasmine.clock().tick(5_000);
 
     expect(MockWebSocket.instances.length).toBe(2);
+  });
+
+  it('ignora mensagens de socket encerrado após reconexão manual', () => {
+    const snapshots: DashboardLiveSnapshot[] = [];
+    service.snapshot$.subscribe((snapshot) => snapshots.push(snapshot));
+
+    service.connect('org-1', 'guild-1', 'jwt-token');
+    const firstSocket = MockWebSocket.instances[0];
+
+    service.connect('org-1', 'guild-1', 'jwt-token');
+    const secondSocket = MockWebSocket.instances[1];
+
+    firstSocket.emitMessage(
+      JSON.stringify({
+        type: 'snapshot',
+        data: {
+          generatedAt: '2026-06-24T12:00:00.000Z',
+          dayDate: '2026-06-24',
+          timezone: 'America/Sao_Paulo',
+          guildId: 'guild-1',
+          guildName: 'Servidor',
+          activeCount: 1,
+          activeMembers: [],
+          onlineRanking: [{ discordId: 'stale', displayName: 'Stale', status: 'ONLINE', voiceChannelId: null, voiceChannelName: null, onlineSeconds: 999, onlineSince: null, collaborationActiveSeconds: 0, inactiveSeconds: 0, isCollaborationActive: false, inIgnoredChannel: false, voiceSessionType: null, channelsVisitedToday: [] }],
+          recentTransitions: [],
+        },
+      }),
+    );
+
+    secondSocket.emitMessage(
+      JSON.stringify({
+        type: 'snapshot',
+        data: {
+          generatedAt: '2026-06-24T13:00:00.000Z',
+          dayDate: '2026-06-24',
+          timezone: 'America/Sao_Paulo',
+          guildId: 'guild-1',
+          guildName: 'Servidor',
+          activeCount: 1,
+          activeMembers: [],
+          onlineRanking: [{ discordId: 'fresh', displayName: 'Fresh', status: 'ONLINE', voiceChannelId: null, voiceChannelName: null, onlineSeconds: 100, onlineSince: null, collaborationActiveSeconds: 0, inactiveSeconds: 0, isCollaborationActive: false, inIgnoredChannel: false, voiceSessionType: null, channelsVisitedToday: [] }],
+          recentTransitions: [],
+        },
+      }),
+    );
+
+    expect(snapshots.length).toBe(1);
+    expect(snapshots[0]?.onlineRanking[0]?.discordId).toBe('fresh');
+  });
+
+  it('ignora snapshot legado sem dayDate', () => {
+    const snapshots: DashboardLiveSnapshot[] = [];
+    service.snapshot$.subscribe((snapshot) => snapshots.push(snapshot));
+
+    service.connect('org-1', 'guild-1', 'jwt-token');
+    const socket = MockWebSocket.instances[0];
+
+    socket.emitMessage(
+      JSON.stringify({
+        type: 'snapshot',
+        data: {
+          generatedAt: '2026-06-24T12:00:00.000Z',
+          guildId: 'guild-1',
+          guildName: 'Servidor',
+          activeCount: 1,
+          activeMembers: [],
+          onlineRanking: [],
+          recentTransitions: [],
+        },
+      }),
+    );
+
+    expect(snapshots.length).toBe(0);
   });
 
   it('encerra conexão e limpa contexto ao desconectar', () => {
