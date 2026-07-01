@@ -15,6 +15,16 @@ export interface TrackedMemberOption {
 }
 
 /**
+ * Resposta da sincronização de membros rastreados.
+ */
+export interface SyncTrackedMembersResponse {
+  syncedCount: number;
+  deactivatedCount: number;
+  reactivatedCount: number;
+  members: TrackedMemberOption[];
+}
+
+/**
  * Carrega e sincroniza membros rastreados do servidor Discord monitorado.
  */
 @Injectable({ providedIn: 'root' })
@@ -38,8 +48,8 @@ export class TrackedMembersService {
    * Sincroniza membros humanos do Discord para o banco de rastreamento.
    * @returns Observable com contagem sincronizada e membros atualizados
    */
-  syncMembers(): Observable<{ syncedCount: number; members: TrackedMemberOption[] }> {
-    return this.http.post<{ syncedCount: number; members: TrackedMemberOption[] }>(
+  syncMembers(): Observable<SyncTrackedMembersResponse> {
+    return this.http.post<SyncTrackedMembersResponse>(
       `${this.tenantContext.getGuildApiBaseUrl()}/tracked-users/sync`,
       {},
     );

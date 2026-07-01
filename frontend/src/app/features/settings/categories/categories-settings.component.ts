@@ -137,7 +137,14 @@ export class CategoriesSettingsComponent implements OnInit {
           this.members.map((member) => [member.id, member.categoryId ?? '']),
         );
         this.syncingMembers = false;
-        this.successMessage = `${response.syncedCount} membros sincronizados.`;
+        const parts = [`${response.syncedCount} sincronizados`];
+        if ((response.deactivatedCount ?? 0) > 0) {
+          parts.push(`${response.deactivatedCount} removidos do rastreamento`);
+        }
+        if ((response.reactivatedCount ?? 0) > 0) {
+          parts.push(`${response.reactivatedCount} reativados`);
+        }
+        this.successMessage = `${parts.join(', ')}.`;
       },
       error: (error) => {
         this.syncingMembers = false;
