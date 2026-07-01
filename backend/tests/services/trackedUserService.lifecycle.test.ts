@@ -33,8 +33,12 @@ vi.mock('../../src/bot/client', () => ({
       fetch: vi.fn(),
     },
   },
-  canAccessDiscordGuild: () => true,
-  ensureDiscordClientReady: vi.fn(),
+}));
+
+const runWithDiscordBotMock = vi.hoisted(() => vi.fn());
+
+vi.mock('../../src/services/discordClusterProxy', () => ({
+  runWithDiscordBot: runWithDiscordBotMock,
 }));
 
 describe('trackedUserService lifecycle', () => {
@@ -56,6 +60,7 @@ describe('trackedUserService lifecycle', () => {
   beforeEach(async () => {
     await TrackedUserModel.deleteMany({});
     mockGuildMembers.clear();
+    runWithDiscordBotMock.mockReset();
   });
 
   it('deactivateTrackedUserByDiscordId marca isActive=false e removedAt', async () => {
@@ -195,5 +200,26 @@ describe('trackedUserService lifecycle', () => {
     const memberC = await TrackedUserModel.findOne({ discordId: 'member-c' }).lean();
     expect(memberB?.isActive).toBe(false);
     expect(memberC?.isActive).toBe(true);
+  });
+
+  it('syncTrackedUsersFromDiscordGuild usa proxy interno em workers API-only', async () => {
+    runWithDiscordBotMock.mockResolvedValue({
+      members: [
+        { discordId: 'proxy-member', username: 'proxy', displayName: 'Proxy Member' },
+      ],
+    });
+
+    const result = await syncTrackedUsersFromDiscordGuild(String(organizationId), guildId);
+
+    expect(runWithDiscordBotMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        guildId,
+        internalPath: '/internal/discord/guilds/guild-life-1/human-members',
+      }),
+    );
+    expect(result.syncedCount).toBe(1);
+
+    const doc = await TrackedUserModel.findOne({ discordId: 'proxy-member' }).lean();
+    expect(doc?.isActive).toBe(true);
   });
 });

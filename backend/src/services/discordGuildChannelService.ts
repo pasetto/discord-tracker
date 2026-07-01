@@ -22,11 +22,24 @@ const TEXT_CHANNEL_TYPES = new Set<number>([ChannelType.GuildText, ChannelType.G
  * @throws {Error} Quando o bot não está conectado ou não está no servidor
  */
 export async function listGuildDiscordChannels(guildId: string): Promise<DiscordGuildChannelOption[]> {
-  return runWithDiscordBot({
+  const result = await runWithDiscordBot({
     guildId,
     internalPath: `/internal/discord/guilds/${guildId}/channels`,
     onBotInstance: () => listGuildDiscordChannelsOnBotInstance(guildId),
   });
+
+  return unwrapDiscordChannelsResponse(result);
+}
+
+/**
+ * Normaliza resposta de canais vindas do proxy interno ou da instância bot.
+ * @param result Lista direta ou envelope `{ channels }` do servidor interno
+ * @returns Lista de canais para a API pública
+ */
+export function unwrapDiscordChannelsResponse(
+  result: DiscordGuildChannelOption[] | { channels: DiscordGuildChannelOption[] },
+): DiscordGuildChannelOption[] {
+  return Array.isArray(result) ? result : result.channels;
 }
 
 /**

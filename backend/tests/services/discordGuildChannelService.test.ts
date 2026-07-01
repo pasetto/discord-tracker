@@ -20,7 +20,7 @@ vi.mock('../../src/bot/client', () => ({
 }));
 
 import { ChannelType } from 'discord.js';
-import { listGuildDiscordChannels } from '../../src/services/discordGuildChannelService';
+import { listGuildDiscordChannels, unwrapDiscordChannelsResponse } from '../../src/services/discordGuildChannelService';
 
 describe('listGuildDiscordChannels', () => {
   it('retorna canais de voz e texto ordenados por nome', async () => {
@@ -52,15 +52,21 @@ describe('listGuildDiscordChannels', () => {
 
   it('usa proxy de cluster quando worker é API-only', async () => {
     discordMocks.guildsCache.clear();
-    discordMocks.runWithDiscordBot.mockResolvedValue([
-      { channelId: '1', channelName: 'geral', channelType: 'text' },
-    ]);
+    discordMocks.runWithDiscordBot.mockResolvedValue({
+      channels: [{ channelId: '1', channelName: 'geral', channelType: 'text' }],
+    });
 
     const channels = await listGuildDiscordChannels('guild-1');
 
     expect(discordMocks.runWithDiscordBot).toHaveBeenCalledWith(
       expect.objectContaining({ guildId: 'guild-1', internalPath: '/internal/discord/guilds/guild-1/channels' }),
     );
-    expect(channels).toHaveLength(1);
+    expect(channels).toEqual([{ channelId: '1', channelName: 'geral', channelType: 'text' }]);
+  });
+
+  it('unwrapDiscordChannelsResponse aceita lista direta ou envelope do proxy', () => {
+    const list = [{ channelId: '1', channelName: 'geral', channelType: 'text' as const }];
+    expect(unwrapDiscordChannelsResponse(list)).toEqual(list);
+    expect(unwrapDiscordChannelsResponse({ channels: list })).toEqual(list);
   });
 });

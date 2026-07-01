@@ -7,6 +7,7 @@ import { createLogger } from '../logger';
 import { internalAuthMiddleware } from './middleware/internalAuth';
 import { buildGuildLiveDashboardOnBotInstance } from '../services/dashboardLiveService';
 import { listGuildDiscordChannelsOnBotInstance } from '../services/discordGuildChannelService';
+import { listHumanGuildMembersOnBotInstance } from '../services/trackedUserService';
 import { getInternalDiscordPort } from '../services/discordClusterProxy';
 
 const log = createLogger('internal-discord');
@@ -32,6 +33,17 @@ function createInternalDiscordApp(): Koa {
     try {
       const channels = await listGuildDiscordChannelsOnBotInstance(guildId);
       ctx.body = { channels };
+    } catch (error) {
+      ctx.status = 503;
+      ctx.body = { error: (error as Error).message };
+    }
+  });
+
+  router.get('/internal/discord/guilds/:guildId/human-members', async (ctx) => {
+    const guildId = ctx.params.guildId;
+    try {
+      const members = await listHumanGuildMembersOnBotInstance(guildId);
+      ctx.body = { members };
     } catch (error) {
       ctx.status = 503;
       ctx.body = { error: (error as Error).message };

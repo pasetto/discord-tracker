@@ -2,7 +2,8 @@ import { Types } from 'mongoose';
 import type { Guild } from 'discord.js';
 import { MemberCategoryModel } from '../db/models/MemberCategory';
 import { TrackedUserModel, type ITrackedUser } from '../db/models/TrackedUser';
-import { discordClient, canAccessDiscordGuild, ensureDiscordClientReady } from '../bot/client';
+import { discordClient } from '../bot/client';
+import { runWithDiscordBot } from './discordClusterProxy';
 
 /**
  * Dados mínimos para upsert de membro rastreado.
@@ -35,6 +36,15 @@ export interface SyncTrackedUsersResult {
   syncedCount: number;
   deactivatedCount: number;
   reactivatedCount: number;
+}
+
+/**
+ * Membro humano do Discord usado na sincronização de `tracked_users`.
+ */
+export interface GuildMemberSyncInput {
+  discordId: string;
+  username: string;
+  displayName: string;
 }
 
 /**
@@ -198,31 +208,12 @@ async function listHumanGuildMembers(guild: Guild) {
 }
 
 /**
- * Sincroniza membros humanos do servidor Discord para `tracked_users`.
- * @param organizationId ID da organização
+ * Resolve guild monitorado no cliente Discord local.
  * @param guildId ID do servidor Discord
- * @param options Opções de execução interna
- * @param options.skipReadyCheck Quando `true`, assume gateway pronto (ex.: handler `ready`)
- * @returns Quantidade de membros sincronizados e contadores de desativação/reativação
- * @throws {Error} Quando o bot não estiver conectado ou o guild não existir
+ * @returns Guild carregado no cache ou via fetch
+ * @throws {Error} Quando o servidor não existir para o bot
  */
-export async function syncTrackedUsersFromDiscordGuild(
-  organizationId: string,
-  guildId: string,
-  options?: { skipReadyCheck?: boolean },
-): Promise<SyncTrackedUsersResult> {
-  if (!options?.skipReadyCheck && !canAccessDiscordGuild(guildId)) {
-    try {
-      await ensureDiscordClientReady();
-    } catch {
-      throw new Error('Bot Discord não está conectado. Aguarde a conexão e tente novamente.');
-    }
-  }
-
-  if (!canAccessDiscordGuild(guildId) && !options?.skipReadyCheck) {
-    throw new Error('Bot Discord não está conectado. Aguarde a conexão e tente novamente.');
-  }
-
+async function resolveDiscordGuild(guildId: string): Promise<Guild> {
   let guild = discordClient.guilds.cache.get(guildId);
   if (!guild) {
     try {
@@ -232,18 +223,93 @@ export async function syncTrackedUsersFromDiscordGuild(
     }
   }
 
-  const members = await listHumanGuildMembers(guild);
+  return guild;
+}
+
+/**
+ * Converte membros humanos do Discord para payload de sincronização.
+ * @param members Membros retornados pelo gateway Discord
+ * @returns Dados mínimos para upsert em `tracked_users`
+ */
+function mapGuildMembersToSyncInput(
+  members: Awaited<ReturnType<typeof listHumanGuildMembers>>,
+): GuildMemberSyncInput[] {
+  return members.map((member) => ({
+    discordId: member.id,
+    username: member.user.username,
+    displayName: member.displayName ?? member.user.globalName ?? member.user.username,
+  }));
+}
+
+/**
+ * Lista membros humanos no processo que hospeda o bot Discord.
+ * @param guildId ID do servidor Discord
+ * @returns Membros humanos atuais do servidor
+ * @throws {Error} Quando o guild não existir para o bot
+ */
+export async function listHumanGuildMembersOnBotInstance(guildId: string): Promise<GuildMemberSyncInput[]> {
+  const guild = await resolveDiscordGuild(guildId);
+  return mapGuildMembersToSyncInput(await listHumanGuildMembers(guild));
+}
+
+/**
+ * Normaliza resposta de membros vindos do proxy interno ou da instância bot.
+ * @param result Lista direta ou envelope `{ members }` do servidor interno
+ * @returns Membros humanos prontos para sincronização
+ */
+export function unwrapGuildMembersResponse(
+  result: GuildMemberSyncInput[] | { members: GuildMemberSyncInput[] },
+): GuildMemberSyncInput[] {
+  return Array.isArray(result) ? result : result.members;
+}
+
+/**
+ * Busca membros humanos do Discord via instância bot ou proxy interno do cluster.
+ * @param guildId ID do servidor Discord
+ * @param options Opções de execução interna
+ * @param options.skipReadyCheck Quando `true`, assume gateway pronto (ex.: handler `ready`)
+ * @returns Membros humanos atuais do servidor
+ */
+async function fetchHumanGuildMembersForSync(
+  guildId: string,
+  options?: { skipReadyCheck?: boolean },
+): Promise<GuildMemberSyncInput[]> {
+  if (options?.skipReadyCheck) {
+    return listHumanGuildMembersOnBotInstance(guildId);
+  }
+
+  const result = await runWithDiscordBot({
+    guildId,
+    internalPath: `/internal/discord/guilds/${guildId}/human-members`,
+    onBotInstance: async () => ({ members: await listHumanGuildMembersOnBotInstance(guildId) }),
+  });
+
+  return unwrapGuildMembersResponse(result);
+}
+
+/**
+ * Persiste sincronização de membros humanos em `tracked_users`.
+ * @param organizationId ID da organização
+ * @param guildId ID do servidor Discord
+ * @param members Membros humanos atuais do Discord
+ * @returns Contadores da sincronização
+ */
+export async function applyTrackedUsersSync(
+  organizationId: string,
+  guildId: string,
+  members: GuildMemberSyncInput[],
+): Promise<SyncTrackedUsersResult> {
   const organizationObjectId = new Types.ObjectId(organizationId);
-  const discordIdSet = new Set(members.map((member) => member.id));
+  const discordIdSet = new Set(members.map((member) => member.discordId));
 
   await Promise.all(
     members.map((member) =>
       upsertTrackedUser({
         organizationId,
         guildId,
-        discordId: member.id,
-        username: member.user.username,
-        displayName: member.displayName ?? member.user.globalName ?? member.user.username,
+        discordId: member.discordId,
+        username: member.username,
+        displayName: member.displayName,
       }),
     ),
   );
@@ -283,6 +349,24 @@ export async function syncTrackedUsersFromDiscordGuild(
     deactivatedCount: deactivateResult.modifiedCount ?? 0,
     reactivatedCount: reactivateResult.modifiedCount ?? 0,
   };
+}
+
+/**
+ * Sincroniza membros humanos do servidor Discord para `tracked_users`.
+ * @param organizationId ID da organização
+ * @param guildId ID do servidor Discord
+ * @param options Opções de execução interna
+ * @param options.skipReadyCheck Quando `true`, assume gateway pronto (ex.: handler `ready`)
+ * @returns Quantidade de membros sincronizados e contadores de desativação/reativação
+ * @throws {Error} Quando o bot não estiver conectado ou o guild não existir
+ */
+export async function syncTrackedUsersFromDiscordGuild(
+  organizationId: string,
+  guildId: string,
+  options?: { skipReadyCheck?: boolean },
+): Promise<SyncTrackedUsersResult> {
+  const members = await fetchHumanGuildMembersForSync(guildId, options);
+  return applyTrackedUsersSync(organizationId, guildId, members);
 }
 
 /**
