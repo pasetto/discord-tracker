@@ -115,14 +115,14 @@ export async function reactivateTrackedUserByDiscordId(
 export async function findActiveTrackedUsers(
   organizationId: string,
   guildId: string,
-): Promise<ITrackedUser[]> {
+) {
   return TrackedUserModel.find({
     organizationId: new Types.ObjectId(organizationId),
     guildId,
     isActive: true,
   })
     .lean()
-    .exec() as Promise<ITrackedUser[]>;
+    .exec();
 }
 
 /**
