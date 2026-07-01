@@ -45,3 +45,61 @@ describe('GoalsReportComponent', () => {
     expect(textContent).toContain('configurar metas individuais');
   });
 });
+
+describe('GoalsReportComponent com dados', () => {
+  let fixture: ComponentFixture<GoalsReportComponent>;
+  let httpMock: HttpTestingController;
+
+  beforeEach(async () => {
+    localStorage.setItem('syntra.orgId', 'org-1');
+    localStorage.setItem('syntra.guildId', 'guild-1');
+
+    await TestBed.configureTestingModule({
+      imports: [GoalsReportComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    }).compileComponents();
+
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(GoalsReportComponent);
+    fixture.detectChanges();
+
+    httpMock.expectOne('/api/v1/org/org-1/discord/status').flush({
+      botConnected: true,
+      activeConnection: { guildId: 'guild-1', guildName: 'Servidor Teste', isMonitoringEnabled: true },
+    });
+    httpMock.expectOne((request) =>
+      request.url.includes('/reports/goals') && request.params.get('preset') === 'this_week',
+    ).flush({
+      report: {
+        periodStart: '2026-06-30T00:00:00.000Z',
+        periodEnd: '2026-07-02T23:59:59.999Z',
+        generatedAt: '2026-07-02T12:00:00.000Z',
+        entries: [
+          {
+            trackedUserId: 'u1',
+            discordId: 'd1',
+            displayName: 'Colaborador',
+            weeklyGoalHours: 40,
+            dailyMinimumHours: 7,
+            periodMinimumHours: 21,
+            businessDaysInPeriod: 3,
+            realizedHours: 10,
+            progressPercent: 25,
+            shouldAlertLowProgress: false,
+          },
+        ],
+      },
+    });
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    httpMock.verify();
+  });
+
+  it('aplica classe cinza quando abaixo do mínimo acumulado', () => {
+    const bar = fixture.nativeElement.querySelector('.bg-gray-400');
+    expect(bar).toBeTruthy();
+  });
+});

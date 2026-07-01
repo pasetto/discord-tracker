@@ -4,6 +4,12 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { TrackedMemberOption, TrackedMembersService } from '../../../core/members/tracked-members.service';
+import {
+  goalProgressBarClass,
+  goalProgressBarWidth,
+  resolveGoalProgressStatus,
+  type GoalProgressStatus,
+} from '../../../core/goals/goal-progress.util';
 import { TenantContextService } from '../../../core/tenant/tenant-context.service';
 
 /**
@@ -36,6 +42,8 @@ interface GoalsReportEntryDto {
   categoryName?: string;
   weeklyGoalHours: number | null;
   dailyMinimumHours: number | null;
+  periodMinimumHours: number | null;
+  businessDaysInPeriod: number;
   realizedHours: number;
   progressPercent: number;
   shouldAlertLowProgress: boolean;
@@ -353,6 +361,30 @@ export class GoalsSettingsComponent implements OnInit {
    */
   countMembersInCategory(categoryId: string): number {
     return this.members.filter((member) => member.categoryId === categoryId).length;
+  }
+
+  /**
+   * Resolve status visual de progresso da meta.
+   * @param entry Linha do relatório
+   */
+  getGoalStatus(entry: GoalsReportEntryDto): GoalProgressStatus {
+    return resolveGoalProgressStatus(entry);
+  }
+
+  /**
+   * Retorna classe CSS da barra de progresso.
+   * @param entry Linha do relatório
+   */
+  getGoalBarClass(entry: GoalsReportEntryDto): string {
+    return goalProgressBarClass(this.getGoalStatus(entry));
+  }
+
+  /**
+   * Retorna largura percentual da barra de progresso.
+   * @param entry Linha do relatório
+   */
+  getGoalBarWidth(entry: GoalsReportEntryDto): number {
+    return goalProgressBarWidth(entry.realizedHours, entry.weeklyGoalHours);
   }
 
   /**

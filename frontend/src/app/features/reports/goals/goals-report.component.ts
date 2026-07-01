@@ -3,6 +3,12 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TenantContextService } from '../../../core/tenant/tenant-context.service';
+import {
+  goalProgressBarClass,
+  goalProgressBarWidth,
+  resolveGoalProgressStatus,
+  type GoalProgressStatus,
+} from '../../../core/goals/goal-progress.util';
 import { ReportDateRangeValue, resolveReportDateRange, toReportDateHttpParams } from '../../../core/reports/report-date-range.util';
 import { ReportDateFilterComponent } from '../../../shared/components/report-date-filter/report-date-filter.component';
 
@@ -17,6 +23,8 @@ interface GoalReportEntryDto {
   categoryName?: string;
   weeklyGoalHours: number | null;
   dailyMinimumHours: number | null;
+  periodMinimumHours: number | null;
+  businessDaysInPeriod: number;
   realizedHours: number;
   progressPercent: number;
   shouldAlertLowProgress: boolean;
@@ -170,15 +178,35 @@ export class GoalsReportComponent implements OnInit {
       return `${entry.realizedHours.toFixed(2)}h realizadas (sem meta aplicada)`;
     }
 
+    if (entry.realizedHours >= entry.weeklyGoalHours) {
+      const excess = entry.realizedHours - entry.weeklyGoalHours;
+      return `${entry.realizedHours.toFixed(2)}h / ${entry.weeklyGoalHours.toFixed(2)}h (+${excess.toFixed(2)}h acima)`;
+    }
+
     return `${entry.realizedHours.toFixed(2)}h / ${entry.weeklyGoalHours.toFixed(2)}h`;
   }
 
   /**
-   * Retorna percentual de progresso limitado ao intervalo visual da barra.
+   * Resolve status visual de progresso da meta.
    * @param entry Linha do relatório
-   * @returns Percentual entre 0 e 100
    */
-  getProgressBarWidth(entry: GoalReportEntryDto): number {
-    return Math.max(0, Math.min(100, entry.progressPercent ?? 0));
+  getGoalStatus(entry: GoalReportEntryDto): GoalProgressStatus {
+    return resolveGoalProgressStatus(entry);
+  }
+
+  /**
+   * Retorna classe CSS da barra de progresso.
+   * @param entry Linha do relatório
+   */
+  getGoalBarClass(entry: GoalReportEntryDto): string {
+    return goalProgressBarClass(this.getGoalStatus(entry));
+  }
+
+  /**
+   * Retorna largura percentual da barra de progresso.
+   * @param entry Linha do relatório
+   */
+  getGoalBarWidth(entry: GoalReportEntryDto): number {
+    return goalProgressBarWidth(entry.realizedHours, entry.weeklyGoalHours);
   }
 }

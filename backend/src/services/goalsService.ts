@@ -1,12 +1,17 @@
 import { Types } from 'mongoose';
 import { CategoryGoalTemplateModel } from '../db/models/CategoryGoalTemplate';
 import { MemberCategoryModel } from '../db/models/MemberCategory';
+import { PlannedAbsenceModel, type IPlannedAbsence } from '../db/models/PlannedAbsence';
 import { TrackedUserModel } from '../db/models/TrackedUser';
 import { User } from '../db/models/User';
 import { UserCollaborationGoalModel } from '../db/models/UserCollaborationGoal';
 import { VoiceSession } from '../db/models/VoiceSession';
+import { isOnPlannedAbsence } from './plannedAbsenceService';
 import {
-  countInclusiveUtcDays,
+  countInclusiveBusinessDaysInPeriod,
+  getWorkCalendarForGuild,
+} from './workCalendarService';
+import {
   endOfUtcDay,
   overlapSeconds,
   startOfUtcDay,
@@ -58,6 +63,10 @@ export interface GoalWeeklyReportEntry {
   categoryName?: string;
   weeklyGoalHours: number | null;
   dailyMinimumHours: number | null;
+  /** Mínimo diário acumulado no período (dailyMinimum × dias úteis efetivos), ou null */
+  periodMinimumHours: number | null;
+  /** Dias úteis do colaborador no intervalo (calendário − feriados − PTO) */
+  businessDaysInPeriod: number;
   realizedHours: number;
   progressPercent: number;
   shouldAlertLowProgress: boolean;
@@ -124,23 +133,38 @@ async function aggregateRealizedVoiceHoursByUserId(
 }
 
 /**
- * Calcula meta proporcional ao número de dias do intervalo selecionado.
- * @param weeklyGoalHours Meta semanal configurada
- * @param periodStart Início do período
- * @param periodEnd Fim do período
- * @returns Meta ajustada ao intervalo ou null
+ * Carrega ausências planejadas ativas/agendadas por discordId.
+ * @param organizationId Organização (tenant) alvo
+ * @param guildId Guild alvo
+ * @param discordIds Lista de usuários Discord
+ * @returns Mapa discordId → ausências
  */
-function prorateWeeklyGoalHours(
-  weeklyGoalHours: number | null | undefined,
-  periodStart: Date,
-  periodEnd: Date,
-): number | null {
-  if (!weeklyGoalHours || weeklyGoalHours <= 0) {
-    return null;
+async function loadPlannedAbsencesByDiscordId(
+  organizationId: Types.ObjectId,
+  guildId: string,
+  discordIds: string[],
+): Promise<Map<string, IPlannedAbsence[]>> {
+  if (discordIds.length === 0) {
+    return new Map();
   }
 
-  const days = countInclusiveUtcDays(periodStart, periodEnd);
-  return Number(((weeklyGoalHours * days) / 7).toFixed(2));
+  const absences = await PlannedAbsenceModel.find({
+    organizationId,
+    guildId,
+    discordId: { $in: discordIds },
+    status: { $in: ['scheduled', 'active'] },
+  })
+    .sort({ startDate: 1 })
+    .exec();
+
+  const byDiscordId = new Map<string, IPlannedAbsence[]>();
+  for (const absence of absences) {
+    const current = byDiscordId.get(absence.discordId) ?? [];
+    current.push(absence);
+    byDiscordId.set(absence.discordId, current);
+  }
+
+  return byDiscordId;
 }
 
 /**
@@ -343,7 +367,7 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
   const coreUserIdByDiscordId = new Map(coreUsers.map((user) => [user.discordId, user._id as Types.ObjectId]));
   const coreUserIds = coreUsers.map((user) => user._id as Types.ObjectId);
 
-  const [goals, realizedHoursByCoreUserId] = await Promise.all([
+  const [goals, realizedHoursByCoreUserId, calendar, plannedAbsencesByDiscordId] = await Promise.all([
     UserCollaborationGoalModel.find({
       organizationId,
       guildId: input.guildId,
@@ -353,6 +377,8 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
       .lean()
       .exec(),
     aggregateRealizedVoiceHoursByUserId(coreUserIds, organizationId, input.guildId, periodStart, realizedWindowEnd),
+    getWorkCalendarForGuild(organizationId, input.guildId),
+    loadPlannedAbsencesByDiscordId(organizationId, input.guildId, discordIds),
   ]);
 
   const goalsByTrackedUserId = new Map(goals.map((goal) => [String(goal.trackedUserId), goal]));
@@ -361,11 +387,26 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
     const goal = goalsByTrackedUserId.get(String(trackedUser._id));
     const coreUserId = coreUserIdByDiscordId.get(trackedUser.discordId);
     const realizedHours = coreUserId ? realizedHoursByCoreUserId.get(String(coreUserId)) ?? 0 : 0;
-    const weeklyGoalHours = goal?.weeklyCollaborationHours ?? null;
-    const periodGoalHours = prorateWeeklyGoalHours(weeklyGoalHours, periodStart, periodEnd);
-    const progressPercent = periodGoalHours && periodGoalHours > 0
-      ? Number(Math.min(100, (realizedHours / periodGoalHours) * 100).toFixed(2))
-      : 0;
+    const configuredWeeklyGoal = goal?.weeklyCollaborationHours ?? null;
+    const dailyMinimum = goal?.dailyMinimumHours ?? null;
+    const userAbsences = plannedAbsencesByDiscordId.get(trackedUser.discordId) ?? [];
+
+    const businessDaysInPeriod = countInclusiveBusinessDaysInPeriod(
+      calendar,
+      periodStart,
+      periodEnd,
+      (date) => isOnPlannedAbsence(userAbsences, date),
+    );
+
+    const periodMinimumHours =
+      dailyMinimum && dailyMinimum > 0 && businessDaysInPeriod > 0
+        ? Number((dailyMinimum * businessDaysInPeriod).toFixed(2))
+        : null;
+
+    const progressPercent =
+      configuredWeeklyGoal && configuredWeeklyGoal > 0
+        ? Number(((realizedHours / configuredWeeklyGoal) * 100).toFixed(2))
+        : 0;
 
     const trackedCategoryId = trackedUser.categoryId as Types.ObjectId | undefined;
 
@@ -375,11 +416,13 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
       displayName: trackedUser.displayName,
       categoryId: trackedCategoryId,
       categoryName: trackedCategoryId ? categoryNameById.get(String(trackedCategoryId)) : undefined,
-      weeklyGoalHours: periodGoalHours,
-      dailyMinimumHours: goal?.dailyMinimumHours ?? null,
+      weeklyGoalHours: configuredWeeklyGoal,
+      dailyMinimumHours: dailyMinimum,
+      periodMinimumHours,
+      businessDaysInPeriod,
       realizedHours,
       progressPercent,
-      shouldAlertLowProgress: periodGoalHours
+      shouldAlertLowProgress: configuredWeeklyGoal
         ? shouldTriggerLowProgressThursdayAlert(referenceDate, progressPercent)
         : false,
     };

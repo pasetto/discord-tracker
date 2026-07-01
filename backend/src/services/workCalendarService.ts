@@ -8,6 +8,7 @@ import {
   type WorkWeek,
   WorkCalendarModel,
 } from '../db/models/WorkCalendar';
+import { startOfUtcDay } from '../utils/sessionTimeUtils';
 
 const UTC_DAY_TO_WORK_WEEK_KEY: Record<number, keyof WorkWeek> = {
   0: 'sunday',
@@ -101,6 +102,79 @@ export function isBusinessDay(calendar: Pick<WorkCalendar, 'workWeek' | 'holiday
   }
 
   return true;
+}
+
+/**
+ * Avança uma data em dias de calendário UTC.
+ * @param value Data base
+ * @param days Quantidade de dias a somar
+ * @returns Nova data normalizada ao início do dia UTC
+ */
+function addUtcDays(value: Date, days: number): Date {
+  return new Date(startOfUtcDay(value).getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+/**
+ * Busca calendário da org/guild com fallback padrão.
+ * @param organizationId ID da organização
+ * @param guildId ID do servidor Discord
+ * @returns Jornada e feriados prontos para cálculo
+ */
+export async function getWorkCalendarForGuild(
+  organizationId: Types.ObjectId,
+  guildId: string,
+): Promise<Pick<WorkCalendar, 'workWeek' | 'holidays'>> {
+  const calendar = await WorkCalendarModel.findOne({
+    organizationId,
+    $or: [{ guildId }, { guildId: { $exists: false } }],
+  })
+    .sort({ guildId: -1 })
+    .lean()
+    .exec();
+
+  if (!calendar) {
+    return { workWeek: createDefaultWorkWeek(), holidays: [] };
+  }
+
+  return {
+    workWeek: calendar.workWeek,
+    holidays: calendar.holidays,
+  };
+}
+
+/**
+ * Conta dias úteis inclusivos no intervalo [from, to], respeitando calendário e exclusões opcionais.
+ * Diferente de computeBusinessDaysBetween (inatividade), que é exclusivo em `from`.
+ * @param calendar Calendário com jornada e feriados
+ * @param from Início do período (inclusivo)
+ * @param to Fim do período (inclusivo)
+ * @param isExcludedDay Callback opcional — true para excluir dia (ex.: PTO)
+ * @returns Quantidade de dias úteis no intervalo
+ */
+export function countInclusiveBusinessDaysInPeriod(
+  calendar: Pick<WorkCalendar, 'workWeek' | 'holidays'>,
+  from: Date,
+  to: Date,
+  isExcludedDay: (date: Date) => boolean = () => false,
+): number {
+  const fromDay = startOfUtcDay(from);
+  const toDay = startOfUtcDay(to);
+  if (toDay.getTime() < fromDay.getTime()) {
+    return 0;
+  }
+
+  let count = 0;
+  for (let cursor = fromDay; cursor.getTime() <= toDay.getTime(); cursor = addUtcDays(cursor, 1)) {
+    if (!isBusinessDay(calendar, cursor)) {
+      continue;
+    }
+    if (isExcludedDay(cursor)) {
+      continue;
+    }
+    count += 1;
+  }
+
+  return count;
 }
 
 /**

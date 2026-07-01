@@ -99,6 +99,8 @@ describe('export routes', () => {
           discordId: 'discord-1',
           displayName: 'Colab 1',
           weeklyGoalHours: 12,
+          periodMinimumHours: 10,
+          businessDaysInPeriod: 5,
           dailyMinimumHours: 2,
           realizedHours: 8.25,
           progressPercent: 68.75,
@@ -113,7 +115,7 @@ describe('export routes', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers['content-type']).toContain('text/csv');
-    expect(response.text).toContain('displayName,discordId,weeklyGoalHours,realizedHours,progressPercent');
-    expect(response.text).toContain('Colab 1,discord-1,12,8.25,68.75');
+    expect(response.text).toContain('displayName,discordId,weeklyGoalHours,periodMinimumHours,businessDaysInPeriod,realizedHours,progressPercent');
+    expect(response.text).toContain('Colab 1,discord-1,12,10,5,8.25,68.75');
   });
 });

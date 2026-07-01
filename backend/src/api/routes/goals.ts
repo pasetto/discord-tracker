@@ -367,6 +367,33 @@ goalsRouter.post('/guilds/:guildId/members/apply-all-category-goals', async (ctx
  *     responses:
  *       200:
  *         description: Relatório semanal de metas individuais
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 report:
+ *                   type: object
+ *                   properties:
+ *                     entries:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           weeklyGoalHours:
+ *                             type: number
+ *                             nullable: true
+ *                             description: Meta semanal configurada do colaborador (horas)
+ *                           periodMinimumHours:
+ *                             type: number
+ *                             nullable: true
+ *                             description: Mínimo diário × dias úteis efetivos (calendário − feriados − PTO)
+ *                           businessDaysInPeriod:
+ *                             type: number
+ *                             description: Dias úteis do colaborador no intervalo selecionado
+ *                           progressPercent:
+ *                             type: number
+ *                             description: Percentual sobre meta semanal (pode exceder 100)
  */
 goalsRouter.get('/guilds/:guildId/reports/goals', async (ctx) => {
   try {

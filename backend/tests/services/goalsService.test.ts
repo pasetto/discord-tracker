@@ -6,6 +6,8 @@ import { TrackedUserModel } from '../../src/db/models/TrackedUser';
 import { User } from '../../src/db/models/User';
 import { VoiceSession } from '../../src/db/models/VoiceSession';
 import { CategoryGoalTemplateModel } from '../../src/db/models/CategoryGoalTemplate';
+import { PlannedAbsenceModel } from '../../src/db/models/PlannedAbsence';
+import { WorkCalendarModel, createDefaultWorkWeek } from '../../src/db/models/WorkCalendar';
 import { UserCollaborationGoalModel } from '../../src/db/models/UserCollaborationGoal';
 import {
   applyAllCategoryGoalsToTrackedUsers,
@@ -26,6 +28,8 @@ describe('goalsService', () => {
       VoiceSession.syncIndexes(),
       CategoryGoalTemplateModel.syncIndexes(),
       UserCollaborationGoalModel.syncIndexes(),
+      WorkCalendarModel.syncIndexes(),
+      PlannedAbsenceModel.syncIndexes(),
     ]);
   }, 60000);
 
@@ -44,6 +48,8 @@ describe('goalsService', () => {
       VoiceSession.deleteMany({}),
       CategoryGoalTemplateModel.deleteMany({}),
       UserCollaborationGoalModel.deleteMany({}),
+      WorkCalendarModel.deleteMany({}),
+      PlannedAbsenceModel.deleteMany({}),
     ]);
   });
 
@@ -240,10 +246,10 @@ describe('goalsService', () => {
     });
 
     expect(report.entries).toHaveLength(1);
-    expect(report.entries[0]?.weeklyGoalHours).toBeCloseTo(4.57, 2);
+    expect(report.entries[0]?.weeklyGoalHours).toBe(8);
     expect(report.entries[0]?.categoryName).toBe('Suporte');
     expect(report.entries[0]?.realizedHours).toBe(2);
-    expect(report.entries[0]?.progressPercent).toBeCloseTo(43.76, 1);
+    expect(report.entries[0]?.progressPercent).toBeCloseTo(25, 1);
   });
 
   it('soma horas apenas dentro do intervalo customizado', async () => {
@@ -315,7 +321,9 @@ describe('goalsService', () => {
     });
 
     expect(report.entries[0]?.realizedHours).toBe(1);
-    expect(report.entries[0]?.weeklyGoalHours).toBe(1);
+    expect(report.entries[0]?.weeklyGoalHours).toBe(7);
+    expect(report.entries[0]?.periodMinimumHours).toBeNull();
+    expect(report.entries[0]?.progressPercent).toBeCloseTo(14.29, 1);
   });
 
   it('limita sessão de voz ainda aberta ao instante atual (não soma até o fim do dia)', async () => {
@@ -460,5 +468,262 @@ describe('goalsService', () => {
     });
 
     expect(report.entries[0]?.realizedHours).toBe(2);
+  });
+
+  it('exibe meta semanal configurada e progresso contra ela no meio da semana', async () => {
+    const organizationId = new mongoose.Types.ObjectId();
+    const setBy = new mongoose.Types.ObjectId();
+    const guildId = 'guild-midweek';
+
+    const [trackedUser] = await TrackedUserModel.create([
+      {
+        organizationId,
+        guildId,
+        discordId: 'd-midweek',
+        username: 'midweek',
+        displayName: 'Midweek',
+        firstSeenAt: new Date('2026-06-01T10:00:00.000Z'),
+        lastSeenAt: new Date('2026-06-10T10:00:00.000Z'),
+      },
+    ]);
+
+    const coreUser = await User.create({
+      discordId: 'd-midweek',
+      username: 'midweek',
+      displayName: 'Midweek',
+      firstSeenAt: new Date('2026-06-01T10:00:00.000Z'),
+      lastSeenAt: new Date('2026-06-10T10:00:00.000Z'),
+    });
+
+    await UserCollaborationGoalModel.create({
+      organizationId,
+      guildId,
+      trackedUserId: trackedUser._id,
+      weeklyCollaborationHours: 40,
+      dailyMinimumHours: 7,
+      source: 'manual',
+      setBy,
+    });
+
+    await VoiceSession.create({
+      organizationId,
+      guildId,
+      userId: coreUser._id,
+      channelId: '10',
+      channelName: 'Colaboração',
+      startedAt: new Date('2026-06-30T09:00:00.000Z'),
+      endedAt: new Date('2026-07-01T01:32:24.000Z'),
+      durationSeconds: Math.round(16.54 * 3600),
+      isIgnoredChannel: false,
+      sessionType: 'VOICE',
+    });
+
+    const report = await getGoalsWeeklyReport({
+      organizationId: organizationId.toHexString(),
+      guildId,
+      from: new Date('2026-06-30T00:00:00.000Z'),
+      to: new Date('2026-07-02T23:59:59.999Z'),
+      referenceDate: new Date('2026-07-02T12:00:00.000Z'),
+      now: new Date('2026-07-02T12:00:00.000Z'),
+    });
+
+    expect(report.entries[0]?.weeklyGoalHours).toBe(40);
+    expect(report.entries[0]?.businessDaysInPeriod).toBe(3);
+    expect(report.entries[0]?.periodMinimumHours).toBe(21);
+    expect(report.entries[0]?.realizedHours).toBeCloseTo(16.54, 1);
+    expect(report.entries[0]?.progressPercent).toBeCloseTo(41.35, 1);
+  });
+
+  it('permite progressPercent acima de 100% quando realizado excede meta semanal', async () => {
+    const organizationId = new mongoose.Types.ObjectId();
+    const guildId = 'guild-exceed';
+
+    const [trackedUser] = await TrackedUserModel.create([
+      {
+        organizationId,
+        guildId,
+        discordId: 'd-exceed',
+        username: 'exceed',
+        displayName: 'Exceed',
+        firstSeenAt: new Date('2026-06-01T10:00:00.000Z'),
+        lastSeenAt: new Date('2026-06-10T10:00:00.000Z'),
+      },
+    ]);
+
+    const coreUser = await User.create({
+      discordId: 'd-exceed',
+      username: 'exceed',
+      displayName: 'Exceed',
+      firstSeenAt: new Date('2026-06-01T10:00:00.000Z'),
+      lastSeenAt: new Date('2026-06-10T10:00:00.000Z'),
+    });
+
+    await UserCollaborationGoalModel.create({
+      organizationId,
+      guildId,
+      trackedUserId: trackedUser._id,
+      weeklyCollaborationHours: 8,
+      source: 'manual',
+      setBy: new mongoose.Types.ObjectId(),
+    });
+
+    await VoiceSession.create({
+      organizationId,
+      guildId,
+      userId: coreUser._id,
+      channelId: '10',
+      channelName: 'Colaboração',
+      startedAt: new Date('2026-06-10T08:00:00.000Z'),
+      endedAt: new Date('2026-06-10T18:00:00.000Z'),
+      durationSeconds: 10 * 3600,
+      isIgnoredChannel: false,
+      sessionType: 'VOICE',
+    });
+
+    const report = await getGoalsWeeklyReport({
+      organizationId: organizationId.toHexString(),
+      guildId,
+      from: new Date('2026-06-10T00:00:00.000Z'),
+      to: new Date('2026-06-10T23:59:59.999Z'),
+      referenceDate: new Date('2026-06-10T23:59:59.999Z'),
+      now: new Date('2026-06-10T23:59:59.999Z'),
+    });
+
+    expect(report.entries[0]?.progressPercent).toBeCloseTo(125, 1);
+  });
+
+  it('calcula periodMinimumHours null quando dailyMinimumHours ausente', async () => {
+    const organizationId = new mongoose.Types.ObjectId();
+    const guildId = 'guild-no-min';
+
+    await TrackedUserModel.create([
+      {
+        organizationId,
+        guildId,
+        discordId: 'd-no-min',
+        username: 'nomin',
+        displayName: 'No Min',
+        firstSeenAt: new Date('2026-06-01T10:00:00.000Z'),
+        lastSeenAt: new Date('2026-06-10T10:00:00.000Z'),
+      },
+    ]);
+
+    await UserCollaborationGoalModel.create({
+      organizationId,
+      guildId,
+      trackedUserId: (await TrackedUserModel.findOne({ discordId: 'd-no-min' }))?._id,
+      weeklyCollaborationHours: 40,
+      source: 'manual',
+      setBy: new mongoose.Types.ObjectId(),
+    });
+
+    const report = await getGoalsWeeklyReport({
+      organizationId: organizationId.toHexString(),
+      guildId,
+      from: new Date('2026-06-30T00:00:00.000Z'),
+      to: new Date('2026-07-02T23:59:59.999Z'),
+      referenceDate: new Date('2026-07-02T12:00:00.000Z'),
+    });
+
+    expect(report.entries[0]?.periodMinimumHours).toBeNull();
+  });
+
+  it('desconta feriado do calendário no mínimo acumulado', async () => {
+    const organizationId = new mongoose.Types.ObjectId();
+    const setBy = new mongoose.Types.ObjectId();
+    const guildId = 'guild-holiday';
+
+    await WorkCalendarModel.create({
+      organizationId,
+      guildId,
+      workWeek: createDefaultWorkWeek(),
+      holidays: [{ date: '2026-07-01', name: 'Feriado', type: 'company_custom' }],
+      brNationalHolidaysSeeded: false,
+      updatedBy: setBy,
+    });
+
+    const [trackedUser] = await TrackedUserModel.create([
+      {
+        organizationId,
+        guildId,
+        discordId: 'd-holiday',
+        username: 'holiday',
+        displayName: 'Holiday',
+        firstSeenAt: new Date('2026-06-01T10:00:00.000Z'),
+        lastSeenAt: new Date('2026-06-10T10:00:00.000Z'),
+      },
+    ]);
+
+    await UserCollaborationGoalModel.create({
+      organizationId,
+      guildId,
+      trackedUserId: trackedUser._id,
+      weeklyCollaborationHours: 40,
+      dailyMinimumHours: 7,
+      source: 'manual',
+      setBy,
+    });
+
+    const report = await getGoalsWeeklyReport({
+      organizationId: organizationId.toHexString(),
+      guildId,
+      from: new Date('2026-06-30T00:00:00.000Z'),
+      to: new Date('2026-07-02T23:59:59.999Z'),
+      referenceDate: new Date('2026-07-02T12:00:00.000Z'),
+    });
+
+    expect(report.entries[0]?.businessDaysInPeriod).toBe(2);
+    expect(report.entries[0]?.periodMinimumHours).toBe(14);
+  });
+
+  it('desconta PTO individual do mínimo acumulado', async () => {
+    const organizationId = new mongoose.Types.ObjectId();
+    const setBy = new mongoose.Types.ObjectId();
+    const guildId = 'guild-pto';
+
+    const [trackedUser] = await TrackedUserModel.create([
+      {
+        organizationId,
+        guildId,
+        discordId: 'd-pto',
+        username: 'pto',
+        displayName: 'PTO',
+        firstSeenAt: new Date('2026-06-01T10:00:00.000Z'),
+        lastSeenAt: new Date('2026-06-10T10:00:00.000Z'),
+      },
+    ]);
+
+    await UserCollaborationGoalModel.create({
+      organizationId,
+      guildId,
+      trackedUserId: trackedUser._id,
+      weeklyCollaborationHours: 40,
+      dailyMinimumHours: 7,
+      source: 'manual',
+      setBy,
+    });
+
+    await PlannedAbsenceModel.create({
+      organizationId,
+      guildId,
+      trackedUserId: trackedUser._id,
+      discordId: 'd-pto',
+      type: 'vacation',
+      status: 'active',
+      startDate: new Date('2026-07-02T00:00:00.000Z'),
+      endDate: new Date('2026-07-02T23:59:59.999Z'),
+      createdBy: setBy,
+    });
+
+    const report = await getGoalsWeeklyReport({
+      organizationId: organizationId.toHexString(),
+      guildId,
+      from: new Date('2026-06-30T00:00:00.000Z'),
+      to: new Date('2026-07-02T23:59:59.999Z'),
+      referenceDate: new Date('2026-07-02T12:00:00.000Z'),
+    });
+
+    expect(report.entries[0]?.businessDaysInPeriod).toBe(2);
+    expect(report.entries[0]?.periodMinimumHours).toBe(14);
   });
 });

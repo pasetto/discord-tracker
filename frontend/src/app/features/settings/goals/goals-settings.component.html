@@ -105,12 +105,25 @@
 
           <article *ngFor="let entry of group.entries" class="rounded-xl border border-gray-200 p-4 text-sm dark:border-gray-700">
             <p class="font-semibold text-gray-800 dark:text-white/90">{{ entry.displayName }}</p>
-            <p class="mt-1 text-gray-600 dark:text-gray-300">
-              Meta: {{ entry.weeklyGoalHours ?? 'não aplicada' }}{{ entry.weeklyGoalHours ? 'h' : '' }}
+
+            <div class="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+              <div
+                class="h-full rounded-full transition-all"
+                [ngClass]="getGoalBarClass(entry)"
+                [style.width.%]="getGoalBarWidth(entry)"
+              ></div>
+            </div>
+
+            <p class="mt-2 text-gray-600 dark:text-gray-300">
+              Meta semanal: {{ entry.weeklyGoalHours ?? 'não aplicada' }}{{ entry.weeklyGoalHours ? 'h' : '' }}
               · Realizado: {{ entry.realizedHours }}h
               · Progresso: {{ entry.progressPercent }}%
             </p>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Mínimo diário: {{ entry.dailyMinimumHours ?? '-' }}h</p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Dias úteis no período: {{ entry.businessDaysInPeriod }}
+              · Mínimo acumulado: {{ entry.periodMinimumHours ?? '-' }}{{ entry.periodMinimumHours ? 'h' : '' }}
+              · Mínimo diário: {{ entry.dailyMinimumHours ?? '-' }}h
+            </p>
           </article>
         </section>
       </div>
