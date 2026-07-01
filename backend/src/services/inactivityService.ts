@@ -414,6 +414,7 @@ export async function generateWeeklyInactivitySnapshot(
   const trackedUsers = await TrackedUserModel.find({
     organizationId: organizationObjectId,
     guildId,
+    isActive: true,
   })
     .select({ _id: 1, discordId: 1, displayName: 1, categoryId: 1, lastSeenAt: 1, lastTextActivityAt: 1 })
     .lean()
@@ -610,7 +611,10 @@ export async function getWeeklyInactivityReport(
  */
 export async function listTrackedGuildIdsByOrganization(organizationId: string): Promise<string[]> {
   const organizationObjectId = parseObjectId(organizationId, 'organizationId');
-  const guildIds = await TrackedUserModel.distinct('guildId', { organizationId: organizationObjectId } as FilterQuery<typeof TrackedUserModel>);
+  const guildIds = await TrackedUserModel.distinct('guildId', {
+    organizationId: organizationObjectId,
+    isActive: true,
+  } as FilterQuery<typeof TrackedUserModel>);
   return guildIds.filter((guildId): guildId is string => typeof guildId === 'string' && guildId.length > 0);
 }
 

@@ -1,5 +1,8 @@
 import { Document, Schema, Types, model } from 'mongoose';
 
+/** Motivo registrado ao desativar um membro rastreado. */
+export type TrackedUserRemovedReason = 'left_guild';
+
 /**
  * Documento do membro Discord rastreado por tenant/guild.
  */
@@ -15,6 +18,9 @@ export interface ITrackedUser extends Document {
   firstSeenAt: Date;
   lastSeenAt: Date;
   lastTextActivityAt?: Date;
+  isActive: boolean;
+  removedAt?: Date;
+  removedReason?: TrackedUserRemovedReason;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +38,9 @@ const trackedUserSchema = new Schema<ITrackedUser>(
     firstSeenAt: { type: Date, required: true },
     lastSeenAt: { type: Date, required: true },
     lastTextActivityAt: { type: Date, required: false },
+    isActive: { type: Boolean, required: true, default: true, index: true },
+    removedAt: { type: Date, required: false },
+    removedReason: { type: String, enum: ['left_guild'], required: false },
   },
   { timestamps: true },
 );

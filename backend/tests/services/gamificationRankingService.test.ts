@@ -127,4 +127,41 @@ describe('gamificationRankingService', () => {
     expect(report.available).toBe(true);
     expect(report.entries).toEqual([]);
   });
+
+  it('não inclui membros inativos no ranking', async () => {
+    await TrackedUserModel.create([
+      {
+        organizationId,
+        guildId,
+        discordId: 'active-member',
+        username: 'active',
+        displayName: 'Active Member',
+        firstSeenAt: new Date(),
+        lastSeenAt: new Date(),
+        isActive: true,
+      },
+      {
+        organizationId,
+        guildId,
+        discordId: 'inactive-member',
+        username: 'inactive',
+        displayName: 'Inactive Member',
+        firstSeenAt: new Date(),
+        lastSeenAt: new Date(),
+        isActive: false,
+        removedAt: new Date(),
+        removedReason: 'left_guild',
+      },
+    ]);
+
+    const report = await getGamificationRankingReport({
+      organizationId,
+      guildId,
+      viewerRole: 'manager',
+    });
+
+    expect(report.available).toBe(true);
+    expect(report.entries).toHaveLength(1);
+    expect(report.entries[0]?.discordId).toBe('active-member');
+  });
 });

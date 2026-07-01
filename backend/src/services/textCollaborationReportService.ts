@@ -90,6 +90,7 @@ export async function getTextCollaborationReport(
             $match: {
               organizationId: organizationObjectId,
               guildId: input.guildId,
+              isActive: true,
               $expr: { $eq: ['$discordId', '$$discordId'] },
             },
           },

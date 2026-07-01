@@ -195,6 +195,7 @@ export async function applyCategoryGoalsToTrackedUsers(input: ApplyCategoryGoals
     organizationId,
     guildId: input.guildId,
     categoryId,
+    isActive: true,
   })
     .select({ _id: 1 })
     .lean()
@@ -313,6 +314,7 @@ export async function getGoalsWeeklyReport(input: GoalsWeeklyReportInput): Promi
   const trackedUsers = await TrackedUserModel.find({
     organizationId,
     guildId: input.guildId,
+    isActive: true,
     ...(categoryId ? { categoryId } : {}),
   })
     .select({ _id: 1, discordId: 1, displayName: 1, categoryId: 1 })

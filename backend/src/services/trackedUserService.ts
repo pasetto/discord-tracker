@@ -29,6 +29,93 @@ export interface TrackedUserSummary {
 }
 
 /**
+ * Resultado da sincronização de membros com o servidor Discord.
+ */
+export interface SyncTrackedUsersResult {
+  syncedCount: number;
+  deactivatedCount: number;
+  reactivatedCount: number;
+}
+
+/**
+ * Desativa membro rastreado que saiu do servidor Discord.
+ * @param organizationId ID da organização
+ * @param guildId ID do servidor Discord
+ * @param discordId ID do membro no Discord
+ * @returns `true` quando um registro ativo foi desativado
+ */
+export async function deactivateTrackedUserByDiscordId(
+  organizationId: string,
+  guildId: string,
+  discordId: string,
+): Promise<boolean> {
+  const result = await TrackedUserModel.updateOne(
+    {
+      organizationId: new Types.ObjectId(organizationId),
+      guildId,
+      discordId,
+      isActive: true,
+    },
+    {
+      $set: {
+        isActive: false,
+        removedAt: new Date(),
+        removedReason: 'left_guild',
+      },
+    },
+  ).exec();
+
+  return (result.modifiedCount ?? 0) > 0;
+}
+
+/**
+ * Reativa membro rastreado que retornou ao servidor Discord.
+ * @param organizationId ID da organização
+ * @param guildId ID do servidor Discord
+ * @param discordId ID do membro no Discord
+ * @returns `true` quando um registro inativo foi reativado
+ */
+export async function reactivateTrackedUserByDiscordId(
+  organizationId: string,
+  guildId: string,
+  discordId: string,
+): Promise<boolean> {
+  const result = await TrackedUserModel.updateOne(
+    {
+      organizationId: new Types.ObjectId(organizationId),
+      guildId,
+      discordId,
+      isActive: false,
+    },
+    {
+      $set: { isActive: true },
+      $unset: { removedAt: '', removedReason: '' },
+    },
+  ).exec();
+
+  return (result.modifiedCount ?? 0) > 0;
+}
+
+/**
+ * Lista membros rastreados ativos de um guild.
+ * @param organizationId ID da organização
+ * @param guildId ID do servidor Discord
+ * @returns Documentos ativos em `tracked_users`
+ */
+export async function findActiveTrackedUsers(
+  organizationId: string,
+  guildId: string,
+): Promise<ITrackedUser[]> {
+  return TrackedUserModel.find({
+    organizationId: new Types.ObjectId(organizationId),
+    guildId,
+    isActive: true,
+  })
+    .lean()
+    .exec() as Promise<ITrackedUser[]>;
+}
+
+/**
  * Cria ou atualiza um membro rastreado do tenant/guild.
  * @param input Dados do membro Discord
  * @returns Documento persistido em `tracked_users`
@@ -48,6 +135,11 @@ export async function upsertTrackedUser(input: UpsertTrackedUserInput): Promise<
         username: input.username,
         displayName: input.displayName,
         lastSeenAt: seenAt,
+        isActive: true,
+      },
+      $unset: {
+        removedAt: '',
+        removedReason: '',
       },
       $setOnInsert: {
         organizationId: organizationObjectId,
@@ -111,14 +203,14 @@ async function listHumanGuildMembers(guild: Guild) {
  * @param guildId ID do servidor Discord
  * @param options Opções de execução interna
  * @param options.skipReadyCheck Quando `true`, assume gateway pronto (ex.: handler `ready`)
- * @returns Quantidade de membros sincronizados
+ * @returns Quantidade de membros sincronizados e contadores de desativação/reativação
  * @throws {Error} Quando o bot não estiver conectado ou o guild não existir
  */
 export async function syncTrackedUsersFromDiscordGuild(
   organizationId: string,
   guildId: string,
   options?: { skipReadyCheck?: boolean },
-): Promise<{ syncedCount: number }> {
+): Promise<SyncTrackedUsersResult> {
   if (!options?.skipReadyCheck && !canAccessDiscordGuild(guildId)) {
     try {
       await ensureDiscordClientReady();
@@ -141,6 +233,8 @@ export async function syncTrackedUsersFromDiscordGuild(
   }
 
   const members = await listHumanGuildMembers(guild);
+  const organizationObjectId = new Types.ObjectId(organizationId);
+  const discordIdSet = new Set(members.map((member) => member.id));
 
   await Promise.all(
     members.map((member) =>
@@ -154,7 +248,41 @@ export async function syncTrackedUsersFromDiscordGuild(
     ),
   );
 
-  return { syncedCount: members.length };
+  const [deactivateResult, reactivateResult] = await Promise.all([
+    TrackedUserModel.updateMany(
+      {
+        organizationId: organizationObjectId,
+        guildId,
+        isActive: true,
+        discordId: { $nin: [...discordIdSet] },
+      },
+      {
+        $set: {
+          isActive: false,
+          removedAt: new Date(),
+          removedReason: 'left_guild',
+        },
+      },
+    ).exec(),
+    TrackedUserModel.updateMany(
+      {
+        organizationId: organizationObjectId,
+        guildId,
+        isActive: false,
+        discordId: { $in: [...discordIdSet] },
+      },
+      {
+        $set: { isActive: true },
+        $unset: { removedAt: '', removedReason: '' },
+      },
+    ).exec(),
+  ]);
+
+  return {
+    syncedCount: members.length,
+    deactivatedCount: deactivateResult.modifiedCount ?? 0,
+    reactivatedCount: reactivateResult.modifiedCount ?? 0,
+  };
 }
 
 /**
@@ -257,7 +385,7 @@ export async function listTrackedUsers(
   guildId: string,
 ): Promise<TrackedUserSummary[]> {
   const organizationObjectId = new Types.ObjectId(organizationId);
-  const users = await TrackedUserModel.find({ organizationId: organizationObjectId, guildId })
+  const users = await TrackedUserModel.find({ organizationId: organizationObjectId, guildId, isActive: true })
     .sort({ displayName: 1 })
     .lean()
     .exec();

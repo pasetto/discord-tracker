@@ -104,7 +104,7 @@ export function createTextActivityService(
 ): { recordActivity(input: RecordTextActivityInput): Promise<RecordTextActivityResult> } {
   const dependencies: TextActivityServiceDependencies = {
     async findTrackedUsers(guildId: string, discordId: string): Promise<TrackedUserReference[]> {
-      const docs = await TrackedUserModel.find({ guildId, discordId })
+      const docs = await TrackedUserModel.find({ guildId, discordId, isActive: true })
         .select({ _id: 1, organizationId: 1, guildId: 1, discordId: 1 })
         .lean()
         .exec();

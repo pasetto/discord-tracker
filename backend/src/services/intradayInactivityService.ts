@@ -335,7 +335,7 @@ export async function getIntradayInactivityReport(
     resolveOrganizationTimezone(organizationObjectId),
     resolveWorkCalendar(organizationObjectId, guildId),
     InactivitySettingsModel.findOne({ organizationId: organizationObjectId, guildId }).lean().exec(),
-    TrackedUserModel.find({ organizationId: organizationObjectId, guildId })
+    TrackedUserModel.find({ organizationId: organizationObjectId, guildId, isActive: true })
       .select({ _id: 1, discordId: 1, displayName: 1, categoryId: 1, lastSeenAt: 1 })
       .lean()
       .exec(),

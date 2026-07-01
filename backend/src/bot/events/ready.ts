@@ -3,6 +3,7 @@ import { createLogger } from '../../logger';
 import { recoverSessions } from '../recovery/sessionRecovery';
 import { registerPresenceUpdateHandler, seedInitialPresence } from './presenceUpdate';
 import { registerVoiceStateUpdateHandler } from './voiceStateUpdate';
+import { registerGuildMembersHandlers } from './guildMembers';
 import { reportService } from '../../services/reportService';
 import { guildService } from '../../services/guildService';
 import { listEnabledMonitoredGuilds } from '../../services/guildMonitoringService';
@@ -20,6 +21,7 @@ const log = createLogger('events:ready');
 export function registerReadyHandler(): void {
   registerPresenceUpdateHandler();
   registerVoiceStateUpdateHandler();
+  registerGuildMembersHandlers();
 
   registerDiscordReadyHandler(async () => {
     await guildService.initialize();

@@ -396,7 +396,7 @@ export async function getGamificationRankingReport(
     return unavailable('Ranking não está habilitado nas configurações de gamificação');
   }
 
-  const trackedUsers = await TrackedUserModel.find({ organizationId, guildId: input.guildId })
+  const trackedUsers = await TrackedUserModel.find({ organizationId, guildId: input.guildId, isActive: true })
     .select({ discordId: 1, displayName: 1 })
     .lean()
     .exec();

@@ -154,6 +154,7 @@ meRouter.put('/me/discord-link', async (ctx) => {
     const trackedProfile = await TrackedUserModel.findOne({
       organizationId: new Types.ObjectId(membership.organizationId),
       discordId,
+      isActive: true,
     })
       .select('displayName')
       .lean()
@@ -282,6 +283,7 @@ async function listTrackedProfiles(identity: MeRequestIdentity): Promise<MeTrack
   return TrackedUserModel.find({
     organizationId: parseObjectId(identity.organizationId, 'organizationId'),
     discordId: identity.discordId,
+    isActive: true,
   })
     .select({
       _id: 1,
