@@ -146,7 +146,7 @@ const featureRoutes: Routes = [
     path: 'dashboard',
     loadComponent: loadDashboardPlaceholder,
     title: 'Início | Syntra',
-    data: page('Início', 'Início'),
+    data: page('Dashboard', 'Início'),
   },
   {
     path: 'live',

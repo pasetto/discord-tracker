@@ -5,14 +5,21 @@ import { provideRouter } from '@angular/router';
 import { DashboardPlaceholderComponent } from './dashboard-placeholder.component';
 import { AuthService } from '../../core/auth/auth.service';
 import { TenantContextService } from '../../core/tenant/tenant-context.service';
+import { LiveActivitySocketService } from '../../core/api/live-activity-socket.service';
+import { Subject } from 'rxjs';
 
 describe('DashboardPlaceholderComponent', () => {
   let fixture: ComponentFixture<DashboardPlaceholderComponent>;
+  let snapshotSubject: Subject<unknown>;
+  let connectedSubject: Subject<boolean>;
 
   beforeEach(async () => {
+    snapshotSubject = new Subject();
+    connectedSubject = new Subject();
+
     localStorage.setItem(
       'syntra.auth.user',
-      JSON.stringify({ id: 'u1', email: 'test@test.com', displayName: 'Teste' }),
+      JSON.stringify({ id: 'u1', email: 'test@test.com', displayName: 'Eduardo Pereira' }),
     );
     localStorage.setItem('syntra.auth.organization', JSON.stringify({ id: 'org-1', name: 'Org', slug: 'org' }));
     localStorage.setItem('syntra.orgId', 'org-1');
@@ -26,6 +33,17 @@ describe('DashboardPlaceholderComponent', () => {
         provideRouter([]),
         AuthService,
         TenantContextService,
+        {
+          provide: LiveActivitySocketService,
+          useValue: {
+            snapshot$: snapshotSubject.asObservable(),
+            transition$: new Subject().asObservable(),
+            connected$: connectedSubject.asObservable(),
+            error$: new Subject().asObservable(),
+            connect: jasmine.createSpy('connect'),
+            disconnect: jasmine.createSpy('disconnect'),
+          },
+        },
       ],
     }).compileComponents();
   });
@@ -44,7 +62,7 @@ describe('DashboardPlaceholderComponent', () => {
     httpMock.verify();
   });
 
-  it('carrega alertas de inatividade quando guild está configurada', () => {
+  it('carrega alertas e metas quando guild está configurada', () => {
     localStorage.setItem('syntra.guildId', 'guild-1');
     const httpMock = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(DashboardPlaceholderComponent);
@@ -72,14 +90,68 @@ describe('DashboardPlaceholderComponent', () => {
         concernEntries: [],
       },
     });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/goals?preset=this_week').flush({
+      report: { periodStart: '', periodEnd: '', entries: [] },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/tracked-users').flush({ members: [] });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/absences/active').flush({ absences: [] });
 
-    expect(fixture.componentInstance.weeklyConcernCount).toBe(1);
+    expect(fixture.componentInstance.weeklyConcernEntries.length).toBe(1);
     httpMock.verify();
   });
 
-  it('aplica classes de badge intradiário', () => {
+  it('exibe saudação personalizada e lista de atenção intradiária', () => {
+    localStorage.setItem('syntra.guildId', 'guild-1');
+    const httpMock = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(DashboardPlaceholderComponent);
-    expect(fixture.componentInstance.getIntradayStatusBadgeClass('not_started')).toContain('error');
-    expect(fixture.componentInstance.getIntradayStatusBadgeClass('low_collaboration_today')).toContain('warning');
+    fixture.detectChanges();
+
+    httpMock.expectOne('/api/v1/org/org-1/discord/status').flush({
+      botConnected: true,
+      activeConnection: { guildId: 'guild-1', guildName: 'eCondos', isMonitoringEnabled: true },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/inactivity/weekly').flush({ report: { entries: [] } });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/inactivity/intraday').flush({
+      report: {
+        generatedAt: new Date().toISOString(),
+        timezone: 'America/Sao_Paulo',
+        elapsedWorkPercent: 40,
+        elapsedWorkSeconds: 3600,
+        totalWorkSeconds: 9000,
+        isBusinessDay: true,
+        isWithinWorkHours: true,
+        settings: { lateStartThresholdPercent: 30, minCollaborationPercentOfElapsed: 20 },
+        concernEntries: [
+          {
+            trackedUserId: 'tu-1',
+            discordId: 'd-1',
+            displayName: 'Dev Test',
+            status: 'not_started',
+            elapsedWorkPercent: 40,
+            collaborationPercentOfElapsed: 0,
+            collaborationSecondsInWorkWindow: 0,
+            elapsedWorkSeconds: 3600,
+            hasAppearedToday: false,
+          },
+        ],
+      },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/goals?preset=this_week').flush({
+      report: { periodStart: '', periodEnd: '', entries: [] },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/tracked-users').flush({ members: [{ id: '1', discordId: 'd-1', displayName: 'Dev Test', username: 'dev' }] });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/absences/active').flush({ absences: [] });
+
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.userFirstName).toBe('Eduardo');
+    expect(fixture.componentInstance.attentionItems[0].displayName).toBe('Dev Test');
+    httpMock.verify();
+  });
+
+  it('aplica classes de severidade na lista de atenção', () => {
+    fixture = TestBed.createComponent(DashboardPlaceholderComponent);
+    expect(fixture.componentInstance.getAttentionMessageClass('critical')).toContain('error');
+    expect(fixture.componentInstance.getAttentionMessageClass('warning')).toContain('warning');
   });
 });

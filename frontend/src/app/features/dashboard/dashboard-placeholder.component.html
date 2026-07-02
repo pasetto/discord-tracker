@@ -1,114 +1,306 @@
 <section class="space-y-6">
-  <header class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-    <p class="text-sm text-gray-500 dark:text-gray-400">{{ organizationName }}</p>
-    <h1 class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">Quem sumiu?</h1>
-    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-      Alertas de hoje e desta semana — o foco principal do Syntra para gestores.
-    </p>
-    <p *ngIf="guildName" class="mt-2 text-xs text-gray-500">Servidor: <strong>{{ guildName }}</strong></p>
-  </header>
+  <p class="text-sm text-gray-500 dark:text-gray-400">{{ organizationName }}</p>
 
-  <section *ngIf="!hasGuild" class="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-500/10">
-    <h2 class="text-base font-semibold text-gray-900 dark:text-white">Configure o Discord para começar</h2>
+  <section *ngIf="!hasGuild" class="rounded-2xl border border-brand-200 bg-brand-50 p-6 dark:border-brand-900 dark:bg-brand-500/10">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Configure o Discord para começar</h2>
     <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
-      Cadastre seu bot, adicione-o ao servidor e escolha qual servidor monitorar.
+      Cadastre seu bot, adicione-o ao servidor e escolha qual servidor monitorar para ver a colaboração do time.
     </p>
-    <a routerLink="/app/settings/discord" class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+    <a
+      routerLink="/app/settings/discord"
+      class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
+    >
       Configurar Discord
     </a>
   </section>
 
   <ng-container *ngIf="hasGuild">
-    <div class="grid gap-4 lg:grid-cols-2">
-      <section class="rounded-2xl border border-warning-200 bg-warning-50/60 p-5 dark:border-warning-900 dark:bg-warning-500/10">
-        <div class="flex flex-wrap items-start justify-between gap-3">
+    <!-- Hero: quem precisa de atenção -->
+    <section
+      class="relative overflow-hidden rounded-2xl border border-warning-200 bg-gradient-to-br from-warning-50 via-white to-brand-50 p-6 dark:border-warning-900/60 dark:from-warning-500/10 dark:via-gray-900/40 dark:to-brand-500/5 md:p-8"
+    >
+      <div class="relative z-10 max-w-3xl">
+        <p class="text-sm font-medium text-gray-600 dark:text-gray-300">{{ greeting }}, {{ userFirstName }}!</p>
+        <h1 class="mt-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-3xl">
+          <ng-container *ngIf="attentionCount > 0; else allClearHero">
+            {{ attentionCount }} colaborador{{ attentionCount === 1 ? '' : 'es' }} que precisa{{ attentionCount === 1 ? '' : 'm' }} de atenção
+          </ng-container>
+          <ng-template #allClearHero>Ninguém precisa de atenção agora</ng-template>
+        </h1>
+
+        <ul class="mt-4 space-y-1.5 text-sm text-gray-700 dark:text-gray-200">
+          <li *ngIf="noActivityTodayCount > 0" class="flex items-center gap-2">
+            <span class="size-2 rounded-full bg-error-500"></span>
+            {{ noActivityTodayCount }} sem atividade hoje
+          </li>
+          <li *ngIf="lowCollaborationTodayCount > 0" class="flex items-center gap-2">
+            <span class="size-2 rounded-full bg-warning-500"></span>
+            {{ lowCollaborationTodayCount }} com colaboração baixa hoje
+          </li>
+          <li *ngIf="goalsBelowThreshold.length > 0" class="flex items-center gap-2">
+            <span class="size-2 rounded-full bg-warning-500"></span>
+            {{ goalsBelowThreshold.length }} abaixo da meta semanal
+          </li>
+          <li *ngIf="ptoCount > 0" class="flex items-center gap-2">
+            <span class="size-2 rounded-full bg-brand-500"></span>
+            {{ ptoCount }} em PTO
+          </li>
+          <li class="flex items-center gap-2">
+            <span class="size-2 rounded-full bg-success-500"></span>
+            {{ collaboratingNormallyCount }} colaborando normalmente
+          </li>
+        </ul>
+
+        <a
+          routerLink="/app/reports/inactivity"
+          class="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl bg-warning-500 px-5 py-2.5 text-sm font-semibold text-white shadow-theme-sm transition hover:bg-warning-600"
+        >
+          Abrir relatório de inatividade
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </a>
+
+        <p *ngIf="guildName" class="mt-4 text-xs text-gray-500 dark:text-gray-400">
+          Servidor: <strong>{{ guildName }}</strong>
+          <span *ngIf="lastUpdatedAt"> · Atualizado {{ lastUpdatedAt | date: 'HH:mm' }}</span>
+          <span [class.text-success-600]="liveConnected" [class.text-gray-400]="!liveConnected">
+            · {{ liveConnected ? 'Tempo real ativo' : 'Reconectando...' }}
+          </span>
+        </p>
+      </div>
+
+      <div class="pointer-events-none absolute -right-4 -top-4 hidden opacity-80 md:block" aria-hidden="true">
+        <div class="flex size-36 items-center justify-center rounded-full bg-warning-100 text-warning-500 dark:bg-warning-500/15">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 3C8.68629 3 6 5.68629 6 9V10.262C4.79486 10.8837 4 12.149 4 13.6V17.2C4 18.8807 5.35931 20.24 7.04 20.24H16.96C18.6407 20.24 20 18.8807 20 17.2V13.6C20 12.149 19.2051 10.8837 18 10.262V9C18 5.68629 15.3137 3 12 3Z"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+            <path d="M10 20.24V21.2C10 22.1941 10.8954 23 12 23C13.1046 23 14 22.1941 14 21.2V20.24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Métricas rápidas -->
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <article
+        *ngFor="let card of metricCards"
+        class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]"
+      >
+        <div class="flex items-start justify-between gap-3">
           <div>
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-              Hoje ({{ intradayConcernEntries.length }})
-            </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Alerta intradiário na jornada de trabalho.</p>
-            <p *ngIf="intradayReport" class="mt-2 text-xs text-gray-500">
-              {{ intradayReport.elapsedWorkPercent | number: '1.0-0' }}% da jornada decorrida
-              <span *ngIf="!intradayReport.isBusinessDay"> · não é dia útil</span>
-              <span *ngIf="intradayReport.isBusinessDay && !intradayReport.isWithinWorkHours"> · fora do horário</span>
-            </p>
+            <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ card.label }}</p>
+            <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ card.value }}</p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ card.hint }}</p>
           </div>
-          <button type="button" class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100" (click)="loadIntradayReport()" [disabled]="intradayLoading">
-            {{ intradayLoading ? 'Atualizando...' : 'Atualizar' }}
+          <span class="inline-flex size-10 items-center justify-center rounded-xl" [ngClass]="getMetricIconClass(card.tone)">
+            <svg *ngIf="card.id === 'collaborating'" width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <svg *ngIf="card.id === 'voice'" width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 14V18M8 10.5V11.5C8 13.9853 9.79086 16 12 16C14.2091 16 16 13.9853 16 11.5V10.5M12 6V14M9 6H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+            <svg *ngIf="card.id === 'online'" width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M4 12C4 7.58172 7.58172 4 12 4M12 20C16.4183 20 20 16.4183 20 12M8 12H16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+            <svg *ngIf="card.id === 'pto'" width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M8 4V6M16 4V6M5 10H19M6 8H18C19.1046 8 20 8.89543 20 10V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V10C4 8.89543 4.89543 8 6 8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+            <svg *ngIf="card.id === 'alerts'" width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 7V13M12 17H12.01M10.29 3.86L2.82 17.24C2.40287 17.96 2.91976 18.84 3.74 18.84H20.26C21.0802 18.84 21.5971 17.96 21.18 17.24L13.71 3.86C13.2929 3.14 12.7071 3.14 12.29 3.86Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+        </div>
+      </article>
+    </div>
+
+    <!-- Quem precisa de atenção + Heatmap -->
+    <div class="grid gap-4 xl:grid-cols-2">
+      <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Quem precisa de atenção</h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Alertas de hoje, semana e metas individuais.</p>
+          </div>
+          <button
+            type="button"
+            class="min-h-10 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 dark:border-gray-700 dark:text-gray-200"
+            (click)="loadAllData()"
+            [disabled]="isLoading"
+          >
+            {{ isLoading ? 'Atualizando...' : 'Atualizar' }}
           </button>
         </div>
 
-        <p *ngIf="intradayLoading && !intradayReport" class="mt-4 text-sm text-gray-600 dark:text-gray-300">Carregando...</p>
+        <p *ngIf="isLoading && attentionItems.length === 0" class="mt-6 text-sm text-gray-500">Carregando alertas...</p>
 
-        <p *ngIf="intradayReport && intradayConcernEntries.length === 0" class="mt-4 text-sm text-gray-700 dark:text-gray-200">
-          Ninguém em alerta hoje — time dentro dos critérios de colaboração.
+        <p *ngIf="!isLoading && attentionItems.length === 0" class="mt-6 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800 dark:border-success-900 dark:bg-success-500/10 dark:text-success-200">
+          Ninguém em alerta — time dentro dos critérios de colaboração configurados.
         </p>
 
-        <ul *ngIf="intradayConcernEntries.length > 0" class="mt-4 space-y-2">
-          <li *ngFor="let entry of intradayConcernEntries" class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-warning-200 bg-white px-4 py-3 text-sm dark:border-warning-800 dark:bg-gray-900/40">
-            <div>
-              <p class="font-semibold text-gray-900 dark:text-white">{{ entry.displayName }}</p>
-              <span class="mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="getIntradayStatusBadgeClass(entry.status)">
-                {{ formatIntradayStatus(entry.status) }}
+        <ul *ngIf="attentionItems.length > 0" class="mt-4 space-y-3">
+          <li
+            *ngFor="let item of attentionItems"
+            class="flex flex-col gap-3 rounded-xl border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-700"
+          >
+            <div class="flex items-start gap-3">
+              <span class="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
+                {{ memberInitials(item.displayName) }}
               </span>
+              <div>
+                <p class="font-semibold text-gray-900 dark:text-white">{{ item.displayName }}</p>
+                <p *ngIf="item.categoryName" class="text-xs text-gray-500 dark:text-gray-400">{{ item.categoryName }}</p>
+                <p class="mt-1 text-sm font-medium" [ngClass]="getAttentionMessageClass(item.severity)">{{ item.message }}</p>
+              </div>
             </div>
-            <p class="text-xs text-gray-500">{{ entry.collaborationPercentOfElapsed | number: '1.0-0' }}% do tempo passado</p>
+            <a
+              [routerLink]="item.actionRoute"
+              [queryParams]="item.actionQueryParams"
+              class="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-800"
+            >
+              {{ item.actionLabel }}
+            </a>
           </li>
         </ul>
       </section>
 
-      <section class="rounded-2xl border border-error-200 bg-error-50/50 p-5 dark:border-error-900 dark:bg-error-500/10">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-              Esta semana ({{ weeklyConcernCount }})
-            </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Resumo semanal de inatividade.</p>
+      <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Heatmap de colaboração</h2>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Intensidade de sinais colaborativos por dia e hora (voz).</p>
+
+        <div class="mt-5 overflow-x-auto">
+          <div class="min-w-[520px]">
+            <div class="grid grid-cols-[40px_repeat(7,1fr)] gap-1 text-center text-xs text-gray-500">
+              <div></div>
+              <div *ngFor="let day of heatmapDayLabels">{{ day }}</div>
+            </div>
+
+            <div *ngFor="let hour of heatmapHours" class="mt-1 grid grid-cols-[40px_repeat(7,1fr)] gap-1 items-center">
+              <div class="text-right text-xs text-gray-400">{{ hour }}h</div>
+              <div
+                *ngFor="let dayIndex of [0, 1, 2, 3, 4, 5, 6]"
+                class="h-7 rounded-md transition-colors"
+                [ngClass]="heatmapCellClass(heatmapCell(dayIndex, hour).intensity)"
+                [title]="heatmapCell(dayIndex, hour).eventCount + ' evento(s)'"
+              ></div>
+            </div>
           </div>
-          <button type="button" class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100" (click)="loadWeeklyReport()" [disabled]="weeklyLoading">
-            {{ weeklyLoading ? 'Atualizando...' : 'Atualizar' }}
-          </button>
         </div>
 
-        <p *ngIf="weeklyLoading && !weeklyReport" class="mt-4 text-sm text-gray-600 dark:text-gray-300">Carregando...</p>
-
-        <p *ngIf="weeklyReport && weeklyConcernCount === 0" class="mt-4 text-sm text-gray-700 dark:text-gray-200">
-          Ninguém em alerta esta semana.
+        <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+          Tons mais escuros indicam mais movimentação colaborativa registrada no período.
         </p>
-
-        <ul *ngIf="weeklyConcernEntries.length > 0" class="mt-4 space-y-2">
-          <li *ngFor="let entry of weeklyConcernEntries" class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-error-200 bg-white px-4 py-3 text-sm dark:border-error-800 dark:bg-gray-900/40">
-            <div>
-              <p class="font-semibold text-gray-900 dark:text-white">{{ entry.displayName }}</p>
-              <span class="mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="getWeeklyStatusBadgeClass(entry.status)">
-                {{ formatWeeklyStatus(entry.status) }}
-              </span>
-            </div>
-            <p *ngIf="entry.inactiveBusinessDays" class="text-xs text-gray-500">{{ entry.inactiveBusinessDays }} dia(s) úteis</p>
-          </li>
-        </ul>
       </section>
     </div>
 
-    <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <a routerLink="/app/reports/inactivity" class="rounded-xl border border-gray-200 bg-white p-4 transition hover:border-brand-300 dark:border-gray-800 dark:bg-white/[0.03] dark:hover:border-brand-700">
-        <p class="font-semibold text-gray-900 dark:text-white">Relatório completo</p>
-        <p class="mt-1 text-sm text-gray-500">Histórico, filtros e exportação CSV</p>
-      </a>
-      <a routerLink="/app/live" class="rounded-xl border border-gray-200 bg-white p-4 transition hover:border-brand-300 dark:border-gray-800 dark:bg-white/[0.03] dark:hover:border-brand-700">
-        <p class="font-semibold text-gray-900 dark:text-white">Time ao vivo</p>
-        <p class="mt-1 text-sm text-gray-500">Quem está online agora no Discord</p>
-      </a>
-      <a routerLink="/app/reports/absences" class="rounded-xl border border-gray-200 bg-white p-4 transition hover:border-brand-300 dark:border-gray-800 dark:bg-white/[0.03] dark:hover:border-brand-700">
-        <p class="font-semibold text-gray-900 dark:text-white">Ausências em andamento</p>
-        <p class="mt-1 text-sm text-gray-500">Férias e PTO ativos no momento</p>
-      </a>
-      <a routerLink="/app/settings/inactivity" class="rounded-xl border border-gray-200 bg-white p-4 transition hover:border-brand-300 dark:border-gray-800 dark:bg-white/[0.03] dark:hover:border-brand-700">
-        <p class="font-semibold text-gray-900 dark:text-white">Limiares</p>
-        <p class="mt-1 text-sm text-gray-500">Ajustar critérios de quem sumiu</p>
-      </a>
+    <!-- Timeline + Gráfico semanal -->
+    <div class="grid gap-4 xl:grid-cols-2">
+      <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Timeline de hoje</h2>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Entradas, saídas e movimentação em canais colaborativos.</p>
+
+        <p *ngIf="todayTimeline.length === 0" class="mt-6 text-sm text-gray-500 dark:text-gray-400">
+          Nenhum evento recente. Os sinais aparecem aqui conforme o time colabora no Discord.
+        </p>
+
+        <ul *ngIf="todayTimeline.length > 0" class="mt-4 space-y-4">
+          <li *ngFor="let event of todayTimeline" class="flex gap-3">
+            <div class="w-12 shrink-0 text-xs font-medium text-gray-500 dark:text-gray-400">
+              {{ formatTimelineTime(event.occurredAt) }}
+            </div>
+            <div class="relative flex-1 border-l border-gray-200 pl-4 dark:border-gray-700">
+              <span class="absolute -left-1.5 top-1.5 size-3 rounded-full bg-brand-500"></span>
+              <div class="flex items-start gap-3">
+                <span class="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                  {{ memberInitials(event.displayName) }}
+                </span>
+                <p class="text-sm text-gray-700 dark:text-gray-200">{{ formatTimelineLabel(event) }}</p>
+              </div>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Colaboração dos últimos 7 dias</h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Horas colaborativas estimadas do time.</p>
+          </div>
+          <p class="rounded-lg bg-gray-50 px-3 py-1.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+            Média: <strong>{{ weeklyChartAverage }}h</strong>
+          </p>
+        </div>
+
+        <div class="mt-4">
+          <apx-chart
+            [series]="chartSeries"
+            [chart]="chart"
+            [xaxis]="{ categories: chartCategories, axisBorder: { show: false }, axisTicks: { show: false } }"
+            [plotOptions]="chartPlotOptions"
+            [dataLabels]="chartDataLabels"
+            [stroke]="chartStroke"
+            [grid]="chartGrid"
+            [yaxis]="chartYAxis"
+            [tooltip]="chartTooltip"
+            [colors]="chartColors"
+          ></apx-chart>
+        </div>
+      </section>
+    </div>
+
+    <!-- Insights automáticos -->
+    <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Insights automáticos</h2>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Observações geradas a partir dos sinais do time.</p>
+
+      <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <article
+          *ngFor="let insight of insights"
+          class="rounded-xl border p-4 text-sm text-gray-700 dark:text-gray-200"
+          [ngClass]="getInsightCardClass(insight.tone)"
+        >
+          {{ insight.message }}
+        </article>
+      </div>
+    </section>
+
+    <!-- Ações rápidas -->
+    <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Ações rápidas</h2>
+      <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <a routerLink="/app/live" class="group rounded-xl border border-gray-200 p-4 transition hover:border-brand-300 dark:border-gray-700 dark:hover:border-brand-700">
+          <p class="font-semibold text-gray-900 group-hover:text-brand-600 dark:text-white">Abrir Time ao vivo</p>
+          <p class="mt-1 text-sm text-gray-500">Presença e voz agora</p>
+        </a>
+        <a routerLink="/app/reports/inactivity" class="group rounded-xl border border-gray-200 p-4 transition hover:border-brand-300 dark:border-gray-700 dark:hover:border-brand-700">
+          <p class="font-semibold text-gray-900 group-hover:text-brand-600 dark:text-white">Abrir Relatório</p>
+          <p class="mt-1 text-sm text-gray-500">Quem sumiu — histórico completo</p>
+        </a>
+        <a routerLink="/app/reports/goals" class="group rounded-xl border border-gray-200 p-4 transition hover:border-brand-300 dark:border-gray-700 dark:hover:border-brand-700">
+          <p class="font-semibold text-gray-900 group-hover:text-brand-600 dark:text-white">Metas vs. realizado</p>
+          <p class="mt-1 text-sm text-gray-500">Progresso individual da semana</p>
+        </a>
+        <a routerLink="/app/me" class="group rounded-xl border border-gray-200 p-4 transition hover:border-brand-300 dark:border-gray-700 dark:hover:border-brand-700">
+          <p class="font-semibold text-gray-900 group-hover:text-brand-600 dark:text-white">Portal /me</p>
+          <p class="mt-1 text-sm text-gray-500">Transparência e export LGPD</p>
+        </a>
+      </div>
+    </section>
+
+    <!-- Dica -->
+    <section class="rounded-2xl border border-brand-200 bg-brand-50 px-5 py-4 dark:border-brand-900 dark:bg-brand-500/10">
+      <p class="text-sm text-gray-700 dark:text-gray-200">
+        <strong>Dica:</strong> Configure notificações para receber alertas importantes no Discord.
+        <a routerLink="/app/settings/inactivity" class="ml-1 font-medium text-brand-600 hover:underline dark:text-brand-400">Configurar agora</a>
+      </p>
     </section>
   </ng-container>
 
-  <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600">{{ errorMessage }}</p>
+  <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600 dark:border-error-800 dark:bg-error-500/10 dark:text-error-300">
+    {{ errorMessage }}
+  </p>
 </section>

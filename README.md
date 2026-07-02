@@ -6,6 +6,7 @@ Monorepo **npm workspaces**: `backend/` (API + bot Discord) + `frontend/` (Angul
 
 | Documento | Conteúdo |
 |-----------|----------|
+| [Visão do produto e brief de design](docs/product-overview-and-design-brief.md) | O que é o Syntra, para quem serve, persona e telas prioritárias |
 | [Design spec](docs/superpowers/specs/2026-06-20-pulsedesk-saas-design.md) | Arquitetura, modelos, API, fases |
 | [Plano de implementação](docs/superpowers/plans/2026-06-20-syntra-saas-implementation.md) | Tasks por fase |
 | [AGENTS.md](AGENTS.md) | Regras gerais para agentes e desenvolvedores |
