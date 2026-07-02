@@ -93,6 +93,18 @@ describe('DashboardPlaceholderComponent', () => {
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/goals?preset=this_week').flush({
       report: { periodStart: '', periodEnd: '', entries: [] },
     });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/dashboard/overview').flush({
+      overview: {
+        generatedAt: new Date().toISOString(),
+        timezone: 'America/Sao_Paulo',
+        periodStart: '2026-06-26',
+        periodEnd: '2026-07-02',
+        trackedMembersCount: 0,
+        weeklyAverageHours: 0,
+        dailyCollaboration: [],
+        heatmap: [],
+      },
+    });
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/tracked-users').flush({ members: [] });
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/absences/active').flush({ absences: [] });
 
@@ -138,6 +150,18 @@ describe('DashboardPlaceholderComponent', () => {
     });
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/goals?preset=this_week').flush({
       report: { periodStart: '', periodEnd: '', entries: [] },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/dashboard/overview').flush({
+      overview: {
+        generatedAt: new Date().toISOString(),
+        timezone: 'America/Sao_Paulo',
+        periodStart: '2026-06-26',
+        periodEnd: '2026-07-02',
+        trackedMembersCount: 1,
+        weeklyAverageHours: 0,
+        dailyCollaboration: [],
+        heatmap: [],
+      },
     });
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/tracked-users').flush({ members: [{ id: '1', discordId: 'd-1', displayName: 'Dev Test', username: 'dev' }] });
     httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/absences/active').flush({ absences: [] });

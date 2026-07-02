@@ -31,6 +31,7 @@ import type {
   DashboardHeatmapCell,
   DashboardInsight,
   DashboardMetricCard,
+  DashboardOverviewDto,
   DashboardWeeklyChartPoint,
   IntradayInactivityReportDto,
   WeeklyInactivityEntryDto,
@@ -40,6 +41,8 @@ import {
   buildAttentionItems,
   buildCollaborationHeatmap,
   buildDashboardInsights,
+  mapOverviewDailyChart,
+  mapOverviewHeatmapCells,
   buildWeeklyCollaborationChart,
   formatDashboardDuration,
   formatTimelineEventLabel,
@@ -50,6 +53,7 @@ import {
   resolveHeatmapCellClass,
   resolveMemberInitials,
   resolveWeeklyChartAverage,
+  sumCollaborationHours,
 } from './dashboard.utils';
 
 /**
@@ -68,6 +72,8 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
   intradayLoading = false;
   goalsReport: DashboardGoalsReportDto | null = null;
   goalsLoading = false;
+  overview: DashboardOverviewDto | null = null;
+  overviewLoading = false;
   trackedTotal = 0;
   activeAbsences: DashboardActiveAbsenceDto[] = [];
   liveMembers: LiveMemberSnapshot[] = [];
@@ -332,7 +338,7 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
 
   /** Indica carregamento inicial dos blocos principais. */
   get isLoading(): boolean {
-    return this.intradayLoading || this.weeklyLoading || this.goalsLoading || this.liveLoading;
+    return this.intradayLoading || this.weeklyLoading || this.goalsLoading || this.liveLoading || this.overviewLoading;
   }
 
   /** Carrega dados quando o guild estiver disponível. */
@@ -392,6 +398,7 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
   loadAllData(): void {
     this.loadReports();
     this.loadGoalsReport();
+    this.loadOverview();
     this.loadTrackedTotal();
     this.loadActiveAbsences();
     this.connectLiveSocket();
@@ -450,6 +457,33 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Consulta overview histórico (7 dias + heatmap) do backend.
+   */
+  loadOverview(): void {
+    if (!this.hasGuild) {
+      return;
+    }
+
+    this.overviewLoading = true;
+
+    this.httpClient
+      .get<{ overview: DashboardOverviewDto }>(
+        `${this.tenantContext.getGuildApiBaseUrl()}/dashboard/overview`,
+      )
+      .subscribe({
+        next: (response) => {
+          this.overview = response.overview;
+          this.overviewLoading = false;
+          this.refreshHeatmap();
+          this.refreshWeeklyChart();
+        },
+        error: () => {
+          this.overviewLoading = false;
+        },
+      });
+  }
+
+  /**
    * Consulta metas da semana para alertas e gráfico de colaboração.
    */
   loadGoalsReport(): void {
@@ -468,7 +502,6 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
         next: (response) => {
           this.goalsReport = response.report;
           this.goalsLoading = false;
-          this.refreshWeeklyChart();
         },
         error: () => {
           this.goalsLoading = false;
@@ -667,20 +700,34 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
     this.refreshWeeklyChart();
   }
 
-  /** Recalcula heatmap a partir das transições recentes. */
+  /** Recalcula heatmap a partir do overview ou fallback local. */
   private refreshHeatmap(): void {
+    if (this.overview?.heatmap?.length) {
+      this.heatmapCells = mapOverviewHeatmapCells(this.overview.heatmap);
+      return;
+    }
+
     this.heatmapCells = buildCollaborationHeatmap(this.recentTransitions);
   }
 
-  /** Recalcula série do gráfico semanal. */
+  /** Recalcula série do gráfico semanal a partir do overview ou fallback estimado. */
   private refreshWeeklyChart(): void {
     const members = [...this.liveMembers, ...this.onlineRanking];
     const uniqueMembers = new Map(members.map((member) => [member.discordId, member]));
-    this.weeklyChartPoints = buildWeeklyCollaborationChart(
-      [...uniqueMembers.values()],
-      this.goalsReport?.entries ?? [],
-    );
-    this.weeklyChartAverage = resolveWeeklyChartAverage(this.weeklyChartPoints);
+    const todayLiveHours = sumCollaborationHours([...uniqueMembers.values()]);
+
+    if (this.overview?.dailyCollaboration?.length) {
+      const mapped = mapOverviewDailyChart(this.overview.dailyCollaboration, todayLiveHours);
+      this.weeklyChartPoints = mapped.points;
+      this.weeklyChartAverage = this.overview.weeklyAverageHours ?? mapped.average;
+    } else {
+      this.weeklyChartPoints = buildWeeklyCollaborationChart(
+        [...uniqueMembers.values()],
+        this.goalsReport?.entries ?? [],
+      );
+      this.weeklyChartAverage = resolveWeeklyChartAverage(this.weeklyChartPoints);
+    }
+
     this.chartSeries = [
       {
         name: 'Horas colaborativas',

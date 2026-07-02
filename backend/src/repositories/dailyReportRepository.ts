@@ -308,6 +308,56 @@ export const dailyReportRepository = {
 
   },
 
+
+
+  /**
+   * Agrega totais diários de relatórios para um conjunto de usuários core.
+   * @param userIds IDs Mongo dos usuários
+   * @param rangeStart Início inclusivo do intervalo (início do primeiro dia)
+   * @param rangeEnd Fim exclusivo do intervalo
+   * @returns Totais por dia civil persistidos em DailyReport
+   */
+  async aggregateByUserIdsForDateRange(
+    userIds: Types.ObjectId[],
+    rangeStart: Date,
+    rangeEnd: Date,
+  ): Promise<
+    Array<{
+      date: Date;
+      productiveSeconds: number;
+      voiceSeconds: number;
+    }>
+  > {
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    return DailyReport.aggregate([
+      {
+        $match: {
+          userId: { $in: userIds },
+          date: { $gte: rangeStart, $lt: rangeEnd },
+        },
+      },
+      {
+        $group: {
+          _id: '$date',
+          productiveSeconds: { $sum: '$productiveSeconds' },
+          voiceSeconds: { $sum: '$voiceSeconds' },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          date: '$_id',
+          productiveSeconds: 1,
+          voiceSeconds: 1,
+        },
+      },
+      { $sort: { date: 1 } },
+    ]);
+  },
+
 };
 
 

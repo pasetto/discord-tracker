@@ -1,4 +1,4 @@
-import { buildAttentionItems, resolveDashboardFirstName, resolveDashboardGreeting } from './dashboard.utils';
+import { buildAttentionItems, mapOverviewDailyChart, mapOverviewHeatmapCells, resolveDashboardFirstName, resolveDashboardGreeting } from './dashboard.utils';
 
 describe('dashboard.utils', () => {
   it('resolve saudação por horário', () => {
@@ -51,5 +51,23 @@ describe('dashboard.utils', () => {
     expect(items.length).toBe(3);
     expect(items[0].severity).toBe('critical');
     expect(items[0].displayName).toBe('Ana');
+  });
+
+  it('mapeia overview histórico para heatmap e gráfico', () => {
+    const heatmap = mapOverviewHeatmapCells([
+      { dayIndex: 0, hour: 10, eventCount: 4 },
+      { dayIndex: 1, hour: 10, eventCount: 2 },
+    ]);
+    expect(heatmap[0].intensity).toBe(1);
+    expect(heatmap[1].intensity).toBe(0.5);
+
+    const chart = mapOverviewDailyChart([
+      { date: '2026-07-01', collaborationHours: 4, voiceHours: 5 },
+      { date: '2026-07-02', collaborationHours: 6, voiceHours: 7 },
+    ], 8);
+
+    expect(chart.points.length).toBe(2);
+    expect(chart.points[1].hours).toBe(8);
+    expect(chart.points[1].isToday).toBeTrue();
   });
 });

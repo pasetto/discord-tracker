@@ -123,3 +123,29 @@ export interface DashboardMetricCard {
   hint: string;
   tone: 'success' | 'brand' | 'warning' | 'purple' | 'neutral';
 }
+
+/** Ponto diário retornado pelo overview histórico do backend. */
+export interface DashboardOverviewDailyPointDto {
+  date: string;
+  collaborationHours: number;
+  voiceHours: number;
+}
+
+/** Célula de heatmap retornada pelo overview histórico do backend. */
+export interface DashboardOverviewHeatmapCellDto {
+  dayIndex: number;
+  hour: number;
+  eventCount: number;
+}
+
+/** Overview histórico de colaboração (7 dias + heatmap) do backend. */
+export interface DashboardOverviewDto {
+  generatedAt: string;
+  timezone: string;
+  periodStart: string;
+  periodEnd: string;
+  trackedMembersCount: number;
+  dailyCollaboration: DashboardOverviewDailyPointDto[];
+  weeklyAverageHours: number;
+  heatmap: DashboardOverviewHeatmapCellDto[];
+}

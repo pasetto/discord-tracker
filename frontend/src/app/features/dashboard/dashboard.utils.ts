@@ -4,6 +4,8 @@ import type {
   DashboardGoalEntryDto,
   DashboardHeatmapCell,
   DashboardInsight,
+  DashboardOverviewDto,
+  DashboardOverviewHeatmapCellDto,
   DashboardWeeklyChartPoint,
   IntradayConcernEntryDto,
   WeeklyInactivityEntryDto,
@@ -163,6 +165,56 @@ export function resolveHeatmapCellClass(intensity: number): string {
     return 'bg-brand-200 dark:bg-brand-500/30';
   }
   return 'bg-brand-50 dark:bg-brand-500/10';
+}
+
+/**
+ * Converte heatmap do overview API em células com intensidade normalizada.
+ * @param cells Células brutas do backend
+ * @returns Células prontas para renderização CSS
+ */
+export function mapOverviewHeatmapCells(
+  cells: DashboardOverviewHeatmapCellDto[],
+): DashboardHeatmapCell[] {
+  const maxCount = Math.max(1, ...cells.map((cell) => cell.eventCount));
+  return cells.map((cell) => ({
+    dayIndex: cell.dayIndex,
+    hour: cell.hour,
+    eventCount: cell.eventCount,
+    intensity: cell.eventCount / maxCount,
+  }));
+}
+
+/**
+ * Converte série diária do overview em pontos do gráfico semanal.
+ * @param daily Pontos diários do backend
+ * @param todayCollaborationHours Horas ao vivo de hoje para mesclar no último ponto
+ * @returns Pontos do gráfico e média semanal
+ */
+export function mapOverviewDailyChart(
+  daily: DashboardOverviewDto['dailyCollaboration'],
+  todayCollaborationHours?: number,
+): { points: DashboardWeeklyChartPoint[]; average: number } {
+  const points = daily.map((point, index, arr) => {
+    const date = new Date(`${point.date}T12:00:00`);
+    const label = Number.isNaN(date.getTime())
+      ? point.date
+      : date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+    const isToday = index === arr.length - 1;
+    let hours = point.collaborationHours;
+
+    if (isToday && todayCollaborationHours !== undefined) {
+      hours = Math.max(hours, todayCollaborationHours);
+    }
+
+    return { label, hours, isToday };
+  });
+
+  const average =
+    points.length > 0
+      ? Number((points.reduce((sum, point) => sum + point.hours, 0) / points.length).toFixed(1))
+      : 0;
+
+  return { points, average };
 }
 
 /**

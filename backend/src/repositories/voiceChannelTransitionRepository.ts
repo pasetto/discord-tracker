@@ -172,4 +172,28 @@ export const voiceChannelTransitionRepository = {
       .lean<IVoiceChannelTransition[]>()
       .exec();
   },
+
+  /**
+   * Lista transições colaborativas desde um instante para agregação de heatmap.
+   * @param organizationId ID da organização
+   * @param guildId ID do servidor Discord
+   * @param since Limite inferior de `occurredAt` (inclusivo)
+   * @returns Eventos colaborativos ordenados por ocorrência
+   */
+  async findCollaborationSinceByGuild(
+    organizationId: string,
+    guildId: string,
+    since: Date,
+  ): Promise<Array<Pick<IVoiceChannelTransition, 'occurredAt'>>> {
+    return VoiceChannelTransitionModel.find({
+      organizationId,
+      guildId,
+      countsAsCollaboration: true,
+      occurredAt: { $gte: since },
+    })
+      .select('occurredAt')
+      .sort({ occurredAt: 1 })
+      .lean<Array<Pick<IVoiceChannelTransition, 'occurredAt'>>>()
+      .exec();
+  },
 };
