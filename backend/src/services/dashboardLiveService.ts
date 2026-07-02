@@ -226,7 +226,7 @@ function buildMemberSnapshot(
   return {
     discordId: member.id,
     displayName: member.displayName ?? member.user.globalName ?? member.user.username,
-    avatarUrl: resolveDiscordUserAvatarUrl(member.user),
+    avatarUrl: resolveDiscordUserAvatarUrl(member.user, member.id),
     status: mapDiscordPresenceStatus(discordPresenceStatus),
     voiceChannelId: member.voice.channelId,
     voiceChannelName: member.voice.channel?.name ?? null,
@@ -324,7 +324,7 @@ function mapTransitionToEvent(
     guildId: transition.guildId,
     discordId: transition.discordId,
     displayName: transition.displayName,
-    avatarUrl: member ? resolveDiscordUserAvatarUrl(member.user) : undefined,
+    avatarUrl: member ? resolveDiscordUserAvatarUrl(member.user, member.id) : undefined,
     eventType: transition.eventType,
     fromChannelName: transition.fromChannelName,
     toChannelName: transition.toChannelName,

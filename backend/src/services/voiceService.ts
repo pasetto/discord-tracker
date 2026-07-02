@@ -252,7 +252,7 @@ export const voiceService = {
         discordId: voiceState.id,
         displayName,
         avatarUrl: voiceState.member?.user
-          ? resolveDiscordUserAvatarUrl(voiceState.member.user)
+          ? resolveDiscordUserAvatarUrl(voiceState.member.user, voiceState.id)
           : undefined,
         eventType,
         fromChannelName: fromChannel?.name,

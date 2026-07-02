@@ -18,4 +18,15 @@ describe('discordAvatar', () => {
       resolveDiscordUserAvatarUrl({ id: '999', avatar: 'hash' }),
     ).toBe('https://cdn.discordapp.com/avatars/999/hash.png?size=64');
   });
+
+  it('usa fallback de ID quando user.id ausente (mocks de teste)', () => {
+    expect(
+      resolveDiscordUserAvatarUrl({ username: 'alice' } as { id?: string; avatar?: string | null }, '123456789012345678'),
+    ).toMatch(/^https:\/\/cdn\.discordapp\.com\/embed\/avatars\/\d\.png$/);
+  });
+
+  it('retorna undefined quando nenhum ID válido está disponível', () => {
+    expect(buildDiscordAvatarUrl(undefined, null)).toBeUndefined();
+    expect(resolveDiscordUserAvatarUrl({ avatar: null })).toBeUndefined();
+  });
 });
