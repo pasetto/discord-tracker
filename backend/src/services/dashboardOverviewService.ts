@@ -1,11 +1,11 @@
 import { Types } from 'mongoose';
+import { OrganizationModel } from '../db/models/Organization';
 import { User } from '../db/models/User';
 import { TrackedUserModel } from '../db/models/TrackedUser';
 import { dailyReportRepository } from '../repositories/dailyReportRepository';
 import { voiceChannelTransitionRepository } from '../repositories/voiceChannelTransitionRepository';
 import { voiceSessionRepository } from '../repositories/voiceSessionRepository';
 import { secondsToHours } from './channelClassifier';
-import { getWorkCalendarForGuild } from './workCalendarService';
 import { formatDateString, getDayBounds, getZonedParts, zonedDateTimeToUtc } from '../utils/timezone';
 
 /** Horas comerciais exibidas no heatmap do dashboard. */
@@ -68,8 +68,7 @@ export async function getGuildDashboardOverview(
   now: Date = new Date(),
 ): Promise<DashboardOverview> {
   const organizationObjectId = new Types.ObjectId(organizationId);
-  const calendar = await getWorkCalendarForGuild(organizationId, guildId);
-  const timezone = calendar.timezone;
+  const timezone = await resolveOrganizationTimezone(organizationObjectId);
 
   const [trackedUsers, coreUserIds] = await Promise.all([
     TrackedUserModel.find({ organizationId: organizationObjectId, guildId, isActive: true })
@@ -162,6 +161,20 @@ async function resolveCoreUserIdsForGuild(organizationId: string, guildId: strin
     .lean<Array<{ _id: Types.ObjectId }>>();
 
   return users.map((user) => user._id);
+}
+
+/**
+ * Resolve timezone IANA efetiva da organização tenant.
+ * @param organizationId ID Mongo da organização
+ * @returns Timezone IANA configurada ou padrão de Brasília
+ */
+async function resolveOrganizationTimezone(organizationId: Types.ObjectId): Promise<string> {
+  const organization = await OrganizationModel.findById(organizationId)
+    .select({ 'settings.timezone': 1 })
+    .lean()
+    .exec();
+
+  return organization?.settings?.timezone ?? 'America/Sao_Paulo';
 }
 
 /**
