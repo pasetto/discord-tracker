@@ -18,6 +18,7 @@ import {
 } from './liveActivityBroadcaster';
 import { upsertTrackedUser } from './trackedUserService';
 import { createKeyedMutex } from '../utils/keyedMutex';
+import { resolveDiscordUserAvatarUrl } from '../utils/discordAvatar';
 
 const log = createLogger('voice');
 
@@ -250,6 +251,9 @@ export const voiceService = {
         guildId: monitored.guildId,
         discordId: voiceState.id,
         displayName,
+        avatarUrl: voiceState.member?.user
+          ? resolveDiscordUserAvatarUrl(voiceState.member.user)
+          : undefined,
         eventType,
         fromChannelName: fromChannel?.name,
         toChannelName: toChannel?.name,

@@ -470,27 +470,60 @@ export function formatDashboardDuration(totalSeconds: number): string {
 }
 
 /**
- * Traduz tipo de evento da timeline para texto amigável.
- * @param eventType Tipo bruto do backend
+ * Remove formatação Markdown comum de nicknames Discord (ex.: *negrito*).
+ * @param displayName Nome exibido bruto
+ * @returns Nome legível na UI
+ */
+export function sanitizeDiscordDisplayName(displayName: string): string {
+  return displayName.replace(/\*/g, '').trim();
+}
+
+/**
+ * Traduz tipo de evento da timeline para texto amigável com origem e destino.
+ * @param eventType Tipo bruto do backend (JOIN, LEAVE, SWITCH, etc.)
  * @param displayName Nome do colaborador
- * @param toChannelName Canal de destino, se houver
+ * @param options Canais de origem e destino, quando disponíveis
  * @returns Frase para a timeline do dia
  */
 export function formatTimelineEventLabel(
   eventType: string,
   displayName: string,
-  toChannelName?: string,
+  options?: { fromChannelName?: string; toChannelName?: string },
 ): string {
+  const name = sanitizeDiscordDisplayName(displayName);
+  const from = options?.fromChannelName?.trim();
+  const to = options?.toChannelName?.trim();
+
   switch (eventType) {
-    case 'VOICE_JOIN':
-      return `${displayName} entrou em ${toChannelName ?? 'canal de voz'}`;
-    case 'VOICE_LEAVE':
-      return `${displayName} saiu de ${toChannelName ?? 'canal de voz'}`;
-    case 'VOICE_MOVE':
-      return `${displayName} mudou para ${toChannelName ?? 'outro canal'}`;
+    case 'JOIN':
+    case 'RECONNECT':
+      return `${name} entrou em ${to ?? 'canal de voz'}`;
+    case 'LEAVE':
+    case 'DISCONNECT':
+      return `${name} saiu de ${from ?? 'canal de voz'}`;
+    case 'SWITCH':
+    case 'MOVED':
+      if (from && to) {
+        return `${name} foi de ${from} para ${to}`;
+      }
+      return `${name} mudou para ${to ?? from ?? 'outro canal'}`;
+    case 'AFK_AUTO':
+      if (from && to) {
+        return `${name} foi de ${from} para ${to}`;
+      }
+      return `${name} foi movido para ${to ?? 'canal AFK/almoço'}`;
     case 'TEXT_ACTIVITY':
-      return `${displayName} iniciou colaboração em texto`;
+      return `${name} iniciou colaboração em texto`;
     default:
-      return `${displayName} registrou atividade colaborativa`;
+      if (from && to) {
+        return `${name} foi de ${from} para ${to}`;
+      }
+      if (to) {
+        return `${name} entrou em ${to}`;
+      }
+      if (from) {
+        return `${name} saiu de ${from}`;
+      }
+      return `${name} registrou atividade colaborativa`;
   }
 }

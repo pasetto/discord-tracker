@@ -52,6 +52,7 @@ import {
   resolveDashboardGreeting,
   resolveHeatmapCellClass,
   resolveMemberInitials,
+  sanitizeDiscordDisplayName,
   resolveWeeklyChartAverage,
   sumCollaborationHours,
 } from './dashboard.utils';
@@ -642,11 +643,36 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
    * @returns Texto descritivo
    */
   formatTimelineLabel(transition: LiveVoiceTransitionEvent): string {
-    return formatTimelineEventLabel(
-      transition.eventType,
-      transition.displayName,
-      transition.toChannelName ?? transition.fromChannelName,
+    return formatTimelineEventLabel(transition.eventType, transition.displayName, {
+      fromChannelName: transition.fromChannelName,
+      toChannelName: transition.toChannelName,
+    });
+  }
+
+  /**
+   * Resolve URL do avatar para item da timeline (evento ou membro ao vivo).
+   * @param event Evento da timeline
+   * @returns URL do avatar Discord ou null para fallback de iniciais
+   */
+  timelineAvatarUrl(event: LiveVoiceTransitionEvent): string | null {
+    if (event.avatarUrl) {
+      return event.avatarUrl;
+    }
+
+    const liveMember = [...this.liveMembers, ...this.onlineRanking].find(
+      (member) => member.discordId === event.discordId,
     );
+
+    return liveMember?.avatarUrl ?? null;
+  }
+
+  /**
+   * Nome legível do colaborador na timeline (sem markdown Discord).
+   * @param displayName Nome bruto
+   * @returns Nome sanitizado
+   */
+  timelineDisplayName(displayName: string): string {
+    return sanitizeDiscordDisplayName(displayName);
   }
 
   /**

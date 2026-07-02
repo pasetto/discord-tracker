@@ -1,4 +1,4 @@
-import { buildAttentionItems, mapOverviewDailyChart, mapOverviewHeatmapCells, resolveDashboardFirstName, resolveDashboardGreeting } from './dashboard.utils';
+import { buildAttentionItems, formatTimelineEventLabel, mapOverviewDailyChart, mapOverviewHeatmapCells, resolveDashboardFirstName, resolveDashboardGreeting, sanitizeDiscordDisplayName } from './dashboard.utils';
 
 describe('dashboard.utils', () => {
   it('resolve saudação por horário', () => {
@@ -69,5 +69,24 @@ describe('dashboard.utils', () => {
     expect(chart.points.length).toBe(2);
     expect(chart.points[1].hours).toBe(8);
     expect(chart.points[1].isToday).toBeTrue();
+  });
+
+  it('formata transições de voz com origem e destino', () => {
+    expect(
+      formatTimelineEventLabel('JOIN', 'Ana', { toChannelName: 'Squad Backend' }),
+    ).toBe('Ana entrou em Squad Backend');
+
+    expect(
+      formatTimelineEventLabel('LEAVE', 'Ana', { fromChannelName: 'Squad Backend' }),
+    ).toBe('Ana saiu de Squad Backend');
+
+    expect(
+      formatTimelineEventLabel('SWITCH', 'Ana', {
+        fromChannelName: 'Geral',
+        toChannelName: 'Daily',
+      }),
+    ).toBe('Ana foi de Geral para Daily');
+
+    expect(sanitizeDiscordDisplayName('*Camila Bueno*')).toBe('Camila Bueno');
   });
 });

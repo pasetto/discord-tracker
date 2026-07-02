@@ -5,6 +5,7 @@ import { Subject } from 'rxjs';
 export interface LiveMemberSnapshot {
   discordId: string;
   displayName: string;
+  avatarUrl?: string;
   status: 'ONLINE' | 'IDLE' | 'DND' | 'OFFLINE' | 'INVISIBLE';
   voiceChannelId: string | null;
   voiceChannelName: string | null;
@@ -24,6 +25,7 @@ export interface LiveVoiceTransitionEvent {
   guildId: string;
   discordId: string;
   displayName: string;
+  avatarUrl?: string;
   eventType: string;
   fromChannelName?: string;
   toChannelName?: string;

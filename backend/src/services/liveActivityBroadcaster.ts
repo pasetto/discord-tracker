@@ -7,6 +7,8 @@ export interface LiveVoiceTransitionEvent {
   guildId: string;
   discordId: string;
   displayName: string;
+  /** URL do avatar Discord (CDN), quando disponível no cache do bot */
+  avatarUrl?: string;
   eventType: VoiceEventType;
   fromChannelName?: string;
   toChannelName?: string;

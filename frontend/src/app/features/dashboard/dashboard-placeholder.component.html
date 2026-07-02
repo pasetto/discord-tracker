@@ -214,9 +214,21 @@
             <div class="relative flex-1 border-l border-gray-200 pl-4 dark:border-gray-700">
               <span class="absolute -left-1.5 top-1.5 size-3 rounded-full bg-brand-500"></span>
               <div class="flex items-start gap-3">
-                <span class="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200">
-                  {{ memberInitials(event.displayName) }}
-                </span>
+                <ng-container *ngIf="timelineAvatarUrl(event) as avatarUrl; else timelineInitials">
+                  <img
+                    [src]="avatarUrl"
+                    [alt]="timelineDisplayName(event.displayName)"
+                    class="size-8 shrink-0 rounded-full object-cover ring-1 ring-gray-200 dark:ring-gray-700"
+                    loading="lazy"
+                  />
+                </ng-container>
+                <ng-template #timelineInitials>
+                  <span
+                    class="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                  >
+                    {{ memberInitials(timelineDisplayName(event.displayName)) }}
+                  </span>
+                </ng-template>
                 <p class="text-sm text-gray-700 dark:text-gray-200">{{ formatTimelineLabel(event) }}</p>
               </div>
             </div>

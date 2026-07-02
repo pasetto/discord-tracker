@@ -13,11 +13,14 @@ import { clampSecondsToWindow } from '../utils/sessionTimeUtils';
 import { getDayBounds, formatDateString } from '../utils/timezone';
 import { config } from '../config/env';
 import { runWithDiscordBot } from './discordClusterProxy';
+import { resolveDiscordUserAvatarUrl } from '../utils/discordAvatar';
 
 /** Membro ativo no servidor com localização e tempos de colaboração. */
 export interface LiveMemberSnapshot {
   discordId: string;
   displayName: string;
+  /** URL do avatar Discord (CDN), quando disponível no cache do bot */
+  avatarUrl?: string;
   status: PresenceStatus;
   voiceChannelId: string | null;
   voiceChannelName: string | null;
@@ -174,7 +177,7 @@ export async function buildGuildLiveDashboardOnBotInstance(
   });
 
   const recentTransitions = recentTransitionsRaw.map((transition) =>
-    mapTransitionToEvent(transition, organizationId),
+    mapTransitionToEvent(transition, organizationId, guild),
   );
 
   return {
@@ -223,6 +226,7 @@ function buildMemberSnapshot(
   return {
     discordId: member.id,
     displayName: member.displayName ?? member.user.globalName ?? member.user.username,
+    avatarUrl: resolveDiscordUserAvatarUrl(member.user),
     status: mapDiscordPresenceStatus(discordPresenceStatus),
     voiceChannelId: member.voice.channelId,
     voiceChannelName: member.voice.channel?.name ?? null,
@@ -292,6 +296,8 @@ function appendChannelName(list: string[], channelName: string): void {
  * Converte documento de transição para evento WebSocket.
  * @param transition Documento persistido
  * @param organizationId ID da organização
+ * @param organizationId Organização tenant
+ * @param guild Guild Discord para resolver avatar do membro
  * @returns Evento serializável
  */
 function mapTransitionToEvent(
@@ -309,12 +315,16 @@ function mapTransitionToEvent(
     occurredAt: Date;
   },
   organizationId: string,
+  guild: Guild,
 ): LiveVoiceTransitionEvent {
+  const member = guild.members.cache.get(transition.discordId);
+
   return {
     organizationId: organizationId || String(transition.organizationId),
     guildId: transition.guildId,
     discordId: transition.discordId,
     displayName: transition.displayName,
+    avatarUrl: member ? resolveDiscordUserAvatarUrl(member.user) : undefined,
     eventType: transition.eventType,
     fromChannelName: transition.fromChannelName,
     toChannelName: transition.toChannelName,
