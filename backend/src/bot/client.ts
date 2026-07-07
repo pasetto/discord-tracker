@@ -125,7 +125,7 @@ function ensureDiscordEventHandlers(): void {
       username: discordClient.user?.tag,
     }).catch(() => {});
 
-    discordClient.user?.setActivity('Monitorando presença', { type: ActivityType.Watching });
+    discordClient.user?.setActivity('', { type: ActivityType.Watching });
 
     for (const handler of readyHandlers) {
       try {
