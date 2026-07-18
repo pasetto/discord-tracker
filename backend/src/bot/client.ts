@@ -1,5 +1,6 @@
 import {
   Client,
+  type ClientUser,
   GatewayIntentBits,
   Partials,
 } from 'discord.js';
@@ -17,17 +18,24 @@ import { registerMessageReactionAddHandler } from './events/messageReactionAdd';
 const log = createLogger('discord');
 
 /**
- * Usuário do bot com API de presença — usado só para garantir que o ready
- * silencioso nunca chama `setActivity` (bot somente leitura).
+ * Mock de teste com spy de `setActivity` (o ready silencioso nunca chama).
+ * Separado de `ClientUser` porque `(...args: unknown[]) => unknown` não é
+ * atribuível às overloads reais do discord.js (TS2345 / strictFunctionTypes).
  */
-export interface SilentDiscordBotUser {
+export interface SilentDiscordBotUserMock {
   /**
-   * Altera a atividade exibida do bot. Proibido no Syntra (bot silencioso).
-   * @param args Argumentos do discord.js `ClientUser#setActivity`
-   * @returns Valor retornado pela API do Discord (ignorado)
+   * Spy opcional — proibido chamar no Syntra (bot silencioso).
+   * @param args Argumentos ignorados pelo ready silencioso
+   * @returns Valor ignorado
    */
   setActivity?: (...args: unknown[]) => unknown;
 }
+
+/**
+ * Usuário do bot no ready silencioso: `ClientUser` real ou mock de regressão.
+ * Nunca chamamos `setActivity` / presença customizada.
+ */
+export type SilentDiscordBotUser = ClientUser | SilentDiscordBotUserMock;
 
 /**
  * Executa callbacks pós-ready sem alterar presença/atividade do bot.
