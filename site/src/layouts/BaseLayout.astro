@@ -1,0 +1,121 @@
+---
+/**
+ * Layout base da landing marketing Syntra.
+ * @prop {string} title - Título da página (SEO)
+ * @prop {string} description - Meta description / OG
+ */
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const appUrl = (import.meta.env.PUBLIC_APP_URL || 'http://localhost:4200').replace(/\/$/, '');
+const siteOrigin = (
+  import.meta.env.PUBLIC_SITE_URL ||
+  Astro.site?.toString() ||
+  'http://localhost:4321'
+).replace(/\/$/, '');
+/** Normaliza BASE_URL com barra final para `new URL` relativo não “subir” de path. */
+const baseUrl = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
+
+const {
+  title = 'Syntra — Saiba quem sumiu no Discord do seu time',
+  description = 'Analytics de colaboração no Discord para gestores de times remotos. Inatividade com contexto de calendário e PTO — sem ler mensagens nem gravar áudio.',
+} = Astro.props;
+
+const canonical = new URL(baseUrl, `${siteOrigin}/`).href;
+/** PNG 1200×630 — crawlers de OG costumam rejeitar SVG. */
+const ogImage = new URL('og.png', canonical).href;
+const faviconHref = new URL('favicon.svg', canonical).pathname;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Syntra',
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  description,
+  url: canonical,
+  inLanguage: 'pt-BR',
+  offers: {
+    '@type': 'Offer',
+    priceCurrency: 'BRL',
+    availability: 'https://schema.org/InStock',
+  },
+};
+---
+
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#0f1729" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href={canonical} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="Syntra" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Syntra — Saiba quem sumiu no Discord do seu time" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:image:alt" content="Syntra — Saiba quem sumiu no Discord do seu time" />
+
+    <link rel="icon" type="image/svg+xml" href={faviconHref} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650;12..96,750&family=Public+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+
+    <!-- Analytics stub (soft-launch): substituir por Plausible / GA / PostHog -->
+    <script is:inline define:vars={{ siteUrl: siteOrigin, signupPath: '/signup' }}>
+      window.__SYNTRA_ANALYTICS__ = {
+        provider: 'stub',
+        siteUrl,
+        events: [],
+        /**
+         * Registra evento no stub (console + array em memória).
+         * @param {string} name
+         * @param {Record<string, unknown>} [props]
+         */
+        track(name, props) {
+          const payload = { name, props: props || {}, at: new Date().toISOString() };
+          this.events.push(payload);
+          if (typeof console !== 'undefined' && console.debug) {
+            console.debug('[syntra-analytics:stub]', payload);
+          }
+        },
+      };
+      document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target.closest('a[href]') : null;
+        if (!target) return;
+        const href = target.getAttribute('href') || '';
+        if (href.includes(signupPath)) {
+          window.__SYNTRA_ANALYTICS__.track('cta_criar_conta', { href });
+        }
+      });
+    </script>
+  </head>
+  <body data-app-url={appUrl}>
+    <slot />
+  </body>
+</html>

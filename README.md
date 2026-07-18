@@ -341,9 +341,10 @@ npm run build                               # build completo
 ## CI/CD
 
 - **CI** (`.github/workflows/ci.yml`): lint + testes + cobertura + build em PR/push para `main`/`dev`
-- **Deploy** (`.github/workflows/deploy.yml`): SSH automático em `main`
+- **Deploy** (`.github/workflows/deploy.yml`): SSH automático em `main` (API + frontend + landing `site/` em `:4321`)
+- **Marketing site** (`.github/workflows/pages-site.yml`): GitHub Pages → https://pasetto.github.io/discord-tracker/
 
-Secrets: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `DEPLOY_PATH`.
+Secrets: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `DEPLOY_PATH`. Variable opcional: `PUBLIC_APP_URL` (CTA da landing).
 
 ---
 

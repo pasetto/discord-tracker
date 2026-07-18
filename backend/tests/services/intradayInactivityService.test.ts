@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeIntradayInactivityStatus,
+  resolveActivePlannedAbsenceRef,
   type ComputeIntradayInactivityInput,
 } from '../../src/services/intradayInactivityService';
 
@@ -82,5 +83,43 @@ describe('computeIntradayInactivityStatus', () => {
     );
 
     expect(result).toBe('ok');
+  });
+});
+
+describe('resolveActivePlannedAbsenceRef', () => {
+  it('retorna tipo e janela da ausência ativa no instante', () => {
+    const result = resolveActivePlannedAbsenceRef(
+      [
+        {
+          type: 'pto',
+          status: 'active',
+          startDate: new Date('2026-07-10T00:00:00.000Z'),
+          endDate: new Date('2026-07-20T23:59:59.000Z'),
+        },
+      ],
+      new Date('2026-07-18T12:00:00.000Z'),
+    );
+
+    expect(result).toEqual({
+      type: 'pto',
+      startDate: new Date('2026-07-10T00:00:00.000Z'),
+      endDate: new Date('2026-07-20T23:59:59.000Z'),
+    });
+  });
+
+  it('retorna undefined quando não há ausência cobrindo a data', () => {
+    const result = resolveActivePlannedAbsenceRef(
+      [
+        {
+          type: 'vacation',
+          status: 'scheduled',
+          startDate: new Date('2026-08-01T00:00:00.000Z'),
+          endDate: new Date('2026-08-10T23:59:59.000Z'),
+        },
+      ],
+      new Date('2026-07-18T12:00:00.000Z'),
+    );
+
+    expect(result).toBeUndefined();
   });
 });

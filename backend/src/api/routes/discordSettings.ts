@@ -1,6 +1,6 @@
 import Router from '@koa/router';
 import { Types } from 'mongoose';
-import { discordClient, reloadDiscordFromDatabase } from '../../bot/client';
+import { reloadDiscordFromDatabase } from '../../bot/client';
 import { GuildConnectionModel } from '../../db/models/GuildConnection';
 import { resolveDiscordBotConnected } from '../../services/discordClusterProxy';
 import type { AuthUserPayload } from '../../services/authService';
@@ -10,6 +10,11 @@ import {
   getPublicDiscordClientId,
   upsertOrganizationDiscordApplication,
 } from '../../services/discordApplicationService';
+import {
+  getInstalledGuildSummary,
+  listInstalledGuildSummaries,
+  resolveInstalledGuildCount,
+} from '../../services/discordInstalledGuildsService';
 import { guildService } from '../../services/guildService';
 
 const ADMIN_ROLES = new Set(['owner', 'admin']);
@@ -66,10 +71,11 @@ discordSettingsRouter.get('/discord/status', async (ctx) => {
     .exec();
 
   const botConnected = await resolveDiscordBotConnected();
+  const guildCount = botConnected ? await resolveInstalledGuildCount() : 0;
 
   ctx.body = {
     botConnected,
-    guildCount: botConnected && discordClient.isReady() ? discordClient.guilds.cache.size : 0,
+    guildCount,
     activeConnection: activeConnection
       ? {
           guildId: activeConnection.guildId,
@@ -120,14 +126,20 @@ discordSettingsRouter.get('/discord/guilds', async (ctx) => {
       .map((connection) => connection.guildId),
   );
 
-  const guilds = [...discordClient.guilds.cache.values()]
-    .filter((guild) => !blockedGuildIds.has(guild.id))
-    .map((guild) => ({
-      guildId: guild.id,
-      guildName: guild.name,
-      iconUrl: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : undefined,
-      memberCount: guild.memberCount,
-    }));
+  let guilds;
+  try {
+    guilds = (await listInstalledGuildSummaries()).filter(
+      (guild) => !blockedGuildIds.has(guild.guildId),
+    );
+  } catch (error) {
+    ctx.status = 503;
+    ctx.body = {
+      error: 'Bot Discord não conectado',
+      message: (error as Error).message,
+    };
+    return;
+  }
+
   ctx.body = { guilds };
 });
 
@@ -158,7 +170,16 @@ discordSettingsRouter.post('/discord/guilds/:guildId/select', async (ctx) => {
     return;
   }
 
-  const guild = discordClient.guilds.cache.get(guildId);  if (!guild) {
+  let guild;
+  try {
+    guild = await getInstalledGuildSummary(guildId);
+  } catch (error) {
+    ctx.status = 503;
+    ctx.body = { error: (error as Error).message };
+    return;
+  }
+
+  if (!guild) {
     ctx.status = 404;
     ctx.body = { error: 'Servidor não encontrado para o bot atual' };
     return;
@@ -177,8 +198,8 @@ discordSettingsRouter.post('/discord/guilds/:guildId/select', async (ctx) => {
     {
       organizationId: new Types.ObjectId(organizationId),
       guildId,
-      guildName: guild.name,
-      iconUrl: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : undefined,
+      guildName: guild.guildName,
+      iconUrl: guild.iconUrl,
       botInstalledAt: new Date(),
       isActive: true,
       isMonitoringEnabled: true,

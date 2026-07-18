@@ -81,8 +81,8 @@
     <div *ngIf="trackedMembersCount > 0 && concernEntries.length === 0" class="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-gray-700 dark:border-brand-900 dark:bg-brand-500/10 dark:text-gray-200">
       <p class="font-medium">Nenhum colaborador marcado como "quem sumiu" nesta semana.</p>
       <p class="mt-2">
-        O relatório compara sinais de presença, voz e texto dos membros rastreados com os critérios de inatividade
-        configurados para o servidor. Se o time está ativo, esta lista pode ficar vazia — isso é um bom sinal.
+        O relatório compara sinais de presença, voz e texto com o calendário de trabalho e PTO.
+        Ausências planejadas e fora da jornada não contam como inatividade.
       </p>
       <p class="mt-2">
         Verifique em
@@ -91,9 +91,17 @@
         Ajuste os limiares em
         <a routerLink="/app/settings/inactivity" class="font-medium text-brand-600 hover:underline">Configurações → Inatividade</a>.
       </p>
+      <p class="mt-2 text-xs text-gray-600 dark:text-gray-300">
+        Canais AFK/almoço/ignorados não contam como colaboração.
+        <a routerLink="/app/settings/channels" class="font-medium text-brand-600 hover:underline">Ajustar canais</a>
+      </p>
     </div>
 
     <div *ngIf="concernEntries.length > 0" class="space-y-3 md:hidden">
+      <p class="text-xs text-gray-500 dark:text-gray-400">
+        Canais AFK/almoço/ignorados não contam como colaboração.
+        <a routerLink="/app/settings/channels" class="font-medium text-brand-600 hover:underline">Ajustar canais</a>
+      </p>
       <article
         *ngFor="let entry of sortedConcernEntries"
         class="cursor-pointer rounded-xl border p-4 text-sm transition"
@@ -195,7 +203,11 @@
 
     <section *ngIf="report.plannedAbsenceEntries.length > 0" class="space-y-3 border-t border-gray-200 pt-4 dark:border-gray-700">
       <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Ausências planejadas ativas na semana</h3>
-      <p class="text-sm text-gray-500 dark:text-gray-400">Colaboradores com férias, PTO ou licença cadastrada — não entram no alerta de quem sumiu.</p>
+      <p class="text-sm text-gray-500 dark:text-gray-400">
+        Colaboradores com férias, PTO ou licença cadastrada — não entram no alerta de quem sumiu.
+        Canais AFK/almoço/ignorados também não contam como colaboração
+        (<a routerLink="/app/settings/channels" class="font-medium text-brand-600 hover:underline">configurar canais</a>).
+      </p>
 
       <div class="space-y-3 md:hidden">
         <article *ngFor="let entry of report.plannedAbsenceEntries" class="rounded-xl border border-gray-200 p-4 text-sm dark:border-gray-700">
@@ -203,7 +215,8 @@
             <p class="font-semibold text-gray-800 dark:text-white/90">{{ entry.displayName }}</p>
             <span class="rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="getStatusBadgeClass(entry.status)">{{ getStatusLabel(entry.status) }}</span>
           </div>
-          <p class="mt-2 text-gray-600 dark:text-gray-300">Categoria: {{ entry.categoryName ?? '-' }}</p>
+          <p class="mt-2 text-gray-600 dark:text-gray-300">{{ getPlannedAbsenceExplainLabel(entry) }}</p>
+          <p class="mt-1 text-gray-600 dark:text-gray-300">Categoria: {{ entry.categoryName ?? '-' }}</p>
         </article>
       </div>
 
@@ -214,6 +227,7 @@
               <th class="px-2 py-2">Colaborador</th>
               <th class="px-2 py-2">Discord</th>
               <th class="px-2 py-2">Categoria</th>
+              <th class="px-2 py-2">Motivo</th>
               <th class="px-2 py-2">Status</th>
             </tr>
           </thead>
@@ -222,6 +236,7 @@
               <td class="px-2 py-2">{{ entry.displayName }}</td>
               <td class="px-2 py-2">{{ entry.discordId }}</td>
               <td class="px-2 py-2">{{ entry.categoryName ?? '-' }}</td>
+              <td class="px-2 py-2">{{ getPlannedAbsenceExplainLabel(entry) }}</td>
               <td class="px-2 py-2">
                 <span class="rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="getStatusBadgeClass(entry.status)">{{ getStatusLabel(entry.status) }}</span>
               </td>

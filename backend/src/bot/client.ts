@@ -1,8 +1,8 @@
 import {
   Client,
+  type ClientUser,
   GatewayIntentBits,
   Partials,
-  ActivityType,
 } from 'discord.js';
 import { createLogger } from '../logger';
 import {
@@ -16,6 +16,48 @@ import { registerMessageCreateHandler } from './events/messageCreate';
 import { registerMessageReactionAddHandler } from './events/messageReactionAdd';
 
 const log = createLogger('discord');
+
+/**
+ * Mock de teste com spy de `setActivity` (o ready silencioso nunca chama).
+ * Separado de `ClientUser` porque `(...args: unknown[]) => unknown` não é
+ * atribuível às overloads reais do discord.js (TS2345 / strictFunctionTypes).
+ */
+export interface SilentDiscordBotUserMock {
+  /**
+   * Spy opcional — proibido chamar no Syntra (bot silencioso).
+   * @param args Argumentos ignorados pelo ready silencioso
+   * @returns Valor ignorado
+   */
+  setActivity?: (...args: unknown[]) => unknown;
+}
+
+/**
+ * Usuário do bot no ready silencioso: `ClientUser` real ou mock de regressão.
+ * Nunca chamamos `setActivity` / presença customizada.
+ */
+export type SilentDiscordBotUser = ClientUser | SilentDiscordBotUserMock;
+
+/**
+ * Executa callbacks pós-ready sem alterar presença/atividade do bot.
+ * Política: bot silencioso — somente leitura; proibido `setActivity`, replies e slash commands.
+ * @param _user Usuário do bot (mantido na assinatura para regressão de testes)
+ * @param handlers Callbacks registrados via `registerDiscordReadyHandler`
+ * @returns Promise resolvida após todos os handlers (erros isolados por handler)
+ * @example
+ * await runSilentDiscordReadyHandlers(discordClient.user, readyHandlers);
+ */
+export async function runSilentDiscordReadyHandlers(
+  _user: SilentDiscordBotUser | null | undefined,
+  handlers: Array<() => void | Promise<void>>,
+): Promise<void> {
+  for (const handler of handlers) {
+    try {
+      await handler();
+    } catch (error) {
+      log.error({ err: error }, 'Erro em handler pós-ready');
+    }
+  }
+}
 
 /** Cliente Discord singleton. */
 export const discordClient = new Client({
@@ -125,15 +167,8 @@ function ensureDiscordEventHandlers(): void {
       username: discordClient.user?.tag,
     }).catch(() => {});
 
-    discordClient.user?.setActivity('', { type: ActivityType.Watching });
-
-    for (const handler of readyHandlers) {
-      try {
-        await handler();
-      } catch (error) {
-        log.error({ err: error }, 'Erro em handler pós-ready');
-      }
-    }
+    // Bot silencioso: sem setActivity / presença customizada / writes sociais.
+    await runSilentDiscordReadyHandlers(discordClient.user, readyHandlers);
   });
 
   discordClient.on('shardDisconnect', () => {

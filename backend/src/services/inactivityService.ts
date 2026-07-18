@@ -522,6 +522,7 @@ export async function generateWeeklyInactivitySnapshot(
       plannedAbsence: activeAbsence
         ? {
             type: activeAbsence.type,
+            startDate: activeAbsence.startDate,
             endDate: activeAbsence.endDate,
           }
         : undefined,
