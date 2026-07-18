@@ -29,13 +29,14 @@ describe('MobileBottomNavComponent', () => {
 
   it('deve usar breakpoint xl (não lg) para esconder a bottom-nav no desktop', () => {
     const nav = fixture.nativeElement.querySelector('nav') as HTMLElement;
-    expect(nav.className).toContain('xl:hidden');
-    expect(nav.className).not.toContain('lg:hidden');
+    const classes = nav.className.split(/\s+/);
+    expect(classes).toContain('xl:hidden');
+    expect(classes).not.toContain('lg:hidden');
   });
 
   it('deve esconder a bottom-nav enquanto o drawer mobile estiver aberto', () => {
     const nav = fixture.nativeElement.querySelector('nav') as HTMLElement;
-    expect(nav.className).not.toContain('hidden');
+    expect(nav.className.split(/\s+/)).not.toContain('hidden');
 
     sidebarService.setMobileOpen(true);
     fixture.detectChanges();

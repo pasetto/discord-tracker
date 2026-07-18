@@ -68,4 +68,31 @@ describe('AppHeaderComponent', () => {
     expect(srcs).toContain('/images/logo/logo.svg');
     expect(srcs).toContain('/images/logo/logo-dark.svg');
   });
+
+  it('deve manter título entre logo e menu de ações (hierarquia mobile)', () => {
+    const hamburger = fixture.nativeElement.querySelector('button[aria-label="Toggle Sidebar"]') as HTMLElement;
+    const logo = fixture.nativeElement.querySelector('a[aria-label="Syntra"]') as HTMLElement;
+    const title = fixture.nativeElement.querySelector('header .min-w-0.flex-1') as HTMLElement;
+    const actions = fixture.nativeElement.querySelector('button[aria-label="Abrir menu de ações"]') as HTMLElement;
+    const row = hamburger.parentElement as HTMLElement;
+
+    expect(row).toBeTruthy();
+    expect(logo.parentElement).toBe(row);
+    expect(title.parentElement).toBe(row);
+    expect(actions.parentElement).toBe(row);
+
+    const children = Array.from(row.children);
+    expect(children.indexOf(hamburger)).toBeLessThan(children.indexOf(logo));
+    expect(children.indexOf(logo)).toBeLessThan(children.indexOf(title));
+    expect(children.indexOf(title)).toBeLessThan(children.indexOf(actions));
+  });
+
+  it('deve usar alvos de toque ≥44px nos controles mobile do header', () => {
+    const hamburger = fixture.nativeElement.querySelector('button[aria-label="Toggle Sidebar"]') as HTMLElement;
+    const actions = fixture.nativeElement.querySelector('button[aria-label="Abrir menu de ações"]') as HTMLElement;
+    expect(hamburger.className).toContain('min-h-11');
+    expect(hamburger.className).toContain('min-w-11');
+    expect(actions.className).toContain('min-h-11');
+    expect(actions.className).toContain('min-w-11');
+  });
 });
