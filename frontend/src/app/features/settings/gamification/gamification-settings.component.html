@@ -46,8 +46,15 @@
         Ative a gamificação principal para configurar ranking, badges e streaks.
       </p>
 
-      <p *ngIf="isRankingLockedByPlan()" class="text-sm text-warning-600">
-        {{ rankingPlanLockMessage }}
+      <p *ngIf="isRankingLockedByPlan()" class="space-y-2 text-sm text-warning-700 dark:text-warning-300" data-testid="ranking-plan-lock">
+        <span class="block">{{ rankingPlanLockMessage }}</span>
+        <a
+          [routerLink]="teamUpgradeRoute"
+          [fragment]="teamUpgradeFragment"
+          class="inline-flex min-h-11 items-center font-medium text-brand-600 hover:underline dark:text-brand-400"
+        >
+          Ver plano Team
+        </a>
       </p>
 
       <label class="flex min-h-11 items-center justify-between gap-4 rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-700">

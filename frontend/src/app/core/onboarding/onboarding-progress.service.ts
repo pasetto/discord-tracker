@@ -1,7 +1,12 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, catchError, map, of, tap } from 'rxjs';
-import { OnboardingProgress, createInitialOnboardingProgress } from './onboarding-progress.model';
+import {
+  OnboardingProgress,
+  canUseFirstWinShortcut,
+  createInitialOnboardingProgress,
+  hasDeferredOnboardingSteps,
+} from './onboarding-progress.model';
 
 /**
  * Serviço central para carregar e atualizar progresso do onboarding.
@@ -45,6 +50,7 @@ export class OnboardingProgressService {
 
   /**
    * Define se o banner de onboarding deve aparecer no layout autenticado.
+   * Aparece no setup mínimo pendente **ou** no checklist opcional (passos 6–7).
    * @param progress Progresso atual de onboarding
    * @returns true quando ainda há setup pendente e o fluxo não foi concluído
    */
@@ -53,7 +59,25 @@ export class OnboardingProgressService {
       return false;
     }
 
-    return !(progress.channelsConfigured && progress.calendarConfigured);
+    return !canUseFirstWinShortcut(progress) || hasDeferredOnboardingSteps(progress);
+  }
+
+  /**
+   * Indica se o CTA “Ver quem sumiu agora” deve aparecer no wizard.
+   * @param progress Progresso atual
+   * @returns true após canais + calendário configurados
+   */
+  canShowFirstWinCta(progress: OnboardingProgress): boolean {
+    return canUseFirstWinShortcut(progress);
+  }
+
+  /**
+   * Indica se o checklist opcional (categorias/membros) ainda está pendente.
+   * @param progress Progresso atual
+   * @returns true quando passos 6–7 podem ser feitos depois do first-win
+   */
+  hasDeferredSetup(progress: OnboardingProgress): boolean {
+    return hasDeferredOnboardingSteps(progress);
   }
 
   /**

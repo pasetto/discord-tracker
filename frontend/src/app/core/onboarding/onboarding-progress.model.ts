@@ -33,3 +33,27 @@ export function createInitialOnboardingProgress(): OnboardingProgress {
   };
 }
 
+/**
+ * Indica se o setup mínimo (canais + calendário/limiares) já permite o first-win.
+ * @param progress Progresso atual de onboarding
+ * @returns true quando o gestor pode ir ao dashboard sem passos 6–7
+ */
+export function canUseFirstWinShortcut(progress: OnboardingProgress): boolean {
+  return progress.channelsConfigured && progress.calendarConfigured;
+}
+
+/**
+ * Indica se categorias/membros ainda estão pendentes após o setup mínimo.
+ * @param progress Progresso atual de onboarding
+ * @returns true quando há checklist opcional (passos 6–7) a mostrar
+ */
+export function hasDeferredOnboardingSteps(progress: OnboardingProgress): boolean {
+  if (progress.completedAt || progress.completedSteps.includes(8)) {
+    return false;
+  }
+  if (!canUseFirstWinShortcut(progress)) {
+    return false;
+  }
+  return !progress.categoriesConfigured || !progress.membersAssigned;
+}
+

@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { OnboardingProgressService } from '../../core/onboarding/onboarding-progress.service';
@@ -62,5 +62,37 @@ describe('OnboardingWizardComponent', () => {
     const embeddedChannels = fixture.debugElement.query(By.directive(ChannelsSettingsComponent));
     expect(embeddedChannels).toBeTruthy();
     expect(embeddedChannels.componentInstance.embedded).toBeTrue();
+  });
+
+  it('mostra CTA Ver quem sumiu agora após canais + calendário e navega ao dashboard', () => {
+    const fixture = TestBed.createComponent(OnboardingWizardComponent);
+    const onboardingProgressService = TestBed.inject(OnboardingProgressService);
+    const authService = TestBed.inject(AuthService);
+    const router = TestBed.inject(Router);
+
+    onboardingProgressService.patchLocal({
+      currentStep: 5,
+      completedSteps: [1, 2, 3, 4, 5],
+      botConnected: true,
+      guildSelected: true,
+      channelsConfigured: true,
+      calendarConfigured: true,
+      categoriesConfigured: false,
+      membersAssigned: false,
+    });
+    spyOn(authService, 'getOrganizationId').and.returnValue('org-123');
+    spyOn(onboardingProgressService, 'load').and.returnValue(of(onboardingProgressService.currentProgress));
+    spyOn(onboardingProgressService, 'save').and.returnValue(of(onboardingProgressService.currentProgress));
+    const navigateSpy = spyOn(router, 'navigateByUrl').and.resolveTo(true);
+
+    fixture.detectChanges();
+
+    const cta = fixture.nativeElement.querySelector('[data-testid="first-win-cta"]') as HTMLElement | null;
+    expect(cta).toBeTruthy();
+    expect(cta?.textContent).toContain('Ver quem sumiu agora');
+    expect(cta?.textContent?.toLowerCase()).not.toContain('produtividade');
+
+    fixture.componentInstance.goToFirstWin();
+    expect(navigateSpy).toHaveBeenCalledWith('/app/dashboard');
   });
 });

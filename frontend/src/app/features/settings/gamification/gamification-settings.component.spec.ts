@@ -51,4 +51,26 @@ describe('GamificationSettingsComponent', () => {
     expect(content).toContain('badges habilitados');
     expect(content).toContain('streaks habilitadas');
   });
+
+  it('exibe copy de paywall Team quando ranking está bloqueado pelo plano', () => {
+    fixture.componentInstance.loadSettings();
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/gamification').flush({
+      settings: {
+        enabled: true,
+        ranking: { enabled: false },
+        badges: { enabled: true },
+        streaks: { enabled: true },
+      },
+      planFeatures: { gamification: true, ranking: false },
+      plan: { name: 'Starter', slug: 'starter' },
+    });
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.rankingPlanLockMessage).toContain('Disponível no plano Team');
+    const lock = fixture.nativeElement.querySelector('[data-testid="ranking-plan-lock"]') as HTMLElement;
+    expect(lock).toBeTruthy();
+    expect(lock.textContent).toContain('Disponível no plano Team');
+    expect(lock.textContent?.toLowerCase()).not.toContain('painel admin');
+    expect(lock.querySelector('a')?.getAttribute('href')).toContain('/landing');
+  });
 });
