@@ -25,4 +25,33 @@ describe('LandingPageComponent', () => {
     expect(element.querySelector('[data-testid="landing-how"]')).toBeTruthy();
     expect(element.querySelector('[data-testid="landing-privacy"]')).toBeTruthy();
   });
+
+  it('hero reforça job quem sumiu na colaboração sem produtividade', () => {
+    const fixture = TestBed.createComponent(LandingPageComponent);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(text).toMatch(/quem sumiu/i);
+    expect(text).toMatch(/colabora/i);
+    expect(text.toLowerCase()).not.toContain('produtividade');
+    expect(text.toLowerCase()).not.toContain('produtivo');
+  });
+
+  it('privacy-section lista anti-posicionamento explícito', () => {
+    const fixture = TestBed.createComponent(LandingPageComponent);
+    fixture.detectChanges();
+
+    const privacy = fixture.nativeElement.querySelector(
+      '[data-testid="landing-privacy"]',
+    ) as HTMLElement | null;
+    expect(privacy).toBeTruthy();
+
+    const text = privacy?.textContent ?? '';
+    expect(text).toMatch(/não lemos|nao lemos/i);
+    expect(text).toMatch(/metadados/i);
+    expect(text).toMatch(/timesheet|ponto eletrônico|ponto eletronico/i);
+    expect(text).toMatch(/screenshot|keylogger/i);
+    expect(text).toMatch(/community|comunidade/i);
+  });
 });
