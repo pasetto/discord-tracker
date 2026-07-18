@@ -7,10 +7,12 @@ import { PlannedAbsenceType } from './PlannedAbsence';
 export type InactivityStatus = 'missing' | 'low_voice_collaboration' | 'returned' | 'on_planned_absence' | 'active';
 
 /**
- * Ausência planejada associada ao status de inatividade.
+ * Ausência planejada associada ao status de inatividade (tipo + janela).
+ * `startDate` pode estar ausente em snapshots legados gerados antes de SYN-38.
  */
 export interface InactivityPlannedAbsenceReference {
   type: PlannedAbsenceType;
+  startDate?: Date;
   endDate: Date;
 }
 
@@ -49,6 +51,7 @@ export interface IInactivitySnapshot extends Document {
 const inactivityPlannedAbsenceReferenceSchema = new Schema<InactivityPlannedAbsenceReference>(
   {
     type: { type: String, required: true, enum: ['vacation', 'pto', 'sick_leave', 'other'] },
+    startDate: { type: Date, required: false },
     endDate: { type: Date, required: true },
   },
   { _id: false },

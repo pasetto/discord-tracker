@@ -56,6 +56,10 @@ import {
   resolveWeeklyChartAverage,
   sumCollaborationHours,
 } from './dashboard.utils';
+import {
+  getNonConcernExplainabilityEntries,
+  type ExplainabilityListItem,
+} from './inactivity-explainability.utils';
 
 /**
  * Página inicial do gestor — visão operacional de colaboração e alertas de inatividade.
@@ -270,6 +274,14 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
       this.weeklyConcernEntries,
       this.goalsBelowThreshold,
     );
+  }
+
+  /**
+   * Entradas “por que NÃO é sumiu” (PTO / fora da jornada / fora do dia útil).
+   * @returns Lista legível derivada de `allEntries` do relatório intradiário
+   */
+  get explainabilityItems(): ExplainabilityListItem[] {
+    return getNonConcernExplainabilityEntries(this.intradayReport?.allEntries ?? []);
   }
 
   /** Cartões de métricas rápidas. */
