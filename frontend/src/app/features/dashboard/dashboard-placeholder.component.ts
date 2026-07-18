@@ -688,13 +688,13 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
   getMetricIconClass(tone: DashboardMetricCard['tone']): string {
     switch (tone) {
       case 'success':
-        return 'bg-success-50 text-success-600 dark:bg-success-500/10 dark:text-success-300';
+        return 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-300';
       case 'warning':
-        return 'bg-warning-50 text-warning-600 dark:bg-warning-500/10 dark:text-warning-300';
+        return 'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-300';
       case 'purple':
-        return 'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-300';
+        return 'bg-purple-50 text-purple-600 dark:bg-purple-500/15 dark:text-purple-300';
       case 'brand':
-        return 'bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300';
+        return 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400';
       default:
         return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300';
     }
@@ -724,13 +724,13 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
   getInsightCardClass(tone: DashboardInsight['tone']): string {
     switch (tone) {
       case 'success':
-        return 'border-success-200 bg-success-50/70 dark:border-success-900 dark:bg-success-500/10';
+        return 'border-success-200 bg-success-50/70 dark:border-success-500/30 dark:bg-success-500/15';
       case 'warning':
-        return 'border-warning-200 bg-warning-50/70 dark:border-warning-900 dark:bg-warning-500/10';
+        return 'border-warning-200 bg-warning-50/70 dark:border-warning-500/30 dark:bg-warning-500/15';
       case 'error':
-        return 'border-error-200 bg-error-50/70 dark:border-error-900 dark:bg-error-500/10';
+        return 'border-error-200 bg-error-50/70 dark:border-error-500/30 dark:bg-error-500/15';
       default:
-        return 'border-brand-200 bg-brand-50/70 dark:border-brand-900 dark:bg-brand-500/10';
+        return 'border-brand-200 bg-brand-50/70 dark:border-brand-500/30 dark:bg-brand-500/15';
     }
   }
 

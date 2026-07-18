@@ -279,6 +279,84 @@ describe('DashboardPlaceholderComponent', () => {
     expect(fixture.componentInstance.getAttentionMessageClass('warning')).toContain('warning');
   });
 
+  it('usa tokens dark de contraste WCAG nos cards brand e métricas (SYN-90)', async () => {
+    localStorage.setItem('syntra.guildId', 'guild-1');
+    const httpMock = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(DashboardPlaceholderComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.getMetricIconClass('brand')).toContain('dark:bg-brand-500/15');
+    expect(component.getMetricIconClass('brand')).toContain('dark:text-brand-400');
+    expect(component.getMetricIconClass('brand')).not.toContain('dark:bg-brand-500/10');
+    expect(component.getInsightCardClass('brand')).toContain('dark:border-brand-500/30');
+    expect(component.getInsightCardClass('brand')).toContain('dark:bg-brand-500/15');
+    expect(component.getInsightCardClass('brand')).not.toContain('dark:border-brand-900');
+
+    fixture.detectChanges();
+    flushOnboardingRequest(httpMock, true);
+    httpMock.expectOne('/api/v1/org/org-1/discord/status').flush({
+      botConnected: true,
+      activeConnection: { guildId: 'guild-1', guildName: 'eCondos', isMonitoringEnabled: true },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/inactivity/weekly').flush({ report: { entries: [] } });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/inactivity/intraday').flush({
+      report: {
+        generatedAt: new Date().toISOString(),
+        timezone: 'America/Sao_Paulo',
+        elapsedWorkPercent: 40,
+        elapsedWorkSeconds: 3600,
+        totalWorkSeconds: 9000,
+        isBusinessDay: true,
+        isWithinWorkHours: true,
+        settings: { lateStartThresholdPercent: 30, minCollaborationPercentOfElapsed: 20 },
+        concernEntries: [],
+      },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/goals?preset=this_week').flush({
+      report: { periodStart: '', periodEnd: '', entries: [] },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/dashboard/overview').flush({
+      overview: {
+        generatedAt: new Date().toISOString(),
+        timezone: 'America/Sao_Paulo',
+        periodStart: '2026-06-26',
+        periodEnd: '2026-07-02',
+        trackedMembersCount: 1,
+        weeklyAverageHours: 0,
+        dailyCollaboration: [],
+        heatmap: [],
+      },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/tracked-users').flush({
+      members: [{ id: '1', discordId: 'd-1', displayName: 'Ana', username: 'ana' }],
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/absences/active').flush({ absences: [] });
+    await settlePushStatus();
+
+    const pushTip = fixture.nativeElement.querySelector(
+      '[data-testid="dashboard-push-tip"]',
+    ) as HTMLElement;
+    expect(pushTip.className).toContain('dark:border-brand-500/30');
+    expect(pushTip.className).toContain('dark:bg-brand-500/15');
+    expect(pushTip.className).not.toContain('dark:border-brand-900');
+
+    const checklist = fixture.nativeElement.querySelector(
+      '[data-testid="first-value-checklist"]',
+    ) as HTMLElement;
+    expect(checklist.className).toContain('dark:border-brand-500/30');
+    expect(checklist.className).toContain('dark:bg-brand-500/15');
+
+    const metricCard = fixture.nativeElement.querySelector(
+      '[data-testid="dashboard-metric-card"]',
+    ) as HTMLElement;
+    expect(metricCard).toBeTruthy();
+    expect(metricCard.className).toContain('dark:border-gray-700');
+    expect(metricCard.className).toContain('dark:bg-gray-900/60');
+    expect(metricCard.className).not.toContain('dark:bg-white/[0.03]');
+    expect(metricCard.textContent?.toLowerCase()).not.toContain('produtividade');
+    httpMock.verify();
+  });
+
   it('tip de push menciona navegador/PWA e não Discord', async () => {
     localStorage.setItem('syntra.guildId', 'guild-1');
     pushStatusSpy.and.resolveTo('subscribed');
