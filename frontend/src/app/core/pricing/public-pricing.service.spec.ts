@@ -47,16 +47,20 @@ describe('PublicPricingService', () => {
     expect(card.highlights).toContain('Até 3 servidores Discord');
   });
 
-  it('usa fallback quando API falha', () => {
-    let result = FALLBACK_PRICING_PLANS;
+  it('propaga erro HTTP para o caller aplicar fallback na UI', () => {
+    let sawError = false;
 
-    service.fetchPricingCards().subscribe((plans) => {
-      result = plans;
+    service.fetchPricingCards().subscribe({
+      next: () => fail('não deveria emitir planos em erro HTTP'),
+      error: () => {
+        sawError = true;
+      },
     });
 
     const request = httpMock.expectOne('/api/v1/pricing');
     request.error(new ProgressEvent('error'));
 
-    expect(result).toEqual(FALLBACK_PRICING_PLANS);
+    expect(sawError).toBeTrue();
+    expect(FALLBACK_PRICING_PLANS.length).toBeGreaterThan(0);
   });
 });
