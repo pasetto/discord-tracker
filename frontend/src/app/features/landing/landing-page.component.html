@@ -1,30 +1,118 @@
 <main class="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white">
-  <section class="mx-auto max-w-6xl px-4 pb-6 pt-16 text-center sm:px-6 sm:pt-20">
-    <p class="inline-flex rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
-      Syntra
-    </p>
-    <h1 class="mt-6 text-3xl font-bold sm:text-4xl lg:text-5xl">
-      Saiba quem sumiu da colaboração no Discord do seu time
-    </h1>
-    <p class="mx-auto mt-4 max-w-2xl text-sm text-gray-600 dark:text-gray-300 sm:text-base">
-      Visibilidade de colaboração remota com metadados — para agir cedo quando alguém some, sem timesheet legal nem monitoramento invasivo.
-    </p>
+  <header
+    class="sticky top-0 z-20 border-b border-gray-200/80 bg-gray-50/90 backdrop-blur dark:border-gray-800 dark:bg-gray-950/90"
+  >
+    <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+      <a routerLink="/landing" class="inline-flex items-center gap-2" aria-label="Syntra">
+        <img
+          src="/images/logo/logo.svg"
+          alt="Syntra"
+          class="h-8 w-auto dark:hidden"
+          width="120"
+          height="32"
+        />
+        <img
+          src="/images/logo/logo-dark.svg"
+          alt="Syntra"
+          class="hidden h-8 w-auto dark:block"
+          width="120"
+          height="32"
+        />
+        <span class="sr-only">Syntra</span>
+      </a>
 
-    <div class="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-      <a routerLink="/signup" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-600">
-        Criar conta
-      </a>
-      <a routerLink="/login" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-gray-800">
-        Entrar
-      </a>
-      <a routerLink="/case-studies" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-gray-800">
-        Ver cases
-      </a>
+      <nav class="flex items-center gap-2 sm:gap-3" aria-label="Ações da landing">
+        <a
+          routerLink="/login"
+          class="inline-flex min-h-11 items-center justify-center px-3 text-sm font-semibold text-gray-700 transition hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+        >
+          Entrar
+        </a>
+        <a
+          routerLink="/signup"
+          class="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
+        >
+          Criar conta
+        </a>
+      </nav>
     </div>
+  </header>
+
+  <section
+    data-testid="landing-hero"
+    class="mx-auto grid max-w-6xl gap-10 px-4 pb-10 pt-10 sm:px-6 sm:pt-14 lg:grid-cols-2 lg:items-center lg:gap-12"
+  >
+    <div class="text-left">
+      <img
+        src="/images/logo/logo.svg"
+        alt="Syntra"
+        class="h-10 w-auto dark:hidden"
+        width="140"
+        height="40"
+        data-testid="landing-hero-logo"
+      />
+      <img
+        src="/images/logo/logo-dark.svg"
+        alt="Syntra"
+        class="hidden h-10 w-auto dark:block"
+        width="140"
+        height="40"
+      />
+
+      <h1 class="mt-6 text-3xl font-bold tracking-tight sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
+        Quem sumiu no Discord do seu time — antes do atraso virar crise.
+      </h1>
+      <p class="mt-4 max-w-xl text-sm text-gray-600 dark:text-gray-300 sm:text-base">
+        Radar de colaboração para gestores remotos. Você vê quem está no jogo e quem sumiu, com
+        calendário e PTO no contexto. Sem ler mensagens. Sem gravar áudio.
+      </p>
+
+      <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <a
+          routerLink="/signup"
+          class="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-600"
+        >
+          Criar conta
+        </a>
+        <a
+          href="#como-funciona"
+          class="inline-flex min-h-11 items-center justify-center px-2 text-sm font-medium text-gray-600 underline-offset-4 transition hover:text-gray-900 hover:underline dark:text-gray-300 dark:hover:text-white"
+        >
+          Ver como funciona
+        </a>
+      </div>
+
+      <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
+        Sem cartão no teste. Setup em minutos. Só metadados.
+      </p>
+    </div>
+
+    <app-hero-live-mock />
   </section>
 
   <app-problem-section />
   <app-how-it-works-section />
   <app-privacy-section />
   <app-pricing-section />
+  <app-faq-section />
+
+  <section class="mx-auto max-w-6xl px-4 pb-16 pt-4 sm:px-6" data-testid="landing-final-cta">
+    <div class="rounded-2xl border border-gray-200 bg-white px-6 py-10 text-center dark:border-gray-700 dark:bg-gray-900 sm:px-10">
+      <h2 class="text-2xl font-semibold text-gray-900 sm:text-3xl dark:text-white">
+        Pare de descobrir sumiço tarde demais.
+      </h2>
+      <p class="mx-auto mt-3 max-w-2xl text-sm text-gray-600 dark:text-gray-300 sm:text-base">
+        Crie a conta e veja quem está colaborando, e quem sumiu, no Discord do seu time.
+      </p>
+      <a
+        routerLink="/signup"
+        class="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-600"
+      >
+        Criar conta
+      </a>
+      <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
+        Sem cartão no teste. Só metadados. Sem ler mensagens.
+      </p>
+    </div>
+  </section>
 </main>
