@@ -1,4 +1,15 @@
-import { buildAttentionItems, formatTimelineEventLabel, mapOverviewDailyChart, mapOverviewHeatmapCells, resolveDashboardFirstName, resolveDashboardGreeting, sanitizeDiscordDisplayName } from './dashboard.utils';
+import {
+  buildAttentionItems,
+  buildFirstValueChecklistItems,
+  countWeeklyMissingEntries,
+  formatTimelineEventLabel,
+  mapOverviewDailyChart,
+  mapOverviewHeatmapCells,
+  resolveDashboardFirstName,
+  resolveDashboardGreeting,
+  sanitizeDiscordDisplayName,
+  shouldShowFirstValueChecklist,
+} from './dashboard.utils';
 
 describe('dashboard.utils', () => {
   it('resolve saudação por horário', () => {
@@ -61,10 +72,13 @@ describe('dashboard.utils', () => {
     expect(heatmap[0].intensity).toBe(1);
     expect(heatmap[1].intensity).toBe(0.5);
 
-    const chart = mapOverviewDailyChart([
-      { date: '2026-07-01', collaborationHours: 4, voiceHours: 5 },
-      { date: '2026-07-02', collaborationHours: 6, voiceHours: 7 },
-    ], 8);
+    const chart = mapOverviewDailyChart(
+      [
+        { date: '2026-07-01', collaborationHours: 4, voiceHours: 5 },
+        { date: '2026-07-02', collaborationHours: 6, voiceHours: 7 },
+      ],
+      8,
+    );
 
     expect(chart.points.length).toBe(2);
     expect(chart.points[1].hours).toBe(8);
@@ -72,13 +86,13 @@ describe('dashboard.utils', () => {
   });
 
   it('formata transições de voz com origem e destino', () => {
-    expect(
-      formatTimelineEventLabel('JOIN', 'Ana', { toChannelName: 'Squad Backend' }),
-    ).toBe('Ana entrou em Squad Backend');
+    expect(formatTimelineEventLabel('JOIN', 'Ana', { toChannelName: 'Squad Backend' })).toBe(
+      'Ana entrou em Squad Backend',
+    );
 
-    expect(
-      formatTimelineEventLabel('LEAVE', 'Ana', { fromChannelName: 'Squad Backend' }),
-    ).toBe('Ana saiu de Squad Backend');
+    expect(formatTimelineEventLabel('LEAVE', 'Ana', { fromChannelName: 'Squad Backend' })).toBe(
+      'Ana saiu de Squad Backend',
+    );
 
     expect(
       formatTimelineEventLabel('SWITCH', 'Ana', {
@@ -88,5 +102,91 @@ describe('dashboard.utils', () => {
     ).toBe('Ana foi de Geral para Daily');
 
     expect(sanitizeDiscordDisplayName('*Camila Bueno*')).toBe('Camila Bueno');
+  });
+
+  it('exibe empty-state de primeiro valor só após onboarding e sem alertas', () => {
+    expect(
+      shouldShowFirstValueChecklist({
+        onboardingComplete: true,
+        concernEntriesCount: 0,
+        missingEntriesCount: 0,
+      }),
+    ).toBeTrue();
+
+    expect(
+      shouldShowFirstValueChecklist({
+        onboardingComplete: false,
+        concernEntriesCount: 0,
+        missingEntriesCount: 0,
+      }),
+    ).toBeFalse();
+
+    expect(
+      shouldShowFirstValueChecklist({
+        onboardingComplete: true,
+        concernEntriesCount: 1,
+        missingEntriesCount: 0,
+      }),
+    ).toBeFalse();
+
+    expect(
+      shouldShowFirstValueChecklist({
+        onboardingComplete: true,
+        concernEntriesCount: 0,
+        missingEntriesCount: 2,
+      }),
+    ).toBeFalse();
+  });
+
+  it('monta checklist pós-onboarding com deep links e sem produtividade', () => {
+    const items = buildFirstValueChecklistItems({
+      channelsConfigured: true,
+      calendarConfigured: false,
+      pushEnabled: false,
+      isBusinessDay: true,
+    });
+
+    expect(items.map((item) => item.id)).toEqual([
+      'channels',
+      'calendar',
+      'pto',
+      'push',
+      'business-day',
+    ]);
+    expect(items.find((item) => item.id === 'channels')?.actionRoute).toBe('/app/settings/channels');
+    expect(items.find((item) => item.id === 'calendar')?.actionRoute).toBe('/app/settings/calendar');
+    expect(items.find((item) => item.id === 'pto')?.actionRoute).toBe('/app/settings/absences');
+    expect(items.find((item) => item.id === 'push')?.actionRoute).toBe('/app/settings/inactivity');
+    expect(items.find((item) => item.id === 'channels')?.done).toBeTrue();
+    expect(items.find((item) => item.id === 'calendar')?.done).toBeFalse();
+
+    const joined = items.map((item) => `${item.title} ${item.description}`).join(' ').toLowerCase();
+    expect(joined).not.toContain('produtividade');
+    expect(joined).not.toContain('produtivo');
+  });
+
+  it('marca PTO como concluído mesmo sem ausências cadastradas (não bloqueia checklist saudável)', () => {
+    const items = buildFirstValueChecklistItems({
+      channelsConfigured: true,
+      calendarConfigured: true,
+      pushEnabled: true,
+      isBusinessDay: true,
+    });
+
+    const pto = items.find((item) => item.id === 'pto');
+    expect(pto?.done).toBeTrue();
+    expect(pto?.actionRoute).toBe('/app/settings/absences');
+    expect(pto?.description.toLowerCase()).toContain('quando alguém');
+    expect(items.every((item) => item.done)).toBeTrue();
+  });
+
+  it('conta apenas entradas semanais missing', () => {
+    expect(
+      countWeeklyMissingEntries([
+        { displayName: 'Ana', status: 'missing' },
+        { displayName: 'Bruno', status: 'low_voice_collaboration' },
+        { displayName: 'Carla', status: 'active' },
+      ]),
+    ).toBe(1);
   });
 });

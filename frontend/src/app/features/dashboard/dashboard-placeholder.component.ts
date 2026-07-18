@@ -23,6 +23,11 @@ import {
   LiveVoiceTransitionEvent,
 } from '../../core/api/live-activity-socket.service';
 import { ProductTelemetryService } from '../../core/analytics/product-telemetry.service';
+import {
+  InactivityPushStatus,
+  PushNotificationService,
+} from '../../core/push/push-notification.service';
+import { OnboardingProgressService } from '../../core/onboarding/onboarding-progress.service';
 import { TenantContextService } from '../../core/tenant/tenant-context.service';
 import { TrackedMembersService } from '../../core/members/tracked-members.service';
 import type {
@@ -34,6 +39,7 @@ import type {
   DashboardMetricCard,
   DashboardOverviewDto,
   DashboardWeeklyChartPoint,
+  FirstValueChecklistItem,
   IntradayInactivityReportDto,
   WeeklyInactivityEntryDto,
   WeeklyInactivityReportDto,
@@ -42,6 +48,8 @@ import {
   buildAttentionItems,
   buildCollaborationHeatmap,
   buildDashboardInsights,
+  buildFirstValueChecklistItems,
+  countWeeklyMissingEntries,
   mapOverviewDailyChart,
   mapOverviewHeatmapCells,
   buildWeeklyCollaborationChart,
@@ -55,6 +63,7 @@ import {
   resolveMemberInitials,
   sanitizeDiscordDisplayName,
   resolveWeeklyChartAverage,
+  shouldShowFirstValueChecklist,
   sumCollaborationHours,
 } from './dashboard.utils';
 import {
@@ -98,6 +107,8 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
   /** Indica se o total de membros rastreados já foi carregado ao menos uma vez. */
   trackedTotalLoaded = false;
   private firstUsefulViewEmitted = false;
+  /** Estado mínimo da inscrição Web Push para o tip do dashboard. */
+  pushStatus: InactivityPushStatus | null = null;
 
   heatmapCells: DashboardHeatmapCell[] = [];
   readonly heatmapDayLabels = getHeatmapDayLabels();
@@ -149,6 +160,8 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
     private readonly trackedMembersService: TrackedMembersService,
     private readonly liveActivitySocket: LiveActivitySocketService,
     private readonly productTelemetry: ProductTelemetryService,
+    private readonly pushNotificationService: PushNotificationService,
+    private readonly onboardingProgressService: OnboardingProgressService,
   ) {}
 
   /**
@@ -162,7 +175,8 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
       this.trackedTotal > 0 &&
       !this.intradayLoading &&
       !this.weeklyLoading &&
-      this.attentionItems.length === 0
+      this.attentionItems.length === 0 &&
+      !this.showFirstValueChecklist
     );
   }
 
@@ -187,6 +201,56 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
   /** Copy do empty state sem membros sincronizados. */
   get syncMembersEmptyCopy(): DashboardNoMembersCopy {
     return buildNoSyncedMembersCopy();
+  }
+
+  /** Quantidade de colaboradores com status semanal `missing`. */
+  get weeklyMissingCount(): number {
+    return countWeeklyMissingEntries(this.weeklyReport?.entries ?? []);
+  }
+
+  /**
+   * Exibe checklist de primeiro valor após onboarding, enquanto não há alertas reais.
+   * @returns true quando o empty-state pós-setup deve aparecer
+   */
+  get showFirstValueChecklist(): boolean {
+    if (this.intradayLoading || this.weeklyLoading) {
+      return false;
+    }
+
+    return shouldShowFirstValueChecklist({
+      onboardingComplete: this.onboardingProgressService.isOnboardingComplete,
+      concernEntriesCount: this.intradayConcernEntries.length,
+      missingEntriesCount: this.weeklyMissingCount,
+    });
+  }
+
+  /** Itens do checklist operacional até o primeiro alerta útil. */
+  get firstValueChecklistItems(): FirstValueChecklistItem[] {
+    const progress = this.onboardingProgressService.currentProgress;
+
+    return buildFirstValueChecklistItems({
+      channelsConfigured: progress.channelsConfigured,
+      calendarConfigured: progress.calendarConfigured,
+      pushEnabled: this.pushStatus === 'subscribed',
+      isBusinessDay: this.intradayReport?.isBusinessDay ?? null,
+    });
+  }
+
+  /**
+   * Texto curto do estado Web Push para o tip (inscrito / negado / falha).
+   * @returns Rótulo em português ou string vazia enquanto carrega
+   */
+  get pushStatusLabel(): string {
+    switch (this.pushStatus) {
+      case 'subscribed':
+        return 'Status: inscrito.';
+      case 'denied':
+        return 'Status: permissão negada no navegador.';
+      case 'failed':
+        return 'Status: falha ao ativar as notificações.';
+      default:
+        return '';
+    }
   }
 
   /** Nome da organização ativa. */
@@ -405,6 +469,7 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
 
   /** Carrega dados quando o guild estiver disponível. */
   ngOnInit(): void {
+    void this.refreshPushStatus();
     this.subscriptions.add(
       this.liveActivitySocket.snapshot$.subscribe((snapshot) => {
         if (!isValidLiveDashboardSnapshot(snapshot)) {
@@ -429,6 +494,10 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
         this.errorMessage = message;
         this.liveLoading = false;
       }),
+    );
+
+    this.subscriptions.add(
+      this.onboardingProgressService.load(this.authService.getOrganizationId()).subscribe(),
     );
 
     this.subscriptions.add(
@@ -828,6 +897,14 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
       },
     ];
     this.chartCategories = this.weeklyChartPoints.map((point) => point.label);
+  }
+
+  /**
+   * Atualiza o status mínimo de Web Push usado no tip do dashboard.
+   * @returns Promise resolvida após consultar o serviço de push
+   */
+  private async refreshPushStatus(): Promise<void> {
+    this.pushStatus = await this.pushNotificationService.getInactivityPushStatus();
   }
 
   /**

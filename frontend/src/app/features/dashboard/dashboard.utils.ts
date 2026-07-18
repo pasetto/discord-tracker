@@ -7,6 +7,7 @@ import type {
   DashboardOverviewDto,
   DashboardOverviewHeatmapCellDto,
   DashboardWeeklyChartPoint,
+  FirstValueChecklistItem,
   IntradayConcernEntryDto,
   WeeklyInactivityEntryDto,
 } from './dashboard.models';
@@ -447,6 +448,110 @@ export function buildDashboardInsights(input: {
   }
 
   return insights.slice(0, 5);
+}
+
+/**
+ * Decide se o checklist de primeiro valor deve aparecer no dashboard.
+ * Exibe quando o onboarding terminou e ainda não há alertas reais de inatividade.
+ * @param input Estado mínimo para a decisão
+ * @returns true quando o empty-state pós-onboarding deve ser mostrado
+ * @example
+ * shouldShowFirstValueChecklist({
+ *   onboardingComplete: true,
+ *   concernEntriesCount: 0,
+ *   missingEntriesCount: 0,
+ * })
+ */
+export function shouldShowFirstValueChecklist(input: {
+  onboardingComplete: boolean;
+  concernEntriesCount: number;
+  missingEntriesCount: number;
+}): boolean {
+  return (
+    input.onboardingComplete &&
+    input.concernEntriesCount === 0 &&
+    input.missingEntriesCount === 0
+  );
+}
+
+/**
+ * Monta o checklist operacional até o primeiro alerta útil de “quem sumiu”.
+ * PTO é informativo: não exige ausência cadastrada para marcar como concluído
+ * (times sem férias no momento não ficam com checklist eterno pendente).
+ * @param input Flags de setup e contexto de jornada
+ * @returns Itens com deep links para settings relevantes
+ * @example
+ * buildFirstValueChecklistItems({
+ *   channelsConfigured: true,
+ *   calendarConfigured: true,
+ *   pushEnabled: false,
+ *   isBusinessDay: true,
+ * })
+ */
+export function buildFirstValueChecklistItems(input: {
+  channelsConfigured: boolean;
+  calendarConfigured: boolean;
+  pushEnabled: boolean;
+  isBusinessDay: boolean | null;
+}): FirstValueChecklistItem[] {
+  return [
+    {
+      id: 'channels',
+      title: 'Canais colaborativos',
+      description:
+        'Confirme quais canais de voz e texto contam como colaboração — assim o Syntra entende o ritmo real do time.',
+      actionLabel: 'Revisar canais',
+      actionRoute: '/app/settings/channels',
+      done: input.channelsConfigured,
+    },
+    {
+      id: 'calendar',
+      title: 'Calendário de trabalho',
+      description:
+        'Jornada e feriados evitam falsos “sumiu” em dias não úteis. Vale conferir se o fuso e a jornada batem com o time.',
+      actionLabel: 'Abrir calendário',
+      actionRoute: '/app/settings/calendar',
+      done: input.calendarConfigured,
+    },
+    {
+      id: 'pto',
+      title: 'Ausências planejadas (PTO)',
+      description:
+        'Quando alguém sair de férias ou folga, cadastre aqui — o alerta de inatividade respeita essas ausências. Não precisa ter PTO agora.',
+      actionLabel: 'Abrir ausências',
+      actionRoute: '/app/settings/absences',
+      done: true,
+    },
+    {
+      id: 'push',
+      title: 'Alertas no navegador',
+      description:
+        'Ative notificações push para saber quando alguém sumir no meio do dia — sem precisar ficar atualizando a tela.',
+      actionLabel: 'Configurar alertas',
+      actionRoute: '/app/settings/inactivity',
+      done: input.pushEnabled,
+    },
+    {
+      id: 'business-day',
+      title: 'Aguardar o próximo dia útil',
+      description:
+        input.isBusinessDay === false
+          ? 'Hoje não é dia útil na jornada configurada. Os primeiros alertas de “quem sumiu” surgem nos dias de trabalho do time.'
+          : 'Com o setup pronto, os primeiros sinais e alertas aparecem conforme o time colabora no Discord — em geral ainda no primeiro dia útil.',
+      actionLabel: 'Ver calendário',
+      actionRoute: '/app/settings/calendar',
+      done: input.isBusinessDay === true,
+    },
+  ];
+}
+
+/**
+ * Conta entradas semanais com status `missing` (quem sumiu).
+ * @param entries Entradas do relatório semanal
+ * @returns Quantidade de colaboradores missing
+ */
+export function countWeeklyMissingEntries(entries: WeeklyInactivityEntryDto[]): number {
+  return entries.filter((entry) => entry.status === 'missing').length;
 }
 
 /**

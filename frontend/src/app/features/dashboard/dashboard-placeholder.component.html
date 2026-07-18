@@ -41,6 +41,53 @@
       <p class="mt-1">{{ healthyEmptyCopy.body }}</p>
     </section>
 
+
+    <!-- Checklist de primeiro valor (pós-onboarding, sem alertas ainda) -->
+    <section
+      *ngIf="showFirstValueChecklist"
+      data-testid="first-value-checklist"
+      class="rounded-2xl border border-brand-200 bg-brand-50/80 p-5 dark:border-brand-900 dark:bg-brand-500/10 md:p-6"
+    >
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Setup pronto — aguardando o primeiro sinal</h2>
+      <p class="mt-2 max-w-3xl text-sm text-gray-600 dark:text-gray-300">
+        Ainda não há ninguém marcado como “quem sumiu”. Isso é normal nos primeiros minutos: o Syntra observa a
+        colaboração do time no Discord e avisa quando alguém ficar fora do esperado. Use o checklist abaixo para
+        garantir que o primeiro alerta faça sentido.
+      </p>
+
+      <ul class="mt-5 space-y-3">
+        <li
+          *ngFor="let item of firstValueChecklistItems"
+          class="flex flex-col gap-3 rounded-xl border border-white/80 bg-white/90 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-700 dark:bg-gray-900/40"
+          [attr.data-testid]="'first-value-item-' + item.id"
+        >
+          <div class="flex items-start gap-3">
+            <span
+              class="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+              [ngClass]="
+                item.done
+                  ? 'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-300'
+                  : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-300'
+              "
+              [attr.aria-label]="item.done ? 'Concluído' : 'Pendente'"
+            >
+              {{ item.done ? '✓' : '·' }}
+            </span>
+            <div>
+              <p class="font-semibold text-gray-900 dark:text-white">{{ item.title }}</p>
+              <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ item.description }}</p>
+            </div>
+          </div>
+          <a
+            [routerLink]="item.actionRoute"
+            class="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-brand-300 px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50 dark:border-brand-700 dark:text-brand-300 dark:hover:bg-brand-500/10"
+          >
+            {{ item.actionLabel }}
+          </a>
+        </li>
+      </ul>
+    </section>
+
     <!-- Hero: quem precisa de atenção -->
     <ng-container *ngIf="!showSyncMembersEmptyState">
     <section
@@ -162,13 +209,20 @@
           </button>
         </div>
 
-        <p *ngIf="isLoading && attentionItems.length === 0 && !showTrustedEmptyState" class="mt-6 text-sm text-gray-500">Carregando alertas...</p>
+        <p *ngIf="isLoading && attentionItems.length === 0 && !showTrustedEmptyState && !showFirstValueChecklist" class="mt-6 text-sm text-gray-500">Carregando alertas...</p>
 
         <p
-          *ngIf="!isLoading && attentionItems.length === 0 && !showTrustedEmptyState"
+          *ngIf="!isLoading && attentionItems.length === 0 && !showTrustedEmptyState && !showFirstValueChecklist"
           class="mt-6 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800 dark:border-success-900 dark:bg-success-500/10 dark:text-success-200"
         >
           Ninguém em alerta — time dentro dos critérios de colaboração configurados.
+        </p>
+
+        <p
+          *ngIf="!isLoading && attentionItems.length === 0 && showFirstValueChecklist"
+          class="mt-6 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800 dark:border-brand-900 dark:bg-brand-500/10 dark:text-brand-200"
+        >
+          Sem alertas por enquanto — revise o checklist de primeiro valor acima enquanto o time colabora.
         </p>
 
         <ul *ngIf="attentionItems.length > 0" class="mt-4 space-y-3">
@@ -354,14 +408,25 @@
       </div>
     </section>
 
-    <!-- Dica -->
-    <section class="rounded-2xl border border-brand-200 bg-brand-50 px-5 py-4 dark:border-brand-900 dark:bg-brand-500/10">
+    </ng-container>
+
+    <!-- Tip Web Push fora do empty de sync — visível com guild mesmo sem membros -->
+    <section
+      data-testid="dashboard-push-tip"
+      class="rounded-2xl border border-brand-200 bg-brand-50 px-5 py-4 dark:border-brand-900 dark:bg-brand-500/10"
+    >
       <p class="text-sm text-gray-700 dark:text-gray-200">
-        <strong>Dica:</strong> Configure notificações para receber alertas importantes no Discord.
-        <a routerLink="/app/settings/inactivity" class="ml-1 font-medium text-brand-600 hover:underline dark:text-brand-400">Configurar agora</a>
+        <strong>Dica:</strong>
+        Ative as notificações do navegador/PWA para receber alertas de quem sumiu e de colaboração.
+        <span *ngIf="pushStatusLabel" class="ml-1" data-testid="dashboard-push-status">{{ pushStatusLabel }}</span>
+        <a
+          routerLink="/app/settings/inactivity"
+          class="ml-1 font-medium text-brand-600 hover:underline dark:text-brand-400"
+        >
+          Configurar agora
+        </a>
       </p>
     </section>
-    </ng-container>
   </ng-container>
 
   <p *ngIf="errorMessage" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-sm text-error-600 dark:border-error-800 dark:bg-error-500/10 dark:text-error-300">
