@@ -78,4 +78,11 @@ describe('AppLayoutComponent', () => {
   it('deve incluir bottom nav mobile', () => {
     expect(fixture.nativeElement.querySelector('app-mobile-bottom-nav')).not.toBeNull();
   });
+
+  it('deve reservar padding inferior até xl (alinhado ao bottom-nav)', () => {
+    const main = fixture.nativeElement.querySelector('.flex-1.min-w-0') as HTMLElement;
+    expect(main.className).toContain('pb-20');
+    expect(main.className).toContain('xl:pb-0');
+    expect(main.className).not.toContain('lg:pb-0');
+  });
 });
