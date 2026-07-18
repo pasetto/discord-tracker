@@ -41,6 +41,16 @@ jobs:
             npm ci
             npm run build --workspace=backend
             npm run build --workspace=frontend
+            # Landing marketing (site/) — CTA aponta para FRONTEND_URL do host quando disponível
+            APP_URL="$(grep -E '^FRONTEND_URL=' .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'" || true)"
+            if [ -z "$APP_URL" ] && [ -f backend/.env ]; then
+              APP_URL="$(grep -E '^FRONTEND_URL=' backend/.env | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'" || true)"
+            fi
+            export PUBLIC_APP_URL="${APP_URL:-http://127.0.0.1:8080}"
+            export PUBLIC_SITE_URL="http://127.0.0.1:4321"
+            export PUBLIC_BASE_PATH="/"
+            echo "Building site/ with PUBLIC_APP_URL=${PUBLIC_APP_URL}"
+            npm run build --workspace=site
             # Reinjeta SMTP/VAPID no .env do host (secrets GH → dotenv; não loga valores)
             if [ -n "${SMTP_HOST:-}" ] && [ -n "${VAPID_PUBLIC_KEY:-}" ]; then
               node scripts/upsert-alerts-env.mjs .env backend/.env
@@ -50,6 +60,12 @@ jobs:
             # restart limpo: delete + start garante workers homogêneos (sem pkill global)
             pm2 delete syntra 2>/dev/null || true
             pm2 start backend/ecosystem.config.js --update-env
+            # Soft-launch: serve estático da landing na porta 4321
+            pm2 delete syntra-site 2>/dev/null || true
+            pm2 serve site/dist 4321 --name syntra-site --spa false
             pm2 save
             sleep 8
             curl -sf --retry 5 --retry-delay 3 http://localhost:3322/api/v1/health
+            curl -sf --retry 3 --retry-delay 2 -o /dev/null http://localhost:4321/
+            echo "PILOTO_SITE_LOCAL=http://127.0.0.1:4321"
+            echo "PILOTO_FRONTEND_URL=${PUBLIC_APP_URL}"

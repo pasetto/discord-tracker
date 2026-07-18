@@ -1,15 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Syntra  Saiba quem sumiu no Discord do seu time">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Syntra â€” Saiba quem sumiu no Discord do seu time">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#10182a"/>
-      <stop offset="100%" stop-color="#1a2a3a"/>
+      <stop offset="0%" stop-color="#0f1729"/>
+      <stop offset="100%" stop-color="#1a2f3d"/>
     </linearGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#bg)"/>
   <circle cx="920" cy="180" r="160" fill="none" stroke="#4ec4c8" stroke-width="3" opacity="0.25"/>
   <circle cx="920" cy="180" r="95" fill="none" stroke="#4ec4c8" stroke-width="3" opacity="0.45"/>
   <circle cx="920" cy="180" r="28" fill="#e8a54b"/>
-  <text x="88" y="260" fill="#f4f1ea" font-family="Georgia, serif" font-size="64" font-weight="700">Syntra</text>
-  <text x="88" y="340" fill="#d7e6ea" font-family="Arial, sans-serif" font-size="36">Saiba quem sumiu no Discord do seu time</text>
-  <text x="88" y="400" fill="#8aa0ad" font-family="Arial, sans-serif" font-size="24">Colaboração com contexto  só metadados</text>
+  <text x="88" y="260" fill="#f4f6f8" font-family="DejaVu Sans, Arial, sans-serif" font-size="64" font-weight="700">Syntra</text>
+  <text x="88" y="340" fill="#d7e6ea" font-family="DejaVu Sans, Arial, sans-serif" font-size="36">Saiba quem sumiu no Discord do seu time</text>
+  <text x="88" y="400" fill="#8aa0ad" font-family="DejaVu Sans, Arial, sans-serif" font-size="24">ColaboraÃ§Ã£o com contexto â€” sÃ³ metadados</text>
 </svg>

@@ -41,6 +41,16 @@ npm run build:site
 |----------|--------|-----|
 | `PUBLIC_APP_URL` | `http://localhost:4200` | Base do app (CTA → `/signup`, Entrar → `/signin`) |
 | `PUBLIC_SITE_URL` | `http://localhost:4321` | URL canônica / OG |
+| `PUBLIC_BASE_PATH` | `/` | Base path (GitHub Pages: `/discord-tracker`) |
+
+### Soft-launch público
+
+- **URL canônica (GitHub Pages):** https://pasetto.github.io/discord-tracker/
+- Workflow: `.github/workflows/pages-site.yml` (build + deploy em push `main` / `workflow_dispatch`)
+- Configure a variable de repositório `PUBLIC_APP_URL` apontando para o app Angular piloto (CTA Criar conta)
+- O deploy SSH (`deploy.yml`) também publica `site/dist` via `pm2 serve` na porta **4321** do host piloto
+
+Checklist operacional: ver [`SOFT_LAUNCH.md`](./SOFT_LAUNCH.md).
 
 ## Seções
 
@@ -57,12 +67,15 @@ npm run build:site
 
 ## Soft-launch stubs
 
-- Meta title/description + OG/Twitter
-- `public/og-stub.svg` (substituir por PNG/JPG na polish [SYN-34])
-- `window.__SYNTRA_ANALYTICS__ = { provider: 'stub' }`
+- Meta title/description + OG/Twitter (`og.png` 1200×630 + `og-stub.svg` fallback)
+- JSON-LD `SoftwareApplication`, `robots.txt`, `sitemap.xml`
+- `window.__SYNTRA_ANALYTICS__` com `track()` + captura de clique em CTA Criar conta
+- Âncoras legais `#privacidade-stub` / `#termos-stub` (rascunho)
+
+Checklist operacional: ver [`SOFT_LAUNCH.md`](./SOFT_LAUNCH.md) nesta pasta (também anexado em [SYN-34](/SYN/issues/SYN-34)).
 
 ## Design
 
 - Tipografia: Bricolage Grotesque + Public Sans
-- Paleta OKLCH: tinta profunda + sinal teal + alerta âmbar (sem purple-gradient genérico)
-- Hero full-bleed com atmosfera de time remoto
+- Paleta OKLCH: tinta profunda (hue 250) + sinal teal + alerta âmbar (sem purple-gradient / cream genérico)
+- Hero full-bleed: atmosfera remota (notebook + time em chamada)

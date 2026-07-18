@@ -8,9 +8,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 const appUrl = (import.meta.env.PUBLIC_APP_URL || 'http://localhost:4200').replace(/\/$/, '');
 const signupUrl = `${appUrl}/signup`;
 const loginUrl = `${appUrl}/signin`;
+const homeUrl = import.meta.env.BASE_URL || '/';
 
+/** Atmosfera remota: notebook + time em chamada — radar de quem está (ou não) na sala. */
 const heroImage =
-  'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=2000&q=80';
+  'https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?auto=format&fit=crop&w=2000&q=80';
 
 const tensions = [
   {
@@ -102,13 +104,13 @@ const faqs = [
 
   <header class="nav">
     <div class="wrap nav__inner">
-      <a class="nav__brand" href="/" aria-label="Syntra — início">
+      <a class="nav__brand" href={homeUrl} aria-label="Syntra — início">
         <span class="nav__mark" aria-hidden="true"></span>
         Syntra
       </a>
       <div class="nav__actions">
         <a class="link-quiet nav__login" href={loginUrl}>Entrar</a>
-        <a class="btn btn--primary" href={signupUrl}>Criar conta</a>
+        <a class="btn btn--primary" href={signupUrl} data-cta="nav">Criar conta</a>
       </div>
     </div>
   </header>
@@ -136,7 +138,7 @@ const faqs = [
           calendário e PTO no contexto — sem ler mensagens nem gravar áudio.
         </p>
         <div class="hero__cta reveal reveal-delay-3">
-          <a class="btn btn--primary" href={signupUrl}>Criar conta</a>
+          <a class="btn btn--primary" href={signupUrl} data-cta="hero">Criar conta</a>
           <p class="hero__micro">
             Setup em minutos. Só metadados. Feito para gestores de times remotos.
           </p>
@@ -289,8 +291,30 @@ const faqs = [
           Crie sua conta, conecte o Discord e veja quem está colaborando — e quem
           sumiu — com o contexto que o gestor precisa.
         </p>
-        <a class="btn btn--ink" href={signupUrl}>Criar conta</a>
+        <a class="btn btn--ink" href={signupUrl} data-cta="footer">Criar conta</a>
         <p class="cta__trust">Só metadados. Sem ler mensagens. Sem gravar áudio.</p>
+      </div>
+    </section>
+
+    <!-- Stubs legais (soft-launch) — páginas finais dependem de revisão CEO/jurídico -->
+    <section class="section legal-stub" id="privacidade-stub" aria-labelledby="privacy-stub-title">
+      <div class="wrap">
+        <h2 id="privacy-stub-title">Privacidade (rascunho)</h2>
+        <p class="section__lead">
+          Syntra processa metadados de colaboração no Discord (presença, tempo em voz,
+          atividade de texto) no escopo de canais que você configura. Não armazenamos
+          conteúdo de mensagens, áudio ou DMs. Política completa em revisão.
+        </p>
+      </div>
+    </section>
+    <section class="section legal-stub legal-stub--alt" id="termos-stub" aria-labelledby="terms-stub-title">
+      <div class="wrap">
+        <h2 id="terms-stub-title">Termos (rascunho)</h2>
+        <p class="section__lead">
+          O uso do Syntra está sujeito a termos de serviço a publicar antes do lançamento
+          público. Em soft-launch, o acesso é de avaliação — não é timesheet legal nem
+          substituto de ferramentas de projetos.
+        </p>
       </div>
     </section>
   </main>
@@ -691,6 +715,19 @@ const faqs = [
     margin-top: var(--space-sm);
     color: var(--muted);
     font-size: 0.95rem;
+  }
+
+  .legal-stub {
+    padding-block: var(--space-xl);
+    background: var(--paper);
+  }
+
+  .legal-stub--alt {
+    background: var(--paper-2);
+  }
+
+  .legal-stub h2 {
+    font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.55rem);
   }
 
   .footer {
