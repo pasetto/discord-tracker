@@ -1,0 +1,783 @@
+---
+/**
+ * Landing marketing Syntra — copy do brief SYN-32 v1.1 (claims SYN-35).
+ * Um job por seção; CTA primário = Criar conta → app /signup.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const appUrl = (import.meta.env.PUBLIC_APP_URL || 'http://localhost:4200').replace(/\/$/, '');
+const signupUrl = `${appUrl}/signup`;
+const loginUrl = `${appUrl}/signin`;
+const homeUrl = import.meta.env.BASE_URL || '/';
+
+/** Atmosfera remota: notebook + time em chamada — radar de quem está (ou não) na sala. */
+const heroImage =
+  'https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?auto=format&fit=crop&w=2000&q=80';
+
+const tensions = [
+  {
+    title: 'Sinal tardio',
+    body: 'Você só nota quando o atraso já virou retrabalho.',
+  },
+  {
+    title: 'Sem contexto',
+    body: '“Sumiu” ou está de PTO / fora da jornada?',
+  },
+  {
+    title: 'Ação às cegas',
+    body: 'Energia gasta no lugar errado.',
+  },
+];
+
+const antiClaims = [
+  {
+    title: 'Não é timesheet legal',
+    body: 'Não substitui ponto eletrônico nem compliance trabalhista.',
+  },
+  {
+    title: 'Não é Jira',
+    body: 'Não gerencia tickets, sprints ou entrega.',
+  },
+  {
+    title: 'Não é spyware',
+    body: 'Não armazena conteúdo de mensagens, áudio ou DMs.',
+  },
+];
+
+const steps = [
+  {
+    n: '01',
+    title: 'Conecte o servidor',
+    body: 'Vincule o bot e escolha a guild. Defina canais de trabalho, AFK, almoço e ignorados na UI.',
+  },
+  {
+    n: '02',
+    title: 'Syntra lê sinais (só metadados)',
+    body: 'Presença, tempo em voz colaborativa e atividade de texto — sem guardar o que foi dito.',
+  },
+  {
+    n: '03',
+    title: 'Aja cedo',
+    body: 'Dashboard e relatórios de inatividade com calendário/PTO; push quando alguém some; time ao vivo quando precisar do “agora”.',
+  },
+];
+
+const outcomes = [
+  'Relatório de quem sumiu (intraday e semana) + alertas no dashboard e push.',
+  'Time ao vivo — presença e movimentação agora.',
+  'Metas individuais de horas colaborativas.',
+  'Ausências (PTO) no contexto dos alertas.',
+  'Gamificação opcional — badges/streaks disponíveis; ranking nos planos Team e superiores.',
+  'Notificações: push (hoje e na semana) + e-mail semanal opcional — você liga nas configurações.',
+];
+
+const faqs = [
+  {
+    q: 'Vocês leem as mensagens do time?',
+    a: 'Não. Sinais de texto são metadados (ex.: atividade no canal). Conteúdo de mensagem, áudio e DMs não são armazenados.',
+  },
+  {
+    q: 'Isso não vira vigilância?',
+    a: 'O objetivo é visibilidade de colaboração e inatividade — com canais que você escolhe e contexto de calendário/PTO. Não é ferramenta para policiar o que as pessoas dizem.',
+  },
+  {
+    q: 'Substitui Toggl / timesheet?',
+    a: 'Substitui o “timer manual” como forma de ver colaboração do time. Não é timesheet legal nem ponto eletrônico.',
+  },
+  {
+    q: 'E se a pessoa está de férias?',
+    a: 'Ausências planejadas e calendário de trabalho entram no contexto para reduzir falso “sumiu”.',
+  },
+  {
+    q: 'Quanto tempo para começar?',
+    a: 'Criar conta, conectar o Discord e seguir o onboarding — a meta de produto é time-to-value em minutos, não em semanas.',
+  },
+  {
+    q: 'Preciso de cartão para testar?',
+    a: 'Não. Você cria a conta e entra em período de teste da organização sem cartão. O cartão só entra quando for assinar um plano via Stripe.',
+  },
+];
+---
+
+<BaseLayout>
+  <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
+
+  <header class="nav">
+    <div class="wrap nav__inner">
+      <a class="nav__brand" href={homeUrl} aria-label="Syntra — início">
+        <span class="nav__mark" aria-hidden="true"></span>
+        Syntra
+      </a>
+      <div class="nav__actions">
+        <a class="link-quiet nav__login" href={loginUrl}>Entrar</a>
+        <a class="btn btn--primary" href={signupUrl} data-cta="nav">Criar conta</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="conteudo">
+    <!-- 1. Hero: entender “quem sumiu” em <10s -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero__media" aria-hidden="true">
+        <img
+          src={heroImage}
+          alt=""
+          width="2000"
+          height="1333"
+          fetchpriority="high"
+        />
+      </div>
+      <div class="hero__veil" aria-hidden="true"></div>
+      <div class="wrap hero__content">
+        <p class="hero__brand reveal">Syntra</p>
+        <h1 id="hero-title" class="reveal reveal-delay-1">
+          Quem sumiu no Discord do seu time — antes que vire problema.
+        </h1>
+        <p class="hero__sub reveal reveal-delay-2">
+          Saiba quem está colaborando — e quem sumiu — no Discord do seu time.
+          Calendário e PTO no contexto — sem ler mensagens nem gravar áudio.
+        </p>
+        <div class="hero__cta reveal reveal-delay-3">
+          <a class="btn btn--primary" href={signupUrl} data-cta="hero">Criar conta</a>
+          <p class="hero__micro">
+            Sem cartão no teste · Setup em minutos · Só metadados.
+          </p>
+        </div>
+        <a class="hero__scroll link-quiet" href="#como-funciona">Como funciona</a>
+      </div>
+    </section>
+
+    <!-- 2. Problema -->
+    <section class="section problem" aria-labelledby="problem-title">
+      <div class="wrap">
+        <h2 id="problem-title">No Discord remoto, o sumiço não avisa.</h2>
+        <p class="section__lead">
+          O time “está online” — até que um entregável atrasa, o clima esfria ou
+          alguém já pediu demissão em silêncio. Gestores descobrem tarde porque o
+          Discord não tem um radar de colaboração: presença diluída, canais
+          misturados, PTO fora da cabeça.
+        </p>
+        <ul class="tension-list">
+          {
+            tensions.map((item) => (
+              <li>
+                <strong>{item.title}</strong>
+                <span>{item.body}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </section>
+
+    <!-- 3. Anti-posicionamento -->
+    <section class="section anti" aria-labelledby="anti-title">
+      <div class="wrap">
+        <h2 id="anti-title">Visibilidade de colaboração. Sem vigilância de conteúdo.</h2>
+        <p class="section__lead">
+          Syntra existe para responder “quem está colaborando — e quem sumiu?”.
+          Ponto.
+        </p>
+        <ul class="anti-list">
+          {
+            antiClaims.map((item) => (
+              <li>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="anti__close">
+          Você configura quais canais entram no radar. O resto fica fora.
+        </p>
+      </div>
+    </section>
+
+    <!-- 4. Como funciona -->
+    <section class="section how" id="como-funciona" aria-labelledby="how-title">
+      <div class="wrap">
+        <h2 id="how-title">Do Discord ao alerta — em três passos.</h2>
+        <ol class="steps">
+          {
+            steps.map((step) => (
+              <li>
+                <span class="steps__n" aria-hidden="true">
+                  {step.n}
+                </span>
+                <div>
+                  <h3>{step.title}</h3>
+                  <p>{step.body}</p>
+                </div>
+              </li>
+            ))
+          }
+        </ol>
+        <p class="how__proof">
+          Onboarding guiado para ir do signup à primeira visão de colaboração.
+        </p>
+      </div>
+    </section>
+
+    <!-- 5. Privacidade -->
+    <section class="section privacy" aria-labelledby="privacy-title">
+      <div class="wrap privacy__grid">
+        <div>
+          <h2 id="privacy-title">Privacidade não é rodapé — é o produto.</h2>
+          <p class="section__lead">
+            Textos e chamadas importam para o trabalho. Syntra <strong>não</strong> precisa
+            do conteúdo para te avisar quem sumiu. Usa metadados mínimos, escopo de
+            canais sob seu controle, e portal do colaborador para transparência sobre
+            os próprios dados.
+          </p>
+        </div>
+        <ul class="privacy__bullets">
+          <li>Sem conteúdo de mensagem, áudio ou DM.</li>
+          <li>Escopo de canais definido por você.</li>
+          <li>Feito para confiança do time — não para surpresa na sexta.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 6. O que você vê -->
+    <section class="section proof" aria-labelledby="proof-title">
+      <div class="wrap">
+        <h2 id="proof-title">O que o gestor enxerga no primeiro uso.</h2>
+        <ul class="outcome-list">
+          {outcomes.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+    </section>
+
+    <!-- 7. Para quem é -->
+    <section class="section audience" aria-labelledby="audience-title">
+      <div class="wrap audience__grid">
+        <div>
+          <h2 id="audience-title">Feito para quem lidera time no Discord.</h2>
+          <p>
+            <strong>É para você se:</strong> seu time remoto/híbrido já trabalha no
+            Discord e você precisa de clareza sobre colaboração e sumiço.
+          </p>
+        </div>
+        <p class="audience__not">
+          <strong>Não é para você se:</strong> precisa de ponto legal, gravação de
+          calls, ou um substituto de ferramenta de projetos.
+        </p>
+      </div>
+    </section>
+
+    <!-- 8. FAQ -->
+    <section class="section faq" aria-labelledby="faq-title">
+      <div class="wrap">
+        <h2 id="faq-title">Perguntas frequentes</h2>
+        <div class="faq__list">
+          {
+            faqs.map((item) => (
+              <details>
+                <summary>{item.q}</summary>
+                <p>{item.a}</p>
+              </details>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. CTA final -->
+    <section class="section cta" aria-labelledby="cta-title">
+      <div class="wrap cta__inner">
+        <h2 id="cta-title">Pare de descobrir sumiço tarde demais.</h2>
+        <p>
+          Crie sua conta e saiba quem está colaborando — e quem sumiu — no Discord
+          do seu time, com o contexto que o gestor precisa.
+        </p>
+        <a class="btn btn--ink" href={signupUrl} data-cta="footer">Criar conta</a>
+        <p class="cta__trust">
+          Sem cartão no teste · Só metadados · Sem ler mensagens.
+        </p>
+      </div>
+    </section>
+
+    <!-- Stubs legais (soft-launch) — páginas finais dependem de revisão CEO/jurídico -->
+    <section class="section legal-stub" id="privacidade-stub" aria-labelledby="privacy-stub-title">
+      <div class="wrap">
+        <h2 id="privacy-stub-title">Privacidade (rascunho)</h2>
+        <p class="section__lead">
+          Syntra processa metadados de colaboração no Discord (presença, tempo em voz,
+          atividade de texto) no escopo de canais que você configura. Não armazenamos
+          conteúdo de mensagens, áudio ou DMs. Política completa em revisão.
+        </p>
+      </div>
+    </section>
+    <section class="section legal-stub legal-stub--alt" id="termos-stub" aria-labelledby="terms-stub-title">
+      <div class="wrap">
+        <h2 id="terms-stub-title">Termos (rascunho)</h2>
+        <p class="section__lead">
+          O uso do Syntra está sujeito a termos de serviço a publicar antes do lançamento
+          público. Em soft-launch, o acesso é de avaliação — não é timesheet legal nem
+          substituto de ferramentas de projetos.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <div>
+        <strong>Syntra</strong>
+        <span> · Colaboração no Discord</span>
+        <p class="footer__teaser">Planos em BRL</p>
+      </div>
+      <nav class="footer__links" aria-label="Legal">
+        <a href="#privacidade-stub">Privacidade</a>
+        <a href="#termos-stub">Termos</a>
+        <a href="mailto:contato@syntra.app">Contato</a>
+      </nav>
+      <p class="footer__copy">© {new Date().getFullYear()} Syntra</p>
+    </div>
+  </footer>
+</BaseLayout>
+
+<style>
+  .skip-link {
+    position: absolute;
+    left: 1rem;
+    top: -4rem;
+    z-index: 100;
+    padding: 0.6rem 1rem;
+    background: var(--signal);
+    color: var(--ink);
+    text-decoration: none;
+    border-radius: var(--radius);
+  }
+
+  .skip-link:focus {
+    top: 1rem;
+  }
+
+  .nav {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    z-index: 10;
+    padding-block: 1.15rem;
+  }
+
+  .nav__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .nav__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--font-display);
+    font-weight: 750;
+    font-size: 1.2rem;
+    letter-spacing: -0.03em;
+    color: var(--paper);
+    text-decoration: none;
+  }
+
+  .nav__mark {
+    width: 0.85rem;
+    height: 0.85rem;
+    border-radius: 999px;
+    background: var(--alert);
+    box-shadow: 0 0 0 4px oklch(0.68 0.11 195 / 0.35);
+  }
+
+  .nav__actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .nav__login {
+    color: var(--paper);
+  }
+
+  .hero {
+    position: relative;
+    min-height: 100svh;
+    display: grid;
+    align-items: end;
+    color: var(--paper);
+    overflow: hidden;
+  }
+
+  .hero__media,
+  .hero__veil {
+    position: absolute;
+    inset: 0;
+  }
+
+  .hero__media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    animation: drift 28s var(--ease-out) alternate infinite;
+  }
+
+  .hero__veil {
+    background:
+      linear-gradient(
+        180deg,
+        oklch(0.14 0.035 250 / 0.55) 0%,
+        var(--hero-veil) 48%,
+        oklch(0.12 0.03 250 / 0.92) 100%
+      ),
+      radial-gradient(ellipse 70% 50% at 70% 20%, oklch(0.55 0.08 195 / 0.22), transparent 60%);
+  }
+
+  .hero__content {
+    position: relative;
+    padding-block: clamp(7rem, 12vh, 9rem) var(--space-xl);
+    max-width: 48rem;
+  }
+
+  .hero__brand {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.4rem + 2.5vw, 3.25rem);
+    font-weight: 750;
+    letter-spacing: -0.03em;
+    margin: 0 0 var(--space-md);
+    color: var(--paper);
+  }
+
+  .hero h1 {
+    color: var(--paper);
+    max-width: 16ch;
+  }
+
+  .hero__sub {
+    color: oklch(0.92 0.015 95);
+    font-size: clamp(1.05rem, 0.95rem + 0.45vw, 1.25rem);
+    max-width: 42ch;
+    margin-bottom: var(--space-md);
+  }
+
+  .hero__cta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .hero__micro {
+    margin: 0;
+    color: oklch(0.84 0.02 95);
+    font-size: 0.95rem;
+  }
+
+  .hero__scroll {
+    display: inline-block;
+    margin-top: var(--space-lg);
+    color: oklch(0.88 0.02 95);
+    font-size: 0.95rem;
+  }
+
+  .problem {
+    background: var(--paper);
+  }
+
+  .tension-list {
+    list-style: none;
+    margin: var(--space-lg) 0 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-md);
+    border-top: 1px solid var(--line);
+    padding-top: var(--space-lg);
+  }
+
+  .tension-list li {
+    display: grid;
+    gap: 0.25rem;
+    max-width: 42rem;
+  }
+
+  .tension-list strong {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    letter-spacing: -0.02em;
+  }
+
+  .tension-list span {
+    color: var(--ink-soft);
+  }
+
+  .anti {
+    background: var(--surface-dark);
+    color: var(--paper);
+  }
+
+  .anti h2,
+  .anti h3 {
+    color: var(--paper);
+  }
+
+  .anti .section__lead {
+    color: oklch(0.86 0.02 95);
+  }
+
+  .anti-list {
+    list-style: none;
+    margin: var(--space-lg) 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-md);
+  }
+
+  @media (min-width: 720px) {
+    .anti-list {
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-lg);
+    }
+  }
+
+  .anti-list li {
+    border-top: 2px solid var(--signal);
+    padding-top: var(--space-sm);
+  }
+
+  .anti-list p {
+    color: oklch(0.82 0.02 95);
+    margin: 0;
+  }
+
+  .anti__close {
+    margin: 0;
+    color: var(--signal);
+    font-weight: 600;
+  }
+
+  .steps {
+    list-style: none;
+    margin: var(--space-lg) 0 var(--space-md);
+    padding: 0;
+    display: grid;
+    gap: var(--space-lg);
+  }
+
+  .steps li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--space-md);
+    align-items: start;
+  }
+
+  .steps__n {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 750;
+    color: var(--signal-deep);
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .how__proof {
+    color: var(--muted);
+    font-size: 0.98rem;
+  }
+
+  .privacy {
+    background: var(--paper-2);
+  }
+
+  .privacy__grid {
+    display: grid;
+    gap: var(--space-lg);
+  }
+
+  @media (min-width: 840px) {
+    .privacy__grid {
+      grid-template-columns: 1.3fr 0.9fr;
+      align-items: end;
+    }
+  }
+
+  .privacy__bullets {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .privacy__bullets li {
+    padding-left: 1.15rem;
+    position: relative;
+    color: var(--ink-soft);
+  }
+
+  .privacy__bullets li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: var(--signal);
+  }
+
+  .outcome-list {
+    list-style: none;
+    margin: var(--space-lg) 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .outcome-list li {
+    padding: var(--space-sm) 0;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+
+  .audience {
+    background: var(--paper-2);
+  }
+
+  .audience__grid {
+    display: grid;
+    gap: var(--space-lg);
+  }
+
+  @media (min-width: 800px) {
+    .audience__grid {
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: var(--space-xl);
+    }
+  }
+
+  .audience__not {
+    margin: 0;
+    padding-top: var(--space-sm);
+    border-top: 2px solid var(--alert);
+    color: var(--ink-soft);
+  }
+
+  .faq__list {
+    margin-top: var(--space-lg);
+    display: grid;
+    gap: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  details {
+    border-bottom: 1px solid var(--line);
+    padding-block: 1rem;
+  }
+
+  summary {
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    list-style: none;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  summary::after {
+    content: "+";
+    float: right;
+    color: var(--signal-deep);
+    font-weight: 700;
+  }
+
+  details[open] summary::after {
+    content: "–";
+  }
+
+  details p {
+    margin-top: 0.75rem;
+    color: var(--ink-soft);
+  }
+
+  .cta {
+    background:
+      radial-gradient(ellipse 60% 80% at 10% 20%, oklch(0.68 0.11 195 / 0.18), transparent 55%),
+      var(--paper);
+  }
+
+  .cta__inner {
+    max-width: 40rem;
+  }
+
+  .cta__trust {
+    margin-top: var(--space-sm);
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  .legal-stub {
+    padding-block: var(--space-xl);
+    background: var(--paper);
+  }
+
+  .legal-stub--alt {
+    background: var(--paper-2);
+  }
+
+  .legal-stub h2 {
+    font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.55rem);
+  }
+
+  .footer {
+    background: var(--surface-dark);
+    color: oklch(0.86 0.015 95);
+    padding-block: var(--space-xl);
+    font-size: 0.95rem;
+  }
+
+  .footer__inner {
+    display: grid;
+    gap: var(--space-md);
+  }
+
+  .footer__teaser {
+    margin: 0.35rem 0 0;
+    color: var(--signal);
+    font-weight: 600;
+  }
+
+  .footer__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 1.5rem;
+  }
+
+  .footer__links a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .footer__links a:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+  }
+
+  .footer__copy {
+    margin: 0;
+    color: oklch(0.7 0.02 95);
+  }
+
+  @media (max-width: 640px) {
+    .nav__actions .btn {
+      padding-inline: 1rem;
+    }
+
+    .hero__content {
+      max-width: none;
+    }
+  }
+</style>

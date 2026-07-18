@@ -67,4 +67,29 @@ describe('RankingReportComponent', () => {
     expect(content).toContain('Ana');
     expect(content).toContain('12.0 h');
   });
+
+  it('exibe CTA Disponível no plano Team… quando ranking é gated pelo plano', () => {
+    fixture.componentInstance.loadReport();
+    httpMock.expectOne((request) => request.url.includes('/gamification/ranking')).flush({
+      report: {
+        available: false,
+        reason: 'Ranking não está disponível no plano atual',
+        period: 'weekly',
+        periodStart: '2026-06-16T00:00:00.000Z',
+        periodEnd: '2026-06-24T23:59:59.999Z',
+        metric: 'productive_hours',
+        visibility: 'guild',
+        anonymousMode: false,
+        showExactHours: true,
+        generatedAt: '2026-06-24T12:00:00.000Z',
+        entries: [],
+      },
+    });
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.isLockedByPlan).toBeTrue();
+    const block = fixture.nativeElement.querySelector('[data-testid="ranking-unavailable"]') as HTMLElement;
+    expect(block.textContent).toContain('Disponível no plano Team');
+    expect(fixture.nativeElement.querySelector('[data-testid="ranking-team-upgrade"]')).toBeTruthy();
+  });
 });

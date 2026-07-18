@@ -66,4 +66,16 @@ describe('OnboardingProgressService', () => {
     service.patchLocal({ channelsConfigured: false, calendarConfigured: false, completedSteps: [1, 2, 3] });
     expect(service.shouldShowOnboardingBanner(service.currentProgress)).toBeTrue();
   });
+
+  it('mantém banner após first-win para checklist opcional 6–7', () => {
+    service.patchLocal({
+      channelsConfigured: true,
+      calendarConfigured: true,
+      completedSteps: [1, 2, 3, 4, 5],
+      currentStep: 6,
+    });
+    expect(service.canShowFirstWinCta(service.currentProgress)).toBeTrue();
+    expect(service.hasDeferredSetup(service.currentProgress)).toBeTrue();
+    expect(service.shouldShowOnboardingBanner(service.currentProgress)).toBeTrue();
+  });
 });

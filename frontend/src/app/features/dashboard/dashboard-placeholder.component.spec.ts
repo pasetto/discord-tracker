@@ -396,4 +396,114 @@ describe('DashboardPlaceholderComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="first-value-checklist"]')).toBeNull();
     httpMock.verify();
   });
+
+
+  it('exibe empty state confiável com membros e zero alertas (sem checklist)', async () => {
+    localStorage.setItem('syntra.guildId', 'guild-1');
+    const httpMock = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(DashboardPlaceholderComponent);
+    fixture.detectChanges();
+
+    flushOnboardingRequest(httpMock, false);
+    httpMock.expectOne('/api/v1/org/org-1/discord/status').flush({
+      botConnected: true,
+      activeConnection: { guildId: 'guild-1', guildName: 'eCondos', isMonitoringEnabled: true },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/inactivity/weekly').flush({ report: { entries: [] } });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/inactivity/intraday').flush({
+      report: {
+        generatedAt: new Date().toISOString(),
+        timezone: 'America/Sao_Paulo',
+        elapsedWorkPercent: 40,
+        elapsedWorkSeconds: 3600,
+        totalWorkSeconds: 9000,
+        isBusinessDay: true,
+        isWithinWorkHours: true,
+        settings: { lateStartThresholdPercent: 30, minCollaborationPercentOfElapsed: 20 },
+        concernEntries: [],
+      },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/goals?preset=this_week').flush({
+      report: { periodStart: '', periodEnd: '', entries: [] },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/dashboard/overview').flush({
+      overview: {
+        generatedAt: new Date().toISOString(),
+        timezone: 'America/Sao_Paulo',
+        periodStart: '2026-06-26',
+        periodEnd: '2026-07-02',
+        trackedMembersCount: 1,
+        weeklyAverageHours: 0,
+        dailyCollaboration: [],
+        heatmap: [],
+      },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/tracked-users').flush({
+      members: [{ id: '1', discordId: 'd-1', displayName: 'Ana', username: 'ana' }],
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/absences/active').flush({ absences: [] });
+    await settlePushStatus();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.showFirstValueChecklist).toBeFalse();
+    expect(fixture.componentInstance.showTrustedEmptyState).toBeTrue();
+    expect(fixture.componentInstance.healthyEmptyCopy.body).toContain('calendário/PTO');
+    expect(fixture.componentInstance.healthyEmptyCopy.body.toLowerCase()).not.toContain('produtividade');
+    const empty = fixture.nativeElement.querySelector('[data-testid="trusted-empty-state"]') as HTMLElement | null;
+    expect(empty).toBeTruthy();
+    expect(empty?.textContent).toContain('calendário/PTO');
+    httpMock.verify();
+  });
+
+  it('exibe CTA único para sincronizar quando não há membros', async () => {
+    localStorage.setItem('syntra.guildId', 'guild-1');
+    const httpMock = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(DashboardPlaceholderComponent);
+    fixture.detectChanges();
+
+    flushOnboardingRequest(httpMock, false);
+    httpMock.expectOne('/api/v1/org/org-1/discord/status').flush({
+      botConnected: true,
+      activeConnection: { guildId: 'guild-1', guildName: 'eCondos', isMonitoringEnabled: true },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/inactivity/weekly').flush({ report: { entries: [] } });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/inactivity/intraday').flush({
+      report: {
+        generatedAt: new Date().toISOString(),
+        timezone: 'America/Sao_Paulo',
+        elapsedWorkPercent: 10,
+        elapsedWorkSeconds: 900,
+        totalWorkSeconds: 9000,
+        isBusinessDay: true,
+        isWithinWorkHours: true,
+        settings: { lateStartThresholdPercent: 30, minCollaborationPercentOfElapsed: 20 },
+        concernEntries: [],
+      },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/reports/goals?preset=this_week').flush({
+      report: { periodStart: '', periodEnd: '', entries: [] },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/dashboard/overview').flush({
+      overview: {
+        generatedAt: new Date().toISOString(),
+        timezone: 'America/Sao_Paulo',
+        periodStart: '2026-06-26',
+        periodEnd: '2026-07-02',
+        trackedMembersCount: 0,
+        weeklyAverageHours: 0,
+        dailyCollaboration: [],
+        heatmap: [],
+      },
+    });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/tracked-users').flush({ members: [] });
+    httpMock.expectOne('/api/v1/org/org-1/guilds/guild-1/absences/active').flush({ absences: [] });
+    await settlePushStatus();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.showSyncMembersEmptyState).toBeTrue();
+    const syncEmpty = fixture.nativeElement.querySelector('[data-testid="sync-members-empty"]') as HTMLElement;
+    expect(syncEmpty.textContent).toContain('Sincronizar membros');
+    httpMock.verify();
+  });
+
 });

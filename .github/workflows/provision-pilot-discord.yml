@@ -1,0 +1,73 @@
+name: Provision pilot Discord smoke
+
+# Ops: inspeciona guilds do bot no host piloto e vincula GuildConnection
+# a uma org smoke (sem imprimir tokens). Secrets: environment Prod.
+
+on:
+  workflow_dispatch:
+    inputs:
+      smoke_org_id:
+        description: ObjectId da Organization smoke (vazio = só inspecionar)
+        required: false
+        type: string
+        default: ''
+      smoke_user_id:
+        description: ObjectId do PlatformUser owner (selectedBy)
+        required: false
+        type: string
+        default: ''
+      smoke_guild_id:
+        description: guildId Discord (vazio = primeiro guild livre)
+        required: false
+        type: string
+        default: ''
+      dry_run:
+        description: '1 = inspecionar; 0 = aplicar vínculo'
+        required: true
+        type: choice
+        options:
+          - '1'
+          - '0'
+        default: '1'
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    environment: Prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copy provision script to pilot
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: scripts/provision-pilot-discord-smoke.mjs
+          target: ${{ secrets.DEPLOY_PATH }}/scripts/
+          strip_components: 1
+
+      - name: Inspect / provision Discord smoke
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          SMOKE_ORG_ID: ${{ inputs.smoke_org_id }}
+          SMOKE_USER_ID: ${{ inputs.smoke_user_id }}
+          SMOKE_GUILD_ID: ${{ inputs.smoke_guild_id }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          envs: DEPLOY_PATH,SMOKE_ORG_ID,SMOKE_USER_ID,SMOKE_GUILD_ID,DRY_RUN
+          script: |
+            set -euo pipefail
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd "$DEPLOY_PATH"
+            test -f scripts/provision-pilot-discord-smoke.mjs
+            echo "=== provision-pilot-discord-smoke (DRY_RUN=$DRY_RUN) ==="
+            node scripts/provision-pilot-discord-smoke.mjs

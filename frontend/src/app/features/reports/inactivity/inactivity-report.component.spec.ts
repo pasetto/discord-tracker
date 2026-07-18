@@ -103,6 +103,27 @@ describe('InactivityReportComponent', () => {
     expect(component.getStatusBadgeClass('on_planned_absence')).toContain('gray');
   });
 
+  it('explica ausência planejada com tipo e janela', () => {
+    const fixture = TestBed.createComponent(InactivityReportComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.getAbsenceTypeLabel('pto')).toBe('PTO');
+    expect(
+      component.getPlannedAbsenceExplainLabel({
+        trackedUserId: '1',
+        discordId: 'd1',
+        displayName: 'Ana',
+        inactiveBusinessDays: 0,
+        status: 'on_planned_absence',
+        plannedAbsence: {
+          type: 'vacation',
+          startDate: '2026-07-01T00:00:00.000Z',
+          endDate: '2026-07-10T00:00:00.000Z',
+        },
+      }),
+    ).toContain('Férias');
+  });
+
   it('carrega histórico ao selecionar colaborador', () => {
     const fixture = TestBed.createComponent(InactivityReportComponent);
     fixture.detectChanges();

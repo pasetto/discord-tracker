@@ -4,11 +4,15 @@ import { OrganizationModel } from '../db/models/Organization';
 import { InactivitySettingsModel } from '../db/models/InactivitySettings';
 import { TrackedUserModel } from '../db/models/TrackedUser';
 import { TextActivityEventModel } from '../db/models/TextActivityEvent';
-import { PlannedAbsenceModel, type IPlannedAbsence } from '../db/models/PlannedAbsence';
+import {
+  PlannedAbsenceModel,
+  type IPlannedAbsence,
+  type PlannedAbsenceType,
+} from '../db/models/PlannedAbsence';
 import { WorkCalendarModel, createDefaultWorkWeek, type WorkCalendar } from '../db/models/WorkCalendar';
 import { voiceSessionRepository } from '../repositories/voiceSessionRepository';
 import { presenceSessionRepository } from '../repositories/presenceSessionRepository';
-import { isOnPlannedAbsence } from './plannedAbsenceService';
+import { type PlannedAbsenceInterval } from './plannedAbsenceService';
 import { getElapsedWorkWindowMetrics } from '../utils/workWindowUtils';
 import { overlapSeconds } from '../utils/sessionTimeUtils';
 import { getInactivityThresholdSettings, type InactivityThresholdSettings } from './inactivityService';
@@ -21,6 +25,22 @@ export type IntradayInactivityStatus =
   | 'outside_work_day'
   | 'outside_work_hours'
   | 'ok';
+
+/**
+ * Referência mínima de ausência planejada para explicabilidade na UI.
+ */
+export interface IntradayPlannedAbsenceRef {
+  type: PlannedAbsenceType;
+  startDate: Date;
+  endDate: Date;
+}
+
+/**
+ * Ausência com tipo, usada para montar o DTO de explicabilidade.
+ */
+export type PlannedAbsenceWithType = PlannedAbsenceInterval & {
+  type: PlannedAbsenceType;
+};
 
 /** Entrada do relatório intradiário "quem sumiu hoje". */
 export interface IntradayInactivityEntry {
@@ -35,6 +55,8 @@ export interface IntradayInactivityEntry {
   collaborationSecondsInWorkWindow: number;
   elapsedWorkSeconds: number;
   hasAppearedToday: boolean;
+  /** Presente quando status é on_planned_absence (tipo + janela). */
+  plannedAbsence?: IntradayPlannedAbsenceRef;
 }
 
 /** Relatório intradiário completo para dashboard e API. */
@@ -117,6 +139,40 @@ export function computeIntradayInactivityStatus(input: ComputeIntradayInactivity
   }
 
   return 'ok';
+}
+
+/**
+ * Resolve a ausência ativa/agendada que cobre a data, com tipo e janela para a UI.
+ * @param absences Ausências do colaborador (com tipo)
+ * @param date Instante avaliado
+ * @returns Referência mínima da ausência cobrindo a data, ou undefined
+ * @example
+ * resolveActivePlannedAbsenceRef(
+ *   [{ type: 'pto', status: 'active', startDate: new Date('2026-07-10'), endDate: new Date('2026-07-20') }],
+ *   new Date('2026-07-15'),
+ * )
+ */
+export function resolveActivePlannedAbsenceRef(
+  absences: PlannedAbsenceWithType[],
+  date: Date,
+): IntradayPlannedAbsenceRef | undefined {
+  const target = date.getTime();
+  const match = absences.find((absence) => {
+    if (absence.status !== 'active' && absence.status !== 'scheduled') {
+      return false;
+    }
+    return absence.startDate.getTime() <= target && target <= absence.endDate.getTime();
+  });
+
+  if (!match) {
+    return undefined;
+  }
+
+  return {
+    type: match.type,
+    startDate: match.startDate,
+    endDate: match.endDate,
+  };
 }
 
 /**
@@ -404,7 +460,8 @@ export async function getIntradayInactivityReport(
     const hasAppearedToday = hasPresence || hasText || hasSeenToday || collaborationSeconds > 0;
 
     const absences = plannedAbsencesByDiscordId.get(trackedUser.discordId) ?? [];
-    const onPlannedAbsence = isOnPlannedAbsence(absences, referenceDate);
+    const plannedAbsence = resolveActivePlannedAbsenceRef(absences, referenceDate);
+    const onPlannedAbsence = Boolean(plannedAbsence);
 
     const status = computeIntradayInactivityStatus({
       settings: {
@@ -434,6 +491,7 @@ export async function getIntradayInactivityReport(
       collaborationSecondsInWorkWindow: collaborationSeconds,
       elapsedWorkSeconds: workMetrics.elapsedWorkSeconds,
       hasAppearedToday,
+      plannedAbsence: status === 'on_planned_absence' ? plannedAbsence : undefined,
     };
   });
 

@@ -1,0 +1,67 @@
+name: Deploy marketing site (GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/pages-site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-site
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build site/
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Build Astro (GitHub Pages)
+        env:
+          # Origem sem path — o base path entra via PUBLIC_BASE_PATH
+          PUBLIC_SITE_URL: https://pasetto.github.io
+          PUBLIC_BASE_PATH: /discord-tracker
+          # CTA do app Angular — configure `PUBLIC_APP_URL` nas variables do repositório
+          PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+        run: |
+          if [ -z "${PUBLIC_APP_URL}" ]; then
+            echo "AVISO: vars.PUBLIC_APP_URL vazia — CTA /signup usará http://localhost:4200 (corrija a variable e re-dispare este workflow)"
+            export PUBLIC_APP_URL="http://localhost:4200"
+          fi
+          echo "PUBLIC_APP_URL=${PUBLIC_APP_URL}"
+          npm run build --workspace=site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    name: Deploy Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

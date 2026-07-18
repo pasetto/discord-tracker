@@ -84,12 +84,27 @@ Toda rota `/api/v1/org/:orgId/*` passa por `jwtAuth` + `tenantMiddleware` — `o
 2. **Canais:** regras AFK/almoço/ignorados **somente via UI/API** — **proibido** env vars de canal.
 3. **Discord bot:** token, client id/secret e guild monitorado **somente via UI** — **proibido** `DISCORD_*` env em produção.
 4. **Privacidade:** nunca armazenar conteúdo de mensagens, áudio ou DMs.
-5. **Testes:** PR não mergeia sem testes backend e frontend passando (CI).
+5. **Testes (passar + gerar):** PR não mergeia sem CI verde. Toda mudança de código **exige** testes novos ou atualizados no(s) workspace(s) tocado(s). Feature full-stack exige cobertura **FE e BE**. Só “testes passando” sem gerar cobertura do que mudou **não** é aceitável.
 6. **JSDoc:** todo export público do backend documentado; rotas com anotações OpenAPI.
 7. **UI-first:** config de negócio no banco — ENV só infra.
 8. **Colaboração:** nunca usar “produtividade” na UI — só **colaboração** / **horas colaborativas**.
 9. **Core feature:** inatividade (“quem sumiu”) + metas **individuais** + calendário/PTO + sinais texto (metadados).
 10. **Planos:** features de gamificação/ranking enforced no backend (`Plan.features` + `GamificationSettings`).
+
+## Geração obrigatória de testes
+
+Regra operacional para humanos e agentes (FoundingEngineer incluso):
+
+| Escopo da mudança | Testes obrigatórios |
+|-------------------|---------------------|
+| Só `backend/` | Specs Vitest novos/atualizados cobrindo o comportamento alterado; rodar `npm run test --workspace=backend` (ou alvo scoped equivalente) |
+| Só `frontend/` | Specs Karma/Jasmine novos/atualizados; rodar `npm run test --workspace=frontend` (ou alvo scoped) |
+| Full-stack (BE + FE) | **Ambos** os lados — não basta testar só a API ou só a UI |
+| Docs / CI config / templates sem lógica de produto | Exceção: sem spec de produto; ainda assim CI deve ficar verde |
+
+**Proibido:** mergear feature/bugfix sem arquivo de teste tocado no workspace correspondente (exceto a exceção documental acima).
+
+Detalhes por stack: [backend/AGENTS.md](backend/AGENTS.md) · [frontend/AGENTS.md](frontend/AGENTS.md). Checklist no PR: [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md).
 
 ## Gamificação (resumo para agentes)
 
@@ -109,8 +124,13 @@ Toda rota `/api/v1/org/:orgId/*` passa por `jwtAuth` + `tenantMiddleware` — `o
 
 ## CI/CD
 
-- `.github/workflows/ci.yml` — testes em PR
+- `.github/workflows/ci.yml` — lint + testes + cobertura + build em todo PR e push para `main` / `dev` / `develop`
 - `.github/workflows/deploy.yml` — deploy SSH em `main`
+- **Branch protection** em `main` e `dev`: merge bloqueado sem os **required checks** abaixo (nomes dos jobs do `ci.yml`):
+  1. `Backend (Vitest + lint)`
+  2. `Frontend (Karma + build)`
+  3. `Frontend E2E (Playwright)`
+- Template de PR: `.github/PULL_REQUEST_TEMPLATE.md` — checklist de **geração** de testes + comandos locais + jobs CI
 
 Secrets: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `DEPLOY_PATH`.
 
@@ -118,13 +138,17 @@ Secrets: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `DEPLOY_PATH`.
 
 1. Ler seção relevante do [design spec](docs/superpowers/specs/2026-06-20-pulsedesk-saas-design.md)
 2. Ler `AGENTS.md` da pasta (`backend/` ou `frontend/`)
-3. Escrever testes junto com o código
+3. Escrever testes **junto** com o código (não depois do PR) — ver [Geração obrigatória de testes](#geração-obrigatória-de-testes)
 4. Não expandir escopo além do pedido
 
 ## Checklist de PR
 
-- [ ] Testes backend passam (`npm run test --workspace=backend`)
-- [ ] Testes frontend passam (`npm run test --workspace=frontend`)
+Usar o template GitHub; espelho mínimo:
+
+- [ ] Testes **gerados/atualizados** no(s) workspace(s) alterado(s) (FE e BE se full-stack)
+- [ ] Testes backend passam (`npm run test --workspace=backend`) — se `backend/` mudou
+- [ ] Testes frontend passam (`npm run test --workspace=frontend`) — se `frontend/` mudou
+- [ ] Jobs CI verdes: Backend (Vitest + lint), Frontend (Karma + build), Frontend E2E (Playwright)
 - [ ] Lint/typecheck sem erros
 - [ ] JSDoc em novos exports (backend)
 - [ ] Swagger atualizado se nova rota API

@@ -157,14 +157,18 @@ await Model.find({ organizationId, guildId });
 - UI: `GET /api/v1/docs`
 - JSON: `GET /api/v1/docs/openapi.json`
 
-## Testes (obrigatório)
+## Testes (obrigatório — passar e gerar)
 
 ```bash
 npm run test              # Vitest
 npm run test:coverage     # threshold 80%
 ```
 
-**Sempre testar:** tenant isolation, plan feature enforcement, channel rules sem env.
+**Geração obrigatória:** toda mudança em `backend/src/` (services, routes, models, workers, bot, middleware) **deve** incluir teste novo ou atualizado em `backend/tests/` no mesmo PR. “CI verde com specs antigos” sem cobrir o comportamento novo **não** cumpre a regra.
+
+**Sempre testar quando aplicável:** tenant isolation (`organizationId`), plan feature enforcement, channel rules sem env, auth/permissions.
+
+**Full-stack:** se a mesma feature altera UI Angular, o PR também precisa de specs no frontend — ver [frontend/AGENTS.md](../frontend/AGENTS.md) e o template de PR.
 
 ## PM2 cluster (produção)
 
@@ -205,3 +209,15 @@ npm run seed:discord-app  # bot + super admin dev
 - Webhook síncrono no handler HTTP
 - Export sem JSDoc
 - Editar `Plan` sem incluir `features` completas (quebra gamificação)
+
+### Bot Discord silencioso (obrigatório)
+
+O bot do Syntra é **somente leitura** — monitora voz/presença/metadados de texto; **não interage** com usuários nem altera aparência social.
+
+**Proibido** em `backend/src/bot/` (e no invite OAuth):
+
+- `setActivity` / `setPresence` / `ActivityType`
+- `message.reply`, `channel.send`, `interaction.*` (slash commands, modals, follow-ups)
+- Scope OAuth `applications.commands` — invite usa somente `scope=bot`
+
+Handlers de eventos devem persistir sinais no banco; nunca responder no Discord.
