@@ -1,6 +1,24 @@
 /** Status intradiário de alerta no dashboard. */
 export type IntradayConcernStatus = 'not_started' | 'low_collaboration_today';
 
+/** Status intradiário completo (inclui não-concern para explicabilidade). */
+export type IntradayFullStatus =
+  | IntradayConcernStatus
+  | 'on_planned_absence'
+  | 'outside_work_day'
+  | 'outside_work_hours'
+  | 'ok';
+
+/** Tipo de ausência planejada no DTO. */
+export type PlannedAbsenceTypeDto = 'vacation' | 'pto' | 'sick_leave' | 'other';
+
+/** Referência de ausência no relatório intradiário/semanal. */
+export interface PlannedAbsenceRefDto {
+  type: PlannedAbsenceTypeDto;
+  startDate?: string;
+  endDate: string;
+}
+
 /** Entrada do alerta intradiário "quem sumiu hoje". */
 export interface IntradayConcernEntryDto {
   trackedUserId: string;
@@ -12,6 +30,20 @@ export interface IntradayConcernEntryDto {
   collaborationSecondsInWorkWindow: number;
   elapsedWorkSeconds: number;
   hasAppearedToday: boolean;
+}
+
+/** Entrada completa do relatório intradiário (concern + contexto). */
+export interface IntradayEntryDto {
+  trackedUserId: string;
+  discordId: string;
+  displayName: string;
+  status: IntradayFullStatus;
+  elapsedWorkPercent: number;
+  collaborationPercentOfElapsed: number;
+  collaborationSecondsInWorkWindow: number;
+  elapsedWorkSeconds: number;
+  hasAppearedToday: boolean;
+  plannedAbsence?: PlannedAbsenceRefDto;
 }
 
 /** Status semanal de inatividade para contagem no dashboard. */
@@ -30,11 +62,13 @@ export interface WeeklyInactivityEntryDto {
   categoryName?: string;
   status: WeeklyInactivityStatus;
   inactiveBusinessDays?: number;
+  plannedAbsence?: PlannedAbsenceRefDto;
 }
 
 /** Relatório semanal resumido para widget do dashboard. */
 export interface WeeklyInactivityReportDto {
   entries: WeeklyInactivityEntryDto[];
+  plannedAbsenceEntries?: WeeklyInactivityEntryDto[];
 }
 
 /** Relatório intradiário consumido pelo dashboard. */
@@ -51,6 +85,8 @@ export interface IntradayInactivityReportDto {
     minCollaborationPercentOfElapsed: number;
   };
   concernEntries: IntradayConcernEntryDto[];
+  /** Todas as entradas (inclui fora da jornada / PTO) para explicabilidade. */
+  allEntries?: IntradayEntryDto[];
 }
 
 /** Linha do relatório de metas usada no dashboard. */
