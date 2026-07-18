@@ -298,10 +298,11 @@ Somente **infraestrutura** — config de negócio (bot, canais, guild) fica no b
 | `ENCRYPTION_KEY` | AES-256-GCM para secrets no banco (32 bytes base64) |
 | `JWT_SECRET` | Assinatura dos tokens |
 | `VAPID_*` | Chaves Web Push |
+| `SMTP_*` | Email digest (opcional; sem host/from o digest fica off) |
 | `STRIPE_*` | Billing BRL |
 | `PORT`, `HOST`, `NODE_ENV`, `LOG_LEVEL` | Servidor |
 
-Lista completa: [`.env.example`](.env.example)
+Lista completa: [`.env.example`](.env.example). Runbook de prontidão de alertas (SMTP/VAPID + smoke): [docs/alerts-smtp-vapid-readiness.md](docs/alerts-smtp-vapid-readiness.md).
 
 **Proibido em produção:** `DISCORD_*`, regras de canal via env.
 
