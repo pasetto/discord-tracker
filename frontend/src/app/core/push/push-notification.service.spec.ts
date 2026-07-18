@@ -20,4 +20,13 @@ describe('PushNotificationService', () => {
   it('ignora disable quando organizationId está vazio', async () => {
     await expectAsync(service.disableInactivityPushNotifications('')).toBeResolved();
   });
+
+  it('retorna failed quando Notification API está ausente', async () => {
+    const originalNotification = (window as unknown as { Notification?: typeof Notification }).Notification;
+    delete (window as unknown as { Notification?: typeof Notification }).Notification;
+
+    await expectAsync(service.getInactivityPushStatus()).toBeResolvedTo('failed');
+
+    (window as unknown as { Notification?: typeof Notification }).Notification = originalNotification;
+  });
 });

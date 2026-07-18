@@ -160,6 +160,16 @@ export interface DashboardMetricCard {
   tone: 'success' | 'brand' | 'warning' | 'purple' | 'neutral';
 }
 
+/** Item do checklist de primeiro valor pós-onboarding. */
+export interface FirstValueChecklistItem {
+  id: 'channels' | 'calendar' | 'pto' | 'push' | 'business-day';
+  title: string;
+  description: string;
+  actionLabel: string;
+  actionRoute: string;
+  done: boolean;
+}
+
 /** Ponto diário retornado pelo overview histórico do backend. */
 export interface DashboardOverviewDailyPointDto {
   date: string;
