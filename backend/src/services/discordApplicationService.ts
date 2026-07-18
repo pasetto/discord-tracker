@@ -318,6 +318,7 @@ const BOT_INVITE_PERMISSIONS = '36818496';
 
 /**
  * Monta URL de convite OAuth para instalar o bot em um servidor Discord.
+ * Bot silencioso: scope apenas `bot` (sem `applications.commands`).
  * @param clientId Client ID público do aplicativo
  * @param state Estado opcional para correlação pós-redirect
  * @returns URL de autorização do Discord
@@ -326,7 +327,7 @@ export function buildDiscordBotInstallUrl(clientId: string, state?: string): str
   const params = new URLSearchParams({
     client_id: clientId,
     permissions: BOT_INVITE_PERMISSIONS,
-    scope: 'bot applications.commands',
+    scope: 'bot',
   });
   if (state?.trim()) {
     params.set('state', state.trim());
