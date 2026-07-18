@@ -177,11 +177,19 @@ export class AppSidebarComponent implements OnInit, OnDestroy {
     });
   }
 
-  onSubmenuClick() {
-    this.isMobileOpen$.subscribe((isMobile) => {
-      if (isMobile) {
-        this.sidebarService.setMobileOpen(false);
-      }
-    }).unsubscribe();
+  /**
+   * Fecha o drawer mobile após navegação (links e logo).
+   * @returns {void}
+   */
+  closeMobileSidebar(): void {
+    this.sidebarService.setMobileOpen(false);
+  }
+
+  /**
+   * @deprecated Use {@link closeMobileSidebar} — mantido para compatibilidade.
+   * @returns {void}
+   */
+  onSubmenuClick(): void {
+    this.closeMobileSidebar();
   }
 }
