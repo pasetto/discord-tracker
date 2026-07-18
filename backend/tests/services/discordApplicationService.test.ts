@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildDiscordBotInstallUrl,
   formatDiscordBotTokenError,
   validateDiscordApplicationInputFormat,
 } from '../../src/services/discordApplicationService';
@@ -40,5 +41,20 @@ describe('formatDiscordBotTokenError', () => {
     const message = formatDiscordBotTokenError(401, '{"message":"401: Unauthorized"}');
     expect(message).toContain('401 Unauthorized');
     expect(message).toContain('Bot Token');
+  });
+});
+
+describe('buildDiscordBotInstallUrl', () => {
+  it('usa somente scope bot (sem applications.commands) e permissões de monitoramento', () => {
+    const url = buildDiscordBotInstallUrl('123456789012345678', 'org-1');
+    const parsed = new URL(url);
+    const scope = parsed.searchParams.get('scope');
+
+    expect(parsed.origin + parsed.pathname).toBe('https://discord.com/api/oauth2/authorize');
+    expect(parsed.searchParams.get('client_id')).toBe('123456789012345678');
+    expect(parsed.searchParams.get('permissions')).toBe('36818496');
+    expect(parsed.searchParams.get('state')).toBe('org-1');
+    expect(scope).toBe('bot');
+    expect(scope).not.toContain('applications.commands');
   });
 });

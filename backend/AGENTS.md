@@ -209,3 +209,15 @@ npm run seed:discord-app  # bot + super admin dev
 - Webhook síncrono no handler HTTP
 - Export sem JSDoc
 - Editar `Plan` sem incluir `features` completas (quebra gamificação)
+
+### Bot Discord silencioso (obrigatório)
+
+O bot do Syntra é **somente leitura** — monitora voz/presença/metadados de texto; **não interage** com usuários nem altera aparência social.
+
+**Proibido** em `backend/src/bot/` (e no invite OAuth):
+
+- `setActivity` / `setPresence` / `ActivityType`
+- `message.reply`, `channel.send`, `interaction.*` (slash commands, modals, follow-ups)
+- Scope OAuth `applications.commands` — invite usa somente `scope=bot`
+
+Handlers de eventos devem persistir sinais no banco; nunca responder no Discord.
