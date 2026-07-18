@@ -11,6 +11,8 @@ test.describe('Smoke de relatório de inatividade', () => {
     await expect(page.getByTestId('landing-problem')).toBeVisible();
     await expect(page.getByTestId('landing-how')).toBeVisible();
     await expect(page.getByTestId('landing-privacy')).toBeVisible();
+    await expect(page.getByTestId('landing-privacy')).toContainText(/metadados/i);
+    await expect(page.getByTestId('landing-privacy')).toContainText(/timesheet|ponto eletrônico/i);
   });
 
   test('rota de relatório exige autenticação', async ({ page }) => {

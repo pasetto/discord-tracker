@@ -14,6 +14,20 @@ import { ReportDateFilterComponent } from '../../../shared/components/report-dat
 type InactivityStatus = 'missing' | 'low_voice_collaboration' | 'returned' | 'on_planned_absence' | 'active';
 
 /**
+ * Tipo de ausência planejada no DTO semanal.
+ */
+type PlannedAbsenceType = 'vacation' | 'pto' | 'sick_leave' | 'other';
+
+/**
+ * Referência de ausência com tipo e janela.
+ */
+interface PlannedAbsenceRefDto {
+  type: PlannedAbsenceType;
+  startDate?: string;
+  endDate: string;
+}
+
+/**
  * Colunas ordenáveis da tabela de inatividade.
  */
 type InactivitySortColumn = 'displayName' | 'inactiveBusinessDays' | 'status';
@@ -41,6 +55,7 @@ interface InactivityReportEntryDto {
   lastTextActivityAt?: string;
   lastPresenceAt?: string;
   lastVoiceCollaborationAt?: string;
+  plannedAbsence?: PlannedAbsenceRefDto;
 }
 
 /**
@@ -388,6 +403,52 @@ export class InactivityReportComponent implements OnInit {
     };
 
     return labels[status];
+  }
+
+  /**
+   * Rótulo pt-BR do tipo de ausência planejada.
+   * @param type Tipo técnico da ausência
+   * @returns Label amigável
+   */
+  getAbsenceTypeLabel(type: PlannedAbsenceType): string {
+    const labels: Record<PlannedAbsenceType, string> = {
+      pto: 'PTO',
+      vacation: 'Férias',
+      sick_leave: 'Atestado',
+      other: 'Outra ausência',
+    };
+    return labels[type];
+  }
+
+  /**
+   * Texto de explicabilidade para ausência planejada (tipo + janela).
+   * @param entry Entrada do relatório com plannedAbsence opcional
+   * @returns Mensagem legível ou fallback do status
+   */
+  getPlannedAbsenceExplainLabel(entry: InactivityReportEntryDto): string {
+    if (!entry.plannedAbsence) {
+      return this.getStatusLabel(entry.status);
+    }
+
+    const typeLabel = this.getAbsenceTypeLabel(entry.plannedAbsence.type);
+    const start = entry.plannedAbsence.startDate
+      ? new Date(entry.plannedAbsence.startDate)
+      : null;
+    const end = entry.plannedAbsence.endDate ? new Date(entry.plannedAbsence.endDate) : null;
+    const startLabel =
+      start && !Number.isNaN(start.getTime())
+        ? start.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+        : null;
+    const endLabel =
+      end && !Number.isNaN(end.getTime())
+        ? end.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+        : null;
+
+    if (startLabel && endLabel) {
+      return `${typeLabel} · ${startLabel} – ${endLabel}`;
+    }
+
+    return typeLabel;
   }
 
   /**
