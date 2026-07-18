@@ -57,4 +57,10 @@ describe('DatePickerComponent', () => {
 
     expect(picker.getApiValue()).toBe('2026-01-15');
   });
+
+  it('mantém o calendário flatpickr oculto enquanto fechado', () => {
+    const calendar = document.querySelector('.flatpickr-calendar') as HTMLElement | null;
+    expect(calendar).withContext('flatpickr deve criar .flatpickr-calendar no DOM').not.toBeNull();
+    expect(getComputedStyle(calendar!).display).toBe('none');
+  });
 });

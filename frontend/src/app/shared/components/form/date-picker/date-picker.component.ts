@@ -15,7 +15,6 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import flatpickr from 'flatpickr';
 import { Portuguese } from 'flatpickr/dist/l10n/pt';
 import { LabelComponent } from '../label/label.component';
-import 'flatpickr/dist/flatpickr.css';
 
 /**
  * Payload legado emitido por `dateChange` (demo TailAdmin).
