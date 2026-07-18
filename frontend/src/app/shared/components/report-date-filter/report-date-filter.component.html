@@ -14,19 +14,11 @@
   <div *ngIf="selectedPreset === 'custom'" class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
     <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
       De
-      <input
-        type="date"
-        class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-        [(ngModel)]="customFrom"
-      />
+      <app-date-picker id="report-date-from" [(ngModel)]="customFrom" />
     </label>
     <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
       Até
-      <input
-        type="date"
-        class="min-h-11 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-        [(ngModel)]="customTo"
-      />
+      <app-date-picker id="report-date-to" [(ngModel)]="customTo" />
     </label>
     <button
       type="button"

@@ -8,6 +8,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { ModalComponent } from '../../shared/components/ui/modal/modal.component';
+import { DatePickerComponent } from '../../shared/components/form/date-picker/date-picker.component';
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
@@ -21,7 +22,8 @@ interface CalendarEvent extends EventInput {
     FormsModule,
     KeyValuePipe,
     FullCalendarModule,
-    ModalComponent
+    ModalComponent,
+    DatePickerComponent,
   ],
   templateUrl: './calender.component.html',
   styles: ``

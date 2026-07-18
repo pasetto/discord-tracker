@@ -80,11 +80,11 @@
         </label>
         <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
           Início
-          <input type="date" class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="requestForm.startDate" />
+          <app-date-picker id="me-absence-start" [(ngModel)]="requestForm.startDate" />
         </label>
         <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
           Fim
-          <input type="date" class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="requestForm.endDate" />
+          <app-date-picker id="me-absence-end" [(ngModel)]="requestForm.endDate" />
         </label>
         <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 md:col-span-2">
           Observação
