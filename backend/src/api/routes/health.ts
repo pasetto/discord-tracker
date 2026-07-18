@@ -1,11 +1,37 @@
 import Router from '@koa/router';
 import { getDiscordPing } from '../../bot/client';
+import { getAlertsReadiness } from '../../services/alertsReadinessService';
 import { evaluateProcessHealth } from '../health/processHealth';
 import { extractApiKey, isValidApiKey } from '../middleware/auth';
 import { getUptimeSeconds } from '../server';
 
 /** Rotas de healthcheck. */
 export const healthRouter = new Router();
+
+
+/**
+ * GET /health/alerts - Prontidão de canais de alerta (SMTP + VAPID).
+ * Sempre 200; só booleans seguros — não expõe secrets nem falha o processo.
+ *
+ * @openapi
+ * /health/alerts:
+ *   get:
+ *     tags: [Health]
+ *     summary: Prontidão SMTP/VAPID para alertas
+ *     responses:
+ *       200:
+ *         description: Flags de configuração (sem secrets)
+ */
+healthRouter.get('/health/alerts', (ctx) => {
+  const alerts = getAlertsReadiness();
+
+  ctx.status = 200;
+  ctx.body = {
+    ...alerts,
+    timestamp: new Date().toISOString(),
+  };
+});
+
 
 /**
  * GET /health/live - Liveness probe (processo vivo, não em shutdown).

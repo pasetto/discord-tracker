@@ -70,4 +70,20 @@ describe('health routes', () => {
     expect(response.status).toBe(200);
     expect(response.body.status).toBe('alive');
   });
+
+  it('retorna booleans seguros em /health/alerts sem secrets', async () => {
+    process.env.SMTP_HOST = 'smtp.example.com';
+    process.env.SMTP_FROM = 'noreply@syntra.app';
+    process.env.VAPID_PUBLIC_KEY = 'public-key';
+    process.env.VAPID_PRIVATE_KEY = 'private-key';
+    process.env.VAPID_SUBJECT = 'mailto:support@syntra.app';
+
+    const app = createApp();
+    const response = await request(app.callback()).get('/health/alerts');
+
+    expect(response.status).toBe(200);
+    expect(response.body.emailConfigured).toBe(true);
+    expect(response.body.vapidConfigured).toBe(true);
+    expect(JSON.stringify(response.body)).not.toMatch(/private-key|smtp\.example\.com|noreply@/);
+  });
 });

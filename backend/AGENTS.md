@@ -43,6 +43,7 @@ backend/src/
 | `/health` | `health.ts` | healthcheck legado |
 | `/health/live` | `health.ts` | liveness (processo vivo) |
 | `/health/ready` | `health.ts` | readiness (PM2 `wait_ready`, Docker, LB) |
+| `/health/alerts` | `health.ts` | SMTP/VAPID prontidão (booleans seguros) |
 | `/webhooks/stripe` | `webhooks/stripe.ts` | Stripe events |
 | `/admin/discord/bootstrap` | `adminDiscord.ts` | só dev — primeiro cadastro bot |
 
