@@ -60,5 +60,18 @@ describe('PricingSectionComponent', () => {
     expect(content).toContain('Business');
     expect(content).toContain('R$ 299');
     expect(content).toContain('Webhooks de integração');
+    expect(content).toContain('Criar conta');
+    expect(content).not.toContain('Começar agora');
+  });
+
+  it('mostra mensagem de erro e mantém fallback quando a API falha', () => {
+    const request = httpMock.expectOne('/api/v1/pricing');
+    request.flush('erro', { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    const content = fixture.nativeElement.textContent as string;
+    expect(content).toMatch(/não deu para carregar os planos/i);
+    expect(fixture.nativeElement.querySelector('[data-testid="landing-pricing-error"]')).toBeTruthy();
+    expect(content).toContain('Criar conta');
   });
 });
