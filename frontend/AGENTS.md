@@ -145,7 +145,7 @@ Se ranking bloqueado: verificar `Plan.features.ranking` no admin (`/admin/plans`
 - Push: `PushNotificationService` → `POST /org/:orgId/push/subscribe`
 - Sem Capacitor
 
-## Testes
+## Testes (obrigatório — passar e gerar)
 
 ```bash
 npm run test --workspace=frontend
@@ -153,7 +153,13 @@ npm run test:coverage --workspace=frontend   # meta 70% core/features
 npm run test:e2e --workspace=frontend
 ```
 
+**Geração obrigatória:** toda mudança em componentes, services, guards, pipes ou utils sob `frontend/src/app/` **deve** incluir spec novo ou atualizado (`.spec.ts`) no mesmo PR. Só “suite existente passando” sem cobrir o comportamento novo **não** cumpre a regra.
+
+**Full-stack:** se a mesma feature altera API/backend, o PR também precisa de specs Vitest no backend — ver [backend/AGENTS.md](../backend/AGENTS.md) e o template de PR.
+
 Specs críticos: auth guard, inactivity, goals, gamification settings, ranking report, superAdmin guard.
+
+**Anti-pattern:** shippar tela/regra de negócio sem spec correspondente.
 
 ## Responsividade
 
