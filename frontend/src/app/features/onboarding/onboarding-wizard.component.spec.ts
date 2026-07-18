@@ -29,6 +29,16 @@ describe('OnboardingWizardComponent', () => {
     expect(step5?.secondaryActionRoute).toBe('/app/settings/inactivity');
   });
 
+  it('passo 1 inclui compromisso de privacidade em uma linha', () => {
+    const fixture = TestBed.createComponent(OnboardingWizardComponent);
+    const step1 = fixture.componentInstance.steps.find((item) => item.step === 1);
+    const description = step1?.description ?? '';
+
+    expect(description).toMatch(/metadados/i);
+    expect(description).toMatch(/mensagen|áudio|audio|DM/i);
+    expect(description.toLowerCase()).not.toContain('produtividade');
+  });
+
   it('deve renderizar seletor de canais embutido no passo 4 atual', () => {
     const fixture = TestBed.createComponent(OnboardingWizardComponent);
     const onboardingProgressService = TestBed.inject(OnboardingProgressService);
