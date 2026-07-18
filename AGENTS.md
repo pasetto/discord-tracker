@@ -78,6 +78,43 @@ Toda rota `/api/v1/org/:orgId/*` passa por `jwtAuth` + `tenantMiddleware` — `o
 | Portal colaborador | rotas `/me/*` | `/app/me` |
 | Onboarding | `onboarding` routes | `/app/onboarding` (8 passos) |
 
+## Autoria Git (obrigatório — conta GitHub `pasetto`)
+
+Todos os commits neste repositório devem aparecer no GitHub sob a conta **[pasetto](https://github.com/pasetto)** (Eduardo Pasetto). Não criar “ghost authors” com nomes de agentes, hostname da VM ou e-mails locais.
+
+| Campo | Valor obrigatório |
+|-------|-------------------|
+| `user.name` | `Eduardo Pasetto` |
+| `user.email` | `eduardo@nanodesign.com.br` |
+
+**Antes do primeiro `git commit` no heartbeat**, conferir:
+
+```bash
+git config user.name   # Eduardo Pasetto
+git config user.email  # eduardo@nanodesign.com.br
+```
+
+Se estiver errado (ex.: `Ubuntu`, `Syntra CEO`, `Cursor Agent`, `*.local`, hostname da VM):
+
+```bash
+git config user.name "Eduardo Pasetto"
+git config user.email "eduardo@nanodesign.com.br"
+```
+
+**Proibido:**
+
+- `git -c user.name=…` / `GIT_AUTHOR_*` / `GIT_COMMITTER_*` com outro nome ou e-mail
+- Autor com nome do agente Paperclip (CEO, FoundingEngineer, etc.)
+- Usar o autor padrão do Cursor Agent (`cursoragent@users.noreply.github.com`)
+
+**Permitido no rodapé da mensagem** (não muda o autor do commit):
+
+```
+Co-Authored-By: Paperclip <noreply@paperclip.ing>
+```
+
+Histórico antigo com autores fantasma **não** é reescrito por padrão (evita force-push em `main`). Novos commits devem seguir a tabela acima.
+
 ## Regras invioláveis
 
 1. **Multitenant:** toda query inclui `organizationId` — nunca confiar em ID vindo do client sem validar membership.

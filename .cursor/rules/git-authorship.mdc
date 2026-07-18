@@ -1,0 +1,19 @@
+---
+description: Unifica autoria Git na conta GitHub pasetto (Eduardo Pasetto)
+alwaysApply: true
+---
+
+# Autoria Git — conta `pasetto`
+
+Todos os commits devem usar:
+
+- `user.name`: `Eduardo Pasetto`
+- `user.email`: `eduardo@nanodesign.com.br`
+
+Antes do primeiro commit no heartbeat, conferir `git config user.name` e `git config user.email`.
+
+**Proibido:** autor `Ubuntu`, `Syntra CEO`, `Cursor Agent`, nomes de agentes Paperclip, e-mails `*.local` ou hostname da VM; overrides via `git -c user.*` / `GIT_AUTHOR_*` / `GIT_COMMITTER_*`.
+
+**Permitido no rodapé da mensagem:** `Co-Authored-By: Paperclip <noreply@paperclip.ing>` (não altera o autor do commit).
+
+Não reescrever histórico de `main` sem pedido explícito do board.
