@@ -2,17 +2,20 @@
   "name": "syntra",
   "version": "1.2.2",
   "private": true,
-  "description": "Syntra — SaaS B2B de colaboração no Discord",
+  "description": "Syntra \u2014 SaaS B2B de colabora\u00e7\u00e3o no Discord",
   "workspaces": [
     "backend",
-    "frontend"
+    "frontend",
+    "site"
   ],
   "scripts": {
     "test": "npm run test --workspace=backend && npm run test --workspace=frontend",
     "build": "npm run build --workspace=backend && npm run build --workspace=frontend",
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run start --workspace=frontend",
-    "lint": "npm run lint --workspace=backend"
+    "lint": "npm run lint --workspace=backend",
+    "build:site": "npm run build --workspace=site",
+    "dev:site": "npm run dev --workspace=site"
   },
   "engines": {
     "node": ">=22.0.0"

@@ -1,0 +1,257 @@
+/**
+ * Tokens e base visual da landing Syntra.
+ * Direção: “radar de colaboração ao entardecer” — tinta profunda + sinal teal,
+ * sem purple-gradient genérico e sem cream+terracotta de template.
+ */
+
+:root {
+  /* Neutros tintados para a tinta da marca (hue ~250), sem cream/sand AI. */
+  --ink: oklch(0.2 0.028 250);
+  --ink-soft: oklch(0.3 0.024 250);
+  --paper: oklch(0.985 0.004 250);
+  --paper-2: oklch(0.955 0.008 250);
+  --muted: oklch(0.45 0.022 250);
+  --line: oklch(0.88 0.012 250);
+  --signal: oklch(0.68 0.11 195);
+  --signal-deep: oklch(0.48 0.1 205);
+  --alert: oklch(0.72 0.14 55);
+  --surface-dark: oklch(0.17 0.032 250);
+  --hero-veil: oklch(0.15 0.038 250 / 0.78);
+
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "Public Sans", system-ui, sans-serif;
+
+  --space-xs: clamp(0.5rem, 0.4rem + 0.4vw, 0.75rem);
+  --space-sm: clamp(0.85rem, 0.7rem + 0.6vw, 1.15rem);
+  --space-md: clamp(1.25rem, 1rem + 1vw, 1.75rem);
+  --space-lg: clamp(2rem, 1.4rem + 2vw, 3rem);
+  --space-xl: clamp(3rem, 2rem + 3.5vw, 5rem);
+  --space-2xl: clamp(4.5rem, 3rem + 5vw, 7.5rem);
+
+  --content: 68rem;
+  --radius: 0.35rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+  text-wrap: balance;
+  color: var(--ink);
+}
+
+h1 {
+  font-size: clamp(2.35rem, 1.6rem + 3.2vw, 4.25rem);
+  margin: 0 0 var(--space-sm);
+}
+
+h2 {
+  font-size: clamp(1.75rem, 1.35rem + 1.6vw, 2.65rem);
+  margin: 0 0 var(--space-sm);
+}
+
+h3 {
+  font-size: clamp(1.15rem, 1rem + 0.5vw, 1.35rem);
+  margin: 0 0 var(--space-xs);
+}
+
+p {
+  margin: 0 0 var(--space-sm);
+  text-wrap: pretty;
+  max-width: 68ch;
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.wrap {
+  width: min(100% - 2.5rem, var(--content));
+  margin-inline: auto;
+}
+
+.section {
+  padding-block: var(--space-2xl);
+}
+
+.section--tight {
+  padding-block: var(--space-xl);
+}
+
+.section__lead {
+  color: var(--ink-soft);
+  font-size: 1.125rem;
+  max-width: 58ch;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.85rem;
+  padding: 0.7rem 1.35rem;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 220ms var(--ease-out),
+    background-color 220ms var(--ease-out),
+    border-color 220ms var(--ease-out),
+    color 220ms var(--ease-out);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 3px;
+}
+
+.btn--primary {
+  background: var(--signal);
+  color: var(--ink);
+}
+
+.btn--primary:hover {
+  background: oklch(0.74 0.11 195);
+  transform: translateY(-1px);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--paper);
+  border-color: oklch(1 0 0 / 0.28);
+}
+
+.btn--ghost:hover {
+  border-color: oklch(1 0 0 / 0.55);
+  background: oklch(1 0 0 / 0.06);
+}
+
+.btn--ink {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.btn--ink:hover {
+  background: var(--ink-soft);
+  transform: translateY(-1px);
+}
+
+.link-quiet {
+  text-decoration: none;
+  font-weight: 560;
+  color: inherit;
+  opacity: 0.88;
+}
+
+.link-quiet:hover {
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.reveal {
+  animation: rise 700ms var(--ease-out) both;
+}
+
+.reveal-delay-1 {
+  animation-delay: 90ms;
+}
+
+.reveal-delay-2 {
+  animation-delay: 180ms;
+}
+
+.reveal-delay-3 {
+  animation-delay: 270ms;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0.01;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes drift {
+  from {
+    transform: scale(1.05) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.12) translate3d(-1.5%, 1%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal-delay-1,
+  .reveal-delay-2,
+  .reveal-delay-3 {
+    animation: none;
+  }
+
+  .hero__media img {
+    animation: none !important;
+  }
+}
