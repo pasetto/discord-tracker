@@ -250,109 +250,101 @@ async function main() {
     provision: null,
   };
 
-  if (!smokeOrgId) {
+  if (!smokeUserId && !smokeOrgId) {
     summary.provision = {
       applied: false,
-      reason: 'SMOKE_ORG_ID não informado — inspeção apenas',
+      reason: 'Inspeção apenas (informe SMOKE_USER_ID para anexar admin ao piloto)',
     };
     console.log(JSON.stringify(summary, null, 2));
     await mongoose.disconnect();
     process.exit(botGuilds.length > 0 ? 0 : 3);
   }
 
-  if (botGuilds.length === 0) {
+  if (!smokeUserId || !mongoose.Types.ObjectId.isValid(smokeUserId)) {
     summary.provision = {
       applied: false,
-      reason: 'Bot sem guilds — instalar via OAuth invite no guild de teste',
+      reason: 'SMOKE_USER_ID obrigatório para anexar admin ao tenant piloto',
+    };
+    console.log(JSON.stringify(summary, null, 2));
+    await mongoose.disconnect();
+    process.exit(6);
+  }
+
+  const pilotConnection = connections.find((c) => c.isActive && c.isMonitoringEnabled);
+  if (!pilotConnection) {
+    summary.provision = {
+      applied: false,
+      reason: 'Nenhuma GuildConnection ativa — instalar bot num guild de teste',
     };
     console.log(JSON.stringify(summary, null, 2));
     await mongoose.disconnect();
     process.exit(3);
   }
 
-  const targetGuild = smokeGuildId
-    ? botGuilds.find((g) => g.id === smokeGuildId)
-    : freeGuilds[0] || botGuilds[0];
-
-  if (!targetGuild) {
-    summary.provision = {
-      applied: false,
-      reason: `Guild ${smokeGuildId || '(auto)'} não encontrado no bot`,
-    };
-    console.log(JSON.stringify(summary, null, 2));
-    await mongoose.disconnect();
-    process.exit(4);
-  }
-
-  if (takenGuildIds.has(targetGuild.id) && !smokeGuildId) {
-    // Reusa o mesmo guild se for o único e já estiver ligado a OUTRA org — Eng precisa de um livre.
-    // Se o único está taken, reporta e não rouba sem guildId explícito.
-  }
-
-  const orgObjectId = new mongoose.Types.ObjectId(smokeOrgId);
-  const org = await db.collection(orgCol).findOne({ _id: orgObjectId });
-  if (!org) {
-    summary.provision = { applied: false, reason: `Org ${smokeOrgId} não existe` };
+  const pilotOrgId = String(pilotConnection.organizationId);
+  const pilotOrg = orgById.get(pilotOrgId) || (await db.collection(orgCol).findOne({
+    _id: new mongoose.Types.ObjectId(pilotOrgId),
+  }));
+  if (!pilotOrg) {
+    summary.provision = { applied: false, reason: `Org piloto ${pilotOrgId} não encontrada` };
     console.log(JSON.stringify(summary, null, 2));
     await mongoose.disconnect();
     process.exit(5);
   }
 
-  const selectedBy =
-    smokeUserId && mongoose.Types.ObjectId.isValid(smokeUserId)
-      ? new mongoose.Types.ObjectId(smokeUserId)
-      : undefined;
+  const usersCol = await resolveCollectionName(['platformusers', 'platform_users', 'PlatformUser'], 'platformuser');
+  const userObjectId = new mongoose.Types.ObjectId(smokeUserId);
+  const smokeUser = await db.collection(usersCol).findOne({ _id: userObjectId });
+  if (!smokeUser) {
+    summary.provision = { applied: false, reason: `SMOKE_USER_ID ${smokeUserId} não existe` };
+    console.log(JSON.stringify(summary, null, 2));
+    await mongoose.disconnect();
+    process.exit(5);
+  }
+
+  const alreadyMember = (smokeUser.memberships || []).some(
+    (m) => String(m.organizationId) === pilotOrgId,
+  );
+
+  const attachPlan = {
+    mode: 'attach_admin_to_existing_pilot',
+    organizationId: pilotOrgId,
+    orgSlug: pilotOrg.slug,
+    orgName: pilotOrg.name,
+    guildId: pilotConnection.guildId,
+    guildName: pilotConnection.guildName,
+    smokeUserId,
+    smokeEmail: smokeUser.email,
+    role: 'admin',
+    alreadyMember,
+  };
 
   if (dryRun) {
-    summary.provision = {
-      applied: false,
-      dryRun: true,
-      wouldLink: {
-        organizationId: smokeOrgId,
-        orgSlug: org.slug,
-        orgName: org.name,
-        guildId: targetGuild.id,
-        guildName: targetGuild.name,
-      },
-    };
+    summary.provision = { applied: false, dryRun: true, wouldAttach: attachPlan };
     console.log(JSON.stringify(summary, null, 2));
     await mongoose.disconnect();
     process.exit(0);
   }
 
-  await db.collection(guildConnCol).updateMany(
-    { organizationId: orgObjectId },
-    { $set: { isMonitoringEnabled: false } },
-  );
-
-  const now = new Date();
-  await db.collection(guildConnCol).updateOne(
-    { organizationId: orgObjectId, guildId: targetGuild.id },
-    {
-      $set: {
-        organizationId: orgObjectId,
-        guildId: targetGuild.id,
-        guildName: targetGuild.name,
-        botInstalledAt: now,
-        isActive: true,
-        isMonitoringEnabled: true,
-        selectedAt: now,
-        ...(selectedBy ? { selectedBy } : {}),
-        updatedAt: now,
+  if (!alreadyMember) {
+    const now = new Date();
+    await db.collection(usersCol).updateOne(
+      { _id: userObjectId },
+      {
+        $push: {
+          memberships: {
+            organizationId: new mongoose.Types.ObjectId(pilotOrgId),
+            role: 'admin',
+            invitedAt: now,
+            acceptedAt: now,
+          },
+        },
+        $set: { updatedAt: now },
       },
-      $setOnInsert: { createdAt: now },
-    },
-    { upsert: true },
-  );
+    );
+  }
 
-  summary.provision = {
-    applied: true,
-    organizationId: smokeOrgId,
-    orgSlug: org.slug,
-    orgName: org.name,
-    guildId: targetGuild.id,
-    guildName: targetGuild.name,
-  };
+  summary.provision = { applied: true, ...attachPlan };
   console.log(JSON.stringify(summary, null, 2));
   await mongoose.disconnect();
   process.exit(0);
