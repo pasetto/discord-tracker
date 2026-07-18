@@ -7,6 +7,10 @@ import { createLogger } from '../logger';
 import { internalAuthMiddleware } from './middleware/internalAuth';
 import { buildGuildLiveDashboardOnBotInstance } from '../services/dashboardLiveService';
 import { listGuildDiscordChannelsOnBotInstance } from '../services/discordGuildChannelService';
+import {
+  getInstalledGuildSummaryOnBotInstance,
+  listInstalledGuildSummariesOnBotInstance,
+} from '../services/discordInstalledGuildsService';
 import { listHumanGuildMembersOnBotInstance } from '../services/trackedUserService';
 import { getInternalDiscordPort } from '../services/discordClusterProxy';
 
@@ -26,6 +30,11 @@ function createInternalDiscordApp(): Koa {
       guildCount: discordClient.isReady() ? discordClient.guilds.cache.size : 0,
       runsBackgroundJobs: true,
     };
+  });
+
+  router.get('/internal/discord/guilds', (ctx) => {
+    const guilds = listInstalledGuildSummariesOnBotInstance();
+    ctx.body = { guilds, guildCount: guilds.length };
   });
 
   router.get('/internal/discord/guilds/:guildId/channels', async (ctx) => {
@@ -57,6 +66,22 @@ function createInternalDiscordApp(): Koa {
     try {
       const snapshot = await buildGuildLiveDashboardOnBotInstance(guildId, organizationId);
       ctx.body = snapshot;
+    } catch (error) {
+      ctx.status = 503;
+      ctx.body = { error: (error as Error).message };
+    }
+  });
+
+  router.get('/internal/discord/guilds/:guildId', async (ctx) => {
+    const guildId = ctx.params.guildId;
+    try {
+      const guild = await getInstalledGuildSummaryOnBotInstance(guildId);
+      if (!guild) {
+        ctx.status = 404;
+        ctx.body = { error: 'Servidor não encontrado para o bot atual' };
+        return;
+      }
+      ctx.body = { guild };
     } catch (error) {
       ctx.status = 503;
       ctx.body = { error: (error as Error).message };
