@@ -37,8 +37,15 @@ describe('AppLayoutComponent', () => {
         {
           provide: AuthService,
           useValue: {
+            getDisplayName: () => 'Gestor Teste',
+            getUser: () => ({ email: 'gestor@test.com' }),
+            getOrganization: () => ({ name: 'Org Teste' }),
             getOrganizationId: () => 'org-test',
+            getActiveOrganizations: () => [],
             isSuperAdmin: () => false,
+            syncSession: () => of(undefined),
+            switchOrganization: () => of(undefined),
+            logout: jasmine.createSpy('logout'),
           },
         },
         {
@@ -47,6 +54,7 @@ describe('AppLayoutComponent', () => {
             progress$: of({ completedSteps: [], status: 'not_started' }),
             load: () => of(null),
             shouldShowOnboardingBanner: () => false,
+            isOnboardingComplete: true,
           },
         },
       ],
