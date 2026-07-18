@@ -98,7 +98,8 @@
             ],
             "include": [
               "src/app/core/**/*.spec.ts",
-              "src/app/features/**/*.spec.ts"
+              "src/app/features/**/*.spec.ts",
+              "src/app/shared/layout/auth-page-layout/**/*.spec.ts"
             ],
             "assets": [
               {

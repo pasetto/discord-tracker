@@ -1,6 +1,6 @@
 @if (!isAuthenticated) {
 <app-auth-page-layout>
-  <div class="flex flex-col flex-1 w-full max-w-xl mx-auto overflow-y-auto lg:w-1/2 no-scrollbar">
+  <div class="no-scrollbar mx-auto flex min-w-0 w-full max-w-xl flex-1 flex-col overflow-x-hidden overflow-y-auto lg:w-1/2">
     <ng-container *ngTemplateOutlet="joinContent"></ng-container>
   </div>
 </app-auth-page-layout>
