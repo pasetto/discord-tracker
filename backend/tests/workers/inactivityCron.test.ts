@@ -8,7 +8,7 @@ const notifyManagersAboutMissingMembersMock = vi.hoisted(() => vi.fn());
 const sendWeeklyInactivityDigestToManagersMock = vi.hoisted(() => vi.fn());
 const getInactivitySettingsMock = vi.hoisted(() => vi.fn());
 const enqueueWebhookDeliveriesMock = vi.hoisted(() => vi.fn());
-const isBusinessDayMock = vi.hoisted(() => vi.fn());
+const isBusinessDayInTimezoneMock = vi.hoisted(() => vi.fn());
 const getZonedPartsMock = vi.hoisted(() => vi.fn());
 const loggerInfoMock = vi.hoisted(() => vi.fn());
 const loggerErrorMock = vi.hoisted(() => vi.fn());
@@ -53,8 +53,8 @@ vi.mock('../../src/services/webhookService', () => ({
   enqueueWebhookDeliveries: enqueueWebhookDeliveriesMock,
 }));
 
-vi.mock('../../src/services/workCalendarService', () => ({
-  isBusinessDay: isBusinessDayMock,
+vi.mock('../../src/utils/workWindowUtils', () => ({
+  isBusinessDayInTimezone: isBusinessDayInTimezoneMock,
 }));
 
 vi.mock('../../src/utils/timezone', () => ({
@@ -101,7 +101,7 @@ describe('inactivityCron', () => {
     getZonedPartsMock
       .mockReturnValueOnce({ year: 2026, month: 6, day: 22, hour: 8, minute: 0 })
       .mockReturnValueOnce({ year: 2026, month: 6, day: 22, hour: 8, minute: 0 });
-    isBusinessDayMock.mockReturnValue(true);
+    isBusinessDayInTimezoneMock.mockReturnValue(true);
     listTrackedGuildIdsByOrganizationMock.mockResolvedValue(['guild-1']);
     generateWeeklyInactivitySnapshotMock.mockResolvedValue({
       periodStart: new Date('2026-06-15'),
@@ -163,7 +163,7 @@ describe('inactivityCron', () => {
     getZonedPartsMock
       .mockReturnValueOnce({ year: 2026, month: 6, day: 24, hour: 8, minute: 0 })
       .mockReturnValueOnce({ year: 2026, month: 6, day: 24, hour: 8, minute: 0 });
-    isBusinessDayMock.mockReturnValue(true);
+    isBusinessDayInTimezoneMock.mockReturnValue(true);
     listTrackedGuildIdsByOrganizationMock.mockResolvedValue(['guild-1']);
     generateWeeklyInactivitySnapshotMock.mockResolvedValue({
       periodStart: new Date('2026-06-17'),
@@ -192,6 +192,43 @@ describe('inactivityCron', () => {
     expect(notifyManagersAboutMissingMembersMock).not.toHaveBeenCalled();
   });
 
+  it('avalia dia útil na timezone da organização (não em UTC puro)', async () => {
+    organizationFindMock.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockReturnValue({
+          exec: vi.fn().mockResolvedValue([
+            {
+              _id: '507f1f77bcf86cd799439001',
+              settings: { timezone: 'Asia/Tokyo' },
+            },
+          ]),
+        }),
+      }),
+    });
+
+    workCalendarFindOneMock.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockReturnValue({
+          exec: vi.fn().mockResolvedValue(null),
+        }),
+      }),
+    });
+
+    getZonedPartsMock.mockReturnValue({ year: 2026, month: 6, day: 22, hour: 8, minute: 0 });
+    isBusinessDayInTimezoneMock.mockReturnValue(true);
+    listTrackedGuildIdsByOrganizationMock.mockResolvedValue(['guild-1']);
+    generateWeeklyInactivitySnapshotMock.mockResolvedValue({ entries: [] });
+
+    const now = new Date('2026-06-21T23:00:00.000Z');
+    await runInactivityCronTick(now);
+
+    expect(isBusinessDayInTimezoneMock).toHaveBeenCalledWith(
+      expect.objectContaining({ workWeek: expect.any(Object) }),
+      now,
+      'Asia/Tokyo',
+    );
+  });
+
   it('evita reprocessar a mesma organização/guild no mesmo dia local', async () => {
     organizationFindMock.mockReturnValue({
       select: vi.fn().mockReturnValue({
@@ -215,7 +252,7 @@ describe('inactivityCron', () => {
     });
 
     getZonedPartsMock.mockReturnValue({ year: 2026, month: 6, day: 23, hour: 8, minute: 0 });
-    isBusinessDayMock.mockReturnValue(true);
+    isBusinessDayInTimezoneMock.mockReturnValue(true);
     listTrackedGuildIdsByOrganizationMock.mockResolvedValue(['guild-1']);
     generateWeeklyInactivitySnapshotMock.mockResolvedValue({
       entries: [{ status: 'active', discordId: '2', displayName: 'Bob', inactiveBusinessDays: 0 }],

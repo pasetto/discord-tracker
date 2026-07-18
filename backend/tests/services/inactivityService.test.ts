@@ -3,6 +3,7 @@ import {
   computeBusinessDaysBetween,
   computeInactivityStatus,
   applyReturnedStatus,
+  resolveLatestDate,
   type ComputeInactivityStatusInput,
 } from '../../src/services/inactivityService';
 import type { WorkCalendar } from '../../src/db/models/WorkCalendar';
@@ -98,6 +99,19 @@ describe('applyReturnedStatus', () => {
     expect(applyReturnedStatus('missing', 'missing')).toBe('missing');
     expect(applyReturnedStatus('active', 'active')).toBe('active');
     expect(applyReturnedStatus('active', undefined)).toBe('active');
+  });
+});
+
+describe('resolveLatestDate', () => {
+  it('retorna undefined quando não há datas válidas', () => {
+    expect(resolveLatestDate(undefined, null)).toBeUndefined();
+  });
+
+  it('escolhe a data mais recente e ignora undefined', () => {
+    const older = new Date('2026-01-01T00:00:00.000Z');
+    const newer = new Date('2026-01-05T00:00:00.000Z');
+    expect(resolveLatestDate(undefined, older, newer)).toEqual(newer);
+    expect(resolveLatestDate(newer, undefined)).toEqual(newer);
   });
 });
 

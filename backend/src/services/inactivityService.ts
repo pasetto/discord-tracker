@@ -111,6 +111,22 @@ function startOfUtcDay(value: Date): Date {
 }
 
 /**
+ * Retorna a data mais recente entre candidatos válidos.
+ * @param dates Datas opcionais (undefined/null são ignorados)
+ * @returns Maior instante encontrado, ou undefined quando não há candidatos
+ * @example
+ * resolveLatestDate(new Date('2026-01-01'), undefined, new Date('2026-01-03'))
+ */
+export function resolveLatestDate(...dates: Array<Date | undefined | null>): Date | undefined {
+  const valid = dates.filter((date): date is Date => date instanceof Date && !Number.isNaN(date.getTime()));
+  if (valid.length === 0) {
+    return undefined;
+  }
+
+  return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
+}
+
+/**
  * Converte string em ObjectId válido.
  * @param value Valor textual recebido da rota
  * @param label Nome lógico do campo para mensagens
@@ -455,10 +471,8 @@ export async function generateWeeklyInactivitySnapshot(
     const lastVoiceCollaborationAt = coreUserId
       ? lastVoiceByUserId.get(String(coreUserId))
       : undefined;
-    const latestSignalAt = [lastPresenceAt, lastTextActivityAt].filter((date): date is Date => Boolean(date)).reduce(
-      (latest, current) => (current.getTime() > latest.getTime() ? current : latest),
-      lastPresenceAt,
-    );
+    // Evita reduce com initial undefined (TypeError) quando só há texto ou nenhum sinal.
+    const latestSignalAt = resolveLatestDate(lastPresenceAt, lastTextActivityAt) ?? periodStart;
 
     const businessDaysInactive = computeBusinessDaysBetween({
       calendar,
