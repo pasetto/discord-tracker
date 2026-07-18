@@ -8,6 +8,7 @@ import {
   formatReportDateRangeLabel,
   resolveReportDateRange,
 } from '../../../core/reports/report-date-range.util';
+import { DatePickerComponent } from '../form/date-picker/date-picker.component';
 
 /**
  * Filtro reutilizável de período para telas de relatório (presets + intervalo customizado).
@@ -15,7 +16,7 @@ import {
 @Component({
   selector: 'app-report-date-filter',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DatePickerComponent],
   templateUrl: './report-date-filter.component.html',
 })
 export class ReportDateFilterComponent implements OnInit {

@@ -113,4 +113,9 @@ describe('MePortalComponent', () => {
 
     expect(component.requestMessage.toLowerCase()).toContain('solicitação enviada');
   });
+
+  it('usa datepicker em vez de input type=date no pedido de ausência', () => {
+    expect(fixture.nativeElement.querySelectorAll('input[type="date"]').length).toBe(0);
+    expect(fixture.nativeElement.querySelectorAll('app-date-picker').length).toBeGreaterThan(0);
+  });
 });

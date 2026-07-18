@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/auth/auth.service';
 import { TrackedMemberOption, TrackedMembersService } from '../../../core/members/tracked-members.service';
 import { MemberSelectComponent } from '../../../shared/components/member-select/member-select.component';
+import { DatePickerComponent } from '../../../shared/components/form/date-picker/date-picker.component';
 import {
   MeAbsenceRequestInput,
   MeAbsenceSummary,
@@ -48,7 +49,7 @@ interface MeAbsenceRequestForm {
 @Component({
   selector: 'app-me-portal',
   standalone: true,
-  imports: [CommonModule, FormsModule, MemberSelectComponent],
+  imports: [CommonModule, FormsModule, MemberSelectComponent, DatePickerComponent],
   templateUrl: './me-portal.component.html',
 })
 export class MePortalComponent implements OnInit {

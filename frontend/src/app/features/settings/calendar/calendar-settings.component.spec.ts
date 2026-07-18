@@ -21,4 +21,9 @@ describe('CalendarSettingsComponent', () => {
 
     expect(textContent).toContain('configurações de calendário');
   });
+
+  it('não usa input type=date nativo para feriados', () => {
+    const nativeDates = fixture.nativeElement.querySelectorAll('input[type="date"]');
+    expect(nativeDates.length).toBe(0);
+  });
 });

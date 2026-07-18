@@ -43,4 +43,10 @@ describe('AbsencesSettingsComponent', () => {
     expect(textContent).toContain('lista de ausências');
     expect(textContent).not.toContain('trackeduserid');
   });
+
+  it('usa datepicker em vez de input type=date', () => {
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('input[type="date"]').length).toBe(0);
+    expect(fixture.nativeElement.querySelectorAll('app-date-picker').length).toBeGreaterThan(0);
+  });
 });

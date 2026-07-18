@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TenantContextService } from '../../../core/tenant/tenant-context.service';
+import { DatePickerComponent } from '../../../shared/components/form/date-picker/date-picker.component';
 
 /**
  * Chaves válidas de dias da semana para configuração do calendário.
@@ -64,7 +65,7 @@ interface WorkWeekUiItem {
 @Component({
   selector: 'app-calendar-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DatePickerComponent],
   templateUrl: './calendar-settings.component.html',
 })
 export class CalendarSettingsComponent implements OnInit {

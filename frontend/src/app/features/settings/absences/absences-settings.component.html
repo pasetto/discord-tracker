@@ -84,11 +84,11 @@
         </label>
         <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
           Início
-          <input type="date" class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="createForm.startDate" />
+          <app-date-picker id="create-absence-start" [(ngModel)]="createForm.startDate" />
         </label>
         <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
           Fim
-          <input type="date" class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="createForm.endDate" />
+          <app-date-picker id="create-absence-end" [(ngModel)]="createForm.endDate" />
         </label>
         <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 md:col-span-2">
           Observação
@@ -115,11 +115,11 @@
         </label>
         <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
           Início
-          <input type="date" class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="editForm.startDate" />
+          <app-date-picker id="edit-absence-start" [(ngModel)]="editForm.startDate" />
         </label>
         <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200">
           Fim
-          <input type="date" class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="editForm.endDate" />
+          <app-date-picker id="edit-absence-end" [(ngModel)]="editForm.endDate" />
         </label>
         <label class="flex flex-col gap-1 text-sm text-gray-700 dark:text-gray-200 md:col-span-2">
           Observação

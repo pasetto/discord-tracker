@@ -6,6 +6,7 @@ import { RouterLink } from '@angular/router';
 import { TrackedMemberOption, TrackedMembersService } from '../../../core/members/tracked-members.service';
 import { TenantContextService } from '../../../core/tenant/tenant-context.service';
 import { MemberSelectComponent } from '../../../shared/components/member-select/member-select.component';
+import { DatePickerComponent } from '../../../shared/components/form/date-picker/date-picker.component';
 
 /**
  * Tipos de ausência suportados pelo backend.
@@ -44,7 +45,7 @@ interface AbsenceFormModel {
 @Component({
   selector: 'app-absences-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, MemberSelectComponent],
+  imports: [CommonModule, FormsModule, RouterLink, MemberSelectComponent, DatePickerComponent],
   templateUrl: './absences-settings.component.html',
 })
 export class AbsencesSettingsComponent implements OnInit {

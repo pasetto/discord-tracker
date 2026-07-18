@@ -75,9 +75,9 @@
       >
         <label class="flex flex-col gap-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
           Data
-          <input
-            type="date"
-            class="rounded-lg border border-gray-300 px-3 py-2 text-sm normal-case dark:border-gray-700 dark:bg-gray-900"
+          <app-date-picker
+            [id]="'holiday-date-' + idx"
+            class="normal-case"
             [(ngModel)]="holiday.date"
           />
         </label>
