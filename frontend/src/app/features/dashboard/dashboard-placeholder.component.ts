@@ -22,6 +22,7 @@ import {
   LiveMemberSnapshot,
   LiveVoiceTransitionEvent,
 } from '../../core/api/live-activity-socket.service';
+import { ProductTelemetryService } from '../../core/analytics/product-telemetry.service';
 import { TenantContextService } from '../../core/tenant/tenant-context.service';
 import { TrackedMembersService } from '../../core/members/tracked-members.service';
 import type {
@@ -57,6 +58,12 @@ import {
   sumCollaborationHours,
 } from './dashboard.utils';
 import {
+  buildHealthyInactivityEmptyCopy,
+  buildNoSyncedMembersCopy,
+  type DashboardHealthyEmptyCopy,
+  type DashboardNoMembersCopy,
+} from './dashboard-empty-state.util';
+import {
   getNonConcernExplainabilityEntries,
   type ExplainabilityListItem,
 } from './inactivity-explainability.utils';
@@ -88,6 +95,9 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
   liveLoading = false;
   errorMessage = '';
   lastUpdatedAt: string | null = null;
+  /** Indica se o total de membros rastreados já foi carregado ao menos uma vez. */
+  trackedTotalLoaded = false;
+  private firstUsefulViewEmitted = false;
 
   heatmapCells: DashboardHeatmapCell[] = [];
   readonly heatmapDayLabels = getHeatmapDayLabels();
@@ -138,7 +148,46 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
     private readonly tenantContext: TenantContextService,
     private readonly trackedMembersService: TrackedMembersService,
     private readonly liveActivitySocket: LiveActivitySocketService,
+    private readonly productTelemetry: ProductTelemetryService,
   ) {}
+
+  /**
+   * Empty state: há membros rastreados e zero alertas de atenção.
+   * @returns true quando o empty state “confiável” deve aparecer
+   */
+  get showTrustedEmptyState(): boolean {
+    return (
+      this.hasGuild &&
+      this.trackedTotalLoaded &&
+      this.trackedTotal > 0 &&
+      !this.intradayLoading &&
+      !this.weeklyLoading &&
+      this.attentionItems.length === 0
+    );
+  }
+
+  /**
+   * Empty state: servidor configurado mas nenhum membro sincronizado.
+   * @returns true quando o CTA único de sincronização deve aparecer
+   */
+  get showSyncMembersEmptyState(): boolean {
+    return (
+      this.hasGuild &&
+      this.trackedTotalLoaded &&
+      this.trackedTotal === 0 &&
+      !this.intradayLoading
+    );
+  }
+
+  /** Copy do empty state saudável (0 alertas com membros). */
+  get healthyEmptyCopy(): DashboardHealthyEmptyCopy {
+    return buildHealthyInactivityEmptyCopy();
+  }
+
+  /** Copy do empty state sem membros sincronizados. */
+  get syncMembersEmptyCopy(): DashboardNoMembersCopy {
+    return buildNoSyncedMembersCopy();
+  }
 
   /** Nome da organização ativa. */
   get organizationName(): string {
@@ -462,6 +511,7 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
         next: (response) => {
           this.intradayReport = response.report;
           this.intradayLoading = false;
+          this.maybeEmitFirstUsefulView();
         },
         error: () => {
           this.intradayLoading = false;
@@ -533,6 +583,11 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
     this.trackedMembersService.listMembers().subscribe({
       next: (members) => {
         this.trackedTotal = members.length;
+        this.trackedTotalLoaded = true;
+        this.maybeEmitFirstUsefulView();
+      },
+      error: () => {
+        this.trackedTotalLoaded = true;
       },
     });
   }
@@ -773,6 +828,26 @@ export class DashboardPlaceholderComponent implements OnInit, OnDestroy {
       },
     ];
     this.chartCategories = this.weeklyChartPoints.map((point) => point.label);
+  }
+
+  /**
+   * Emite `first_useful_inactivity_view` quando o dashboard já tem dados úteis
+   * (membros sincronizados ou empty state pós-setup com relatório carregado).
+   * @returns {void}
+   */
+  private maybeEmitFirstUsefulView(): void {
+    if (this.firstUsefulViewEmitted || !this.hasGuild || !this.trackedTotalLoaded) {
+      return;
+    }
+    if (this.intradayLoading || !this.intradayReport) {
+      return;
+    }
+
+    this.firstUsefulViewEmitted = true;
+    this.productTelemetry.trackFirstUsefulInactivityView('dashboard', {
+      trackedTotal: this.trackedTotal,
+      attentionCount: this.attentionCount,
+    });
   }
 
   /**

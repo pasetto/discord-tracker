@@ -39,12 +39,25 @@
   }
 
   @if (report && !report.available) {
-    <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-500/10">
+    <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-500/10" data-testid="ranking-unavailable">
       <h3 class="font-semibold text-gray-900 dark:text-white">Ranking indisponível</h3>
-      <p class="mt-2 text-sm text-gray-700 dark:text-gray-200">{{ report.reason }}</p>
-      <a routerLink="/app/settings/gamification" class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
-        Configurar gamificação
-      </a>
+      <p class="mt-2 text-sm text-gray-700 dark:text-gray-200">
+        {{ isLockedByPlan ? teamPlanGateCta : report.reason }}
+      </p>
+      @if (isLockedByPlan) {
+        <a
+          [routerLink]="teamUpgradeRoute"
+          [fragment]="teamUpgradeFragment"
+          class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
+          data-testid="ranking-team-upgrade"
+        >
+          Ver plano Team
+        </a>
+      } @else {
+        <a routerLink="/app/settings/gamification" class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+          Configurar gamificação
+        </a>
+      }
     </section>
   }
 

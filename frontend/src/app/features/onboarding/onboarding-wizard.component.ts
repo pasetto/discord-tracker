@@ -1,6 +1,6 @@
 import { AsyncPipe, DatePipe, NgClass, NgFor, NgIf } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 import { OnboardingProgress } from '../../core/onboarding/onboarding-progress.model';
 import { OnboardingProgressService } from '../../core/onboarding/onboarding-progress.service';
@@ -39,9 +39,9 @@ export class OnboardingWizardComponent implements OnInit {
     { step: 3, title: 'Escolher servidor', description: 'Selecione o servidor (guild) que será monitorado.', actionLabel: 'Conectar Discord', actionRoute: '/app/settings/discord' },
     { step: 4, title: 'Configurar canais', description: 'Defina canais de voz/texto colaborativos e exceções.', actionLabel: 'Abrir canais', actionRoute: '/app/settings/channels' },
     { step: 5, title: 'Calendário de trabalho', description: 'Aplique jornada padrão BR, revise feriados e configure os limiares de inatividade (dias sem sinal e colaboração mínima).', actionLabel: 'Abrir calendário', actionRoute: '/app/settings/calendar', secondaryActionLabel: 'Limiares de inatividade', secondaryActionRoute: '/app/settings/inactivity' },
-    { step: 6, title: 'Categorias do time', description: 'Organize membros por categorias como Dev e Suporte.', actionLabel: 'Abrir categorias', actionRoute: '/app/settings/categories' },
-    { step: 7, title: 'Atribuir membros', description: 'Atribua categorias para os membros rastreados do servidor.' },
-    { step: 8, title: 'Pronto', description: 'Finalize o onboarding e continue no dashboard.' },
+    { step: 6, title: 'Categorias do time', description: 'Opcional: organize membros por categorias como Dev e Suporte.', actionLabel: 'Abrir categorias', actionRoute: '/app/settings/categories' },
+    { step: 7, title: 'Atribuir membros', description: 'Opcional: atribua categorias para os membros rastreados do servidor.' },
+    { step: 8, title: 'Pronto', description: 'Finalize o onboarding e continue no dashboard de quem sumiu.' },
   ];
 
   /**
@@ -54,6 +54,7 @@ export class OnboardingWizardComponent implements OnInit {
   constructor(
     private readonly onboardingProgressService: OnboardingProgressService,
     private readonly authService: AuthService,
+    private readonly router: Router,
   ) {
     this.progress$ = this.onboardingProgressService.progress$;
   }
@@ -114,12 +115,50 @@ export class OnboardingWizardComponent implements OnInit {
   }
 
   /**
+   * Indica se o CTA de first-win deve aparecer (após canais + calendário).
+   * @param progress Progresso atual
+   * @returns true quando o atalho para o dashboard está liberado
+   */
+  canShowFirstWinCta(progress: OnboardingProgress): boolean {
+    return this.onboardingProgressService.canShowFirstWinCta(progress);
+  }
+
+  /**
+   * Indica se o checklist opcional (passos 6–7) ainda está pendente.
+   * @param progress Progresso atual
+   * @returns true quando categorias/membros podem ser feitos depois
+   */
+  hasDeferredSetup(progress: OnboardingProgress): boolean {
+    return this.onboardingProgressService.hasDeferredSetup(progress);
+  }
+
+  /**
+   * Atalho first-win: vai ao dashboard sem exigir passos 6–7.
+   * @returns {void}
+   */
+  goToFirstWin(): void {
+    const current = this.onboardingProgressService.currentProgress;
+    const completedSteps = Array.from(new Set([...current.completedSteps, 4, 5])).sort((a, b) => a - b);
+
+    this.onboardingProgressService
+      .save(this.orgId, {
+        completedSteps,
+        channelsConfigured: true,
+        calendarConfigured: true,
+      })
+      .subscribe(() => {
+        void this.router.navigateByUrl('/app/dashboard');
+      });
+  }
+
+  /**
    * Finaliza onboarding e registra etapa 8 como concluída.
+   * Não exige que 6–7 estejam feitos — marca o fluxo como encerrado.
    * @returns {void} Não retorna valor
    */
   completeOnboarding(): void {
     const current = this.onboardingProgressService.currentProgress;
-    const completedSteps = Array.from(new Set([...current.completedSteps, 1, 2, 3, 4, 5, 6, 7, 8])).sort(
+    const completedSteps = Array.from(new Set([...current.completedSteps, 1, 2, 3, 4, 5, 8])).sort(
       (a, b) => a - b,
     );
     this.onboardingProgressService
@@ -131,8 +170,8 @@ export class OnboardingWizardComponent implements OnInit {
         guildSelected: true,
         channelsConfigured: true,
         calendarConfigured: true,
-        categoriesConfigured: true,
-        membersAssigned: true,
+        categoriesConfigured: current.categoriesConfigured,
+        membersAssigned: current.membersAssigned,
       })
       .subscribe();
   }
@@ -174,4 +213,3 @@ export class OnboardingWizardComponent implements OnInit {
       .subscribe();
   }
 }
-

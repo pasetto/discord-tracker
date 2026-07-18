@@ -3,6 +3,11 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import {
+  TEAM_PLAN_GATE_CTA,
+  TEAM_PLAN_UPGRADE_FRAGMENT,
+  TEAM_PLAN_UPGRADE_ROUTE,
+} from '../../../core/pricing/team-plan-gate.util';
 import { TenantContextService } from '../../../core/tenant/tenant-context.service';
 
 /**
@@ -167,10 +172,21 @@ export class GamificationSettingsComponent implements OnInit {
 
   /**
    * Mensagem contextual quando ranking está bloqueado pelo plano.
+   * Copy humana de paywall Team (sem jargão de admin).
    */
   get rankingPlanLockMessage(): string {
-    return `Ranking indisponível no plano ${this.planInfo.name} — habilite "ranking" nas features do plano no painel admin.`;
+    return TEAM_PLAN_GATE_CTA;
   }
+
+  /**
+   * Rota existente para upgrade/pricing (landing).
+   */
+  readonly teamUpgradeRoute = TEAM_PLAN_UPGRADE_ROUTE;
+
+  /**
+   * Fragmento da âncora de pricing na landing.
+   */
+  readonly teamUpgradeFragment = TEAM_PLAN_UPGRADE_FRAGMENT;
 
   /**
    * Verifica se toggle de ranking deve ficar bloqueado pelo plano.

@@ -2,14 +2,16 @@
   *ngIf="showBanner$ | async"
   class="mb-4 flex flex-col gap-2 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-warning-800 md:flex-row md:items-center md:justify-between"
 >
-  <p class="text-sm font-medium">
-    Complete o setup ({{ progressText$ | async }})
-  </p>
+  <div class="space-y-1">
+    <p class="text-sm font-medium">
+      {{ bannerMessage$ | async }}
+      <span class="font-normal text-warning-700">({{ progressText$ | async }})</span>
+    </p>
+  </div>
   <a
     routerLink="/app/onboarding"
     class="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-warning-500 px-3 py-2 text-sm font-semibold text-white hover:bg-warning-600 sm:w-fit"
   >
-    Continuar configuração
+    {{ bannerCtaLabel$ | async }}
   </a>
 </section>
-

@@ -2,7 +2,7 @@
   <header class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
     <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Onboarding guiado (8 passos)</h2>
     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-      Complete a configuração inicial para liberar todo o valor de colaboração e inatividade.
+      Após canais e calendário, você já pode ver quem sumiu. Categorias e membros ficam para depois.
     </p>
   </header>
 
@@ -12,6 +12,33 @@
       class="rounded-xl border border-success-300 bg-success-50 px-4 py-3 text-sm text-success-700 dark:border-success-700 dark:bg-success-500/10 dark:text-success-300"
     >
       Onboarding concluído em {{ progress.completedAt | date: 'dd/MM/yyyy HH:mm' }}. Você pode revisar os passos abaixo ou ir direto ao dashboard.
+    </section>
+
+    <section
+      *ngIf="canShowFirstWinCta(progress)"
+      class="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-500/10"
+      data-testid="first-win-cta"
+    >
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Primeiro resultado pronto</h3>
+      <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+        Com canais e calendário configurados, abra o dashboard para ver quem sumiu — sem obrigar categorias agora.
+      </p>
+      <div class="mt-4 flex flex-wrap gap-3">
+        <button
+          type="button"
+          class="inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
+          (click)="goToFirstWin()"
+        >
+          Ver quem sumiu agora
+        </button>
+        <a
+          *ngIf="hasDeferredSetup(progress)"
+          routerLink="/app/settings/categories"
+          class="inline-flex min-h-11 items-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+        >
+          Continuar checklist (opcional)
+        </a>
+      </div>
     </section>
 
     <div class="grid gap-3 md:grid-cols-2">
@@ -107,4 +134,3 @@
     </footer>
   </ng-container>
 </section>
-
