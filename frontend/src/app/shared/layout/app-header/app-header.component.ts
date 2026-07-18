@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { SidebarService } from '../../services/sidebar.service';
+import { SIDEBAR_DESKTOP_BREAKPOINT_PX, SidebarService } from '../../services/sidebar.service';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ThemeToggleButtonComponent } from '../../components/common/theme-toggle/theme-toggle-button.component';
@@ -36,20 +36,30 @@ export class AppHeaderComponent implements OnInit {
     this.pageContext$ = this.pageContextService.context$;
   }
 
+  /**
+   * Atualiza o contexto da página ao montar o header.
+   * @returns {void}
+   */
   ngOnInit(): void {
     this.pageContextService.refresh();
   }
 
-  /** Alterna sidebar expandida (desktop) ou aberta (mobile). */
+  /**
+   * Alterna sidebar expandida (desktop ≥ xl) ou drawer mobile (&lt; xl).
+   * @returns {void}
+   */
   handleToggle(): void {
-    if (window.innerWidth >= 1280) {
+    if (window.innerWidth >= SIDEBAR_DESKTOP_BREAKPOINT_PX) {
       this.sidebarService.toggleExpanded();
     } else {
       this.sidebarService.toggleMobileOpen();
     }
   }
 
-  /** Alterna menu de ações no mobile. */
+  /**
+   * Alterna menu de ações no mobile (tema / sessão / usuário).
+   * @returns {void}
+   */
   toggleApplicationMenu(): void {
     this.isApplicationMenuOpen = !this.isApplicationMenuOpen;
   }
