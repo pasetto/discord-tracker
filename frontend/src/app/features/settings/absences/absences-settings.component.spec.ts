@@ -49,4 +49,14 @@ describe('AbsencesSettingsComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('input[type="date"]').length).toBe(0);
     expect(fixture.nativeElement.querySelectorAll('app-date-picker').length).toBeGreaterThan(0);
   });
+
+  it('mantém calendários flatpickr ocultos até abrir (CSS base obrigatório)', () => {
+    fixture.detectChanges();
+    const calendars = Array.from(document.querySelectorAll('.flatpickr-calendar')) as HTMLElement[];
+    expect(calendars.length).toBeGreaterThan(0);
+    for (const calendar of calendars) {
+      // Sem flatpickr.css no bundle global, display não é none e o popup vaza no layout (bug só em build).
+      expect(getComputedStyle(calendar).display).toBe('none');
+    }
+  });
 });
