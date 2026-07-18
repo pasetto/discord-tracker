@@ -34,7 +34,7 @@
       @if (insights!.members.length === 0) {
         <p class="text-sm text-gray-500">Nenhum membro rastreado.</p>
       } @else {
-        <div class="space-y-3">
+        <div class="space-y-3" data-testid="achievements-stacked-cards">
           @for (member of insights!.members; track member.discordId) {
             <article class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
               <div class="flex flex-wrap items-center justify-between gap-2">

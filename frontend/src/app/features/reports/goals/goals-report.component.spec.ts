@@ -102,4 +102,11 @@ describe('GoalsReportComponent com dados', () => {
     const bar = fixture.nativeElement.querySelector('.bg-gray-400');
     expect(bar).toBeTruthy();
   });
+
+  it('lista metas em cards empilhados sem tabela densa', () => {
+    const stack = fixture.nativeElement.querySelector('[data-testid="goals-stacked-cards"]') as HTMLElement;
+    expect(stack).toBeTruthy();
+    expect(stack.querySelectorAll('article').length).toBeGreaterThan(0);
+    expect(fixture.nativeElement.querySelector('table')).toBeNull();
+  });
 });
