@@ -17,11 +17,44 @@ interface PushSubscribeRequest {
 }
 
 /**
+ * Estado mínimo da inscrição Web Push para feedback na UI do gestor.
+ */
+export type InactivityPushStatus = 'subscribed' | 'denied' | 'failed';
+
+/**
  * Serviço responsável por inscrição e sincronização de Web Push no navegador.
  */
 @Injectable({ providedIn: 'root' })
 export class PushNotificationService {
   constructor(private readonly httpClient: HttpClient) {}
+
+  /**
+   * Lê o estado atual da inscrição push sem solicitar permissão.
+   * @returns {Promise<InactivityPushStatus>} `subscribed`, `denied` ou `failed`.
+   * @example
+   * const status = await pushService.getInactivityPushStatus();
+   */
+  async getInactivityPushStatus(): Promise<InactivityPushStatus> {
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return 'failed';
+    }
+
+    if (Notification.permission === 'denied') {
+      return 'denied';
+    }
+
+    if (Notification.permission !== 'granted') {
+      return 'failed';
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      return subscription ? 'subscribed' : 'failed';
+    } catch {
+      return 'failed';
+    }
+  }
 
   /**
    * Solicita permissão de notificação e registra assinatura push no backend.
