@@ -108,8 +108,31 @@ async function listBotGuilds(botToken) {
  */
 async function main() {
   const deployRoot = process.cwd();
-  loadDotEnvFile(resolve(deployRoot, '.env'));
+  // Preferir backend/.env (SaaS multitenant); root .env pode apontar DB legado.
   loadDotEnvFile(resolve(deployRoot, 'backend/.env'));
+  loadDotEnvFile(resolve(deployRoot, '.env'));
+
+  // Se ambos existem, forçar MONGODB_URI/ENCRYPTION_KEY do backend quando presentes.
+  const backendEnvPath = resolve(deployRoot, 'backend/.env');
+  if (existsSync(backendEnvPath)) {
+    const text = readFileSync(backendEnvPath, 'utf8');
+    for (const rawLine of text.split('\n')) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) continue;
+      const eq = line.indexOf('=');
+      if (eq <= 0) continue;
+      const keyName = line.slice(0, eq).trim();
+      if (keyName !== 'MONGODB_URI' && keyName !== 'ENCRYPTION_KEY') continue;
+      let value = line.slice(eq + 1).trim();
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+      process.env[keyName] = value;
+    }
+  }
 
   const mongoUri = process.env.MONGODB_URI?.trim();
   const encKeyRaw = process.env.ENCRYPTION_KEY?.trim();
