@@ -17,9 +17,28 @@ import { createRequire } from 'node:module';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const require = createRequire(resolve(process.cwd(), 'backend/package.json'));
+/**
+ * Resolve `mongoose` no monorepo (hoist na raiz ou em backend/).
+ * @returns {typeof import('mongoose')}
+ */
+function loadMongoose() {
+  const candidates = [
+    resolve(process.cwd(), 'package.json'),
+    resolve(process.cwd(), 'backend/package.json'),
+  ];
+  for (const pkg of candidates) {
+    try {
+      const requireFrom = createRequire(pkg);
+      return requireFrom('mongoose');
+    } catch {
+      // tenta próximo candidato
+    }
+  }
+  throw new Error('mongoose não encontrado (rode npm ci no deploy root)');
+}
+
 /** @type {typeof import('mongoose')} */
-const mongoose = require('mongoose');
+const mongoose = loadMongoose();
 
 /**
  * Carrega pares KEY=VALUE de um arquivo dotenv sem sobrescrever env já definida.
