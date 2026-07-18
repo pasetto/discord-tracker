@@ -1,13 +1,13 @@
 import { createLogger } from '../logger';
 import { OrganizationModel } from '../db/models/Organization';
 import { WorkCalendarModel, createDefaultWorkWeek } from '../db/models/WorkCalendar';
-import { isBusinessDay } from '../services/workCalendarService';
 import { generateWeeklyInactivitySnapshot, listTrackedGuildIdsByOrganization } from '../services/inactivityService';
 import { getInactivitySettings } from '../services/inactivitySettingsService';
 import { sendWeeklyInactivityDigestToManagers } from '../services/emailDigestService';
 import { notifyManagersAboutMissingMembers } from '../services/pushService';
 import { enqueueWebhookDeliveries } from '../services/webhookService';
 import { getZonedParts } from '../utils/timezone';
+import { isBusinessDayInTimezone } from '../utils/workWindowUtils';
 
 const ONE_MINUTE_MS = 60_000;
 const TARGET_HOUR = 8;
@@ -82,7 +82,8 @@ export async function runInactivityCronTick(now: Date = new Date()): Promise<num
     }
 
     const calendar = await resolveOrganizationCalendar(organizationId);
-    if (!isBusinessDay(calendar, now)) {
+    // Usa timezone da org (não UTC): às 08:00 locais em UTC+N o dia UTC pode ser o anterior.
+    if (!isBusinessDayInTimezone(calendar, now, timezone)) {
       continue;
     }
 

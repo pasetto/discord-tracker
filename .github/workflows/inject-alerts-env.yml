@@ -1,0 +1,78 @@
+name: Inject alerts env (SMTP/VAPID)
+
+# Injeta secrets de alerta no host piloto sem redeploy completo do app.
+# Não imprime valores de secrets nos logs.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inject:
+    runs-on: ubuntu-latest
+    environment: Prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copy upsert script to pilot
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: scripts/upsert-alerts-env.mjs
+          target: ${{ secrets.DEPLOY_PATH }}/scripts/
+          strip_components: 1
+
+      - name: Upsert SMTP/VAPID on pilot host
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          envs: SMTP_HOST,SMTP_PORT,SMTP_SECURE,SMTP_USER,SMTP_PASS,SMTP_FROM,VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY,VAPID_SUBJECT,DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd "$DEPLOY_PATH"
+            test -f scripts/upsert-alerts-env.mjs
+            node scripts/upsert-alerts-env.mjs .env backend/.env
+            pm2 delete syntra 2>/dev/null || true
+            pm2 start backend/ecosystem.config.js --update-env
+            pm2 save
+            sleep 8
+            echo "=== health legado ==="
+            curl -sf --retry 5 --retry-delay 3 http://localhost:3322/api/v1/health
+            echo
+            echo "=== health alerts (404 se endpoint ainda não shipado) ==="
+            alerts_code=$(curl -sS -o /tmp/alerts-body.json -w '%{http_code}' http://localhost:3322/health/alerts || true)
+            echo "HTTP $alerts_code"
+            head -c 500 /tmp/alerts-body.json || true
+            echo
+            echo "=== prontidão via dotenv (sem secrets) ==="
+            node -e "
+              require('dotenv').config({ path: '.env' });
+              require('dotenv').config({ path: 'backend/.env' });
+              const emailConfigured = Boolean(process.env.SMTP_HOST?.trim() && process.env.SMTP_FROM?.trim());
+              const vapidConfigured = Boolean(
+                process.env.VAPID_PUBLIC_KEY?.trim() &&
+                process.env.VAPID_PRIVATE_KEY?.trim() &&
+                process.env.VAPID_SUBJECT?.trim()
+              );
+              console.log(JSON.stringify({ emailConfigured, vapidConfigured, timestamp: new Date().toISOString() }));
+              process.exit(emailConfigured && vapidConfigured ? 0 : 2);
+            "
