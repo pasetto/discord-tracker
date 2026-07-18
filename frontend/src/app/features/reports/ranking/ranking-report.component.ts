@@ -3,6 +3,12 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TenantContextService } from '../../../core/tenant/tenant-context.service';
+import {
+  TEAM_PLAN_GATE_CTA,
+  TEAM_PLAN_UPGRADE_FRAGMENT,
+  TEAM_PLAN_UPGRADE_ROUTE,
+  isPlanFeatureGateReason,
+} from '../../../core/pricing/team-plan-gate.util';
 import { ReportDateRangeValue, resolveReportDateRange, toReportDateHttpParams } from '../../../core/reports/report-date-range.util';
 import { ReportDateFilterComponent } from '../../../shared/components/report-date-filter/report-date-filter.component';
 
@@ -86,6 +92,23 @@ export class RankingReportComponent implements OnInit {
     };
     return map[this.report?.metric ?? 'productive_hours'] ?? 'Horas colaborativas';
   }
+
+  /**
+   * Indica se o ranking está bloqueado pelo plano (paywall Team).
+   * @returns true quando a API sinalizou bloqueio por plano
+   */
+  get isLockedByPlan(): boolean {
+    return Boolean(this.report && !this.report.available && isPlanFeatureGateReason(this.report.reason));
+  }
+
+  /** Copy do CTA de upgrade Team. */
+  readonly teamPlanGateCta = TEAM_PLAN_GATE_CTA;
+
+  /** Rota da landing de preços. */
+  readonly teamUpgradeRoute = TEAM_PLAN_UPGRADE_ROUTE;
+
+  /** Fragmento #pricing na landing. */
+  readonly teamUpgradeFragment = TEAM_PLAN_UPGRADE_FRAGMENT;
 
   /** Carrega ranking ao abrir a tela. */
   ngOnInit(): void {

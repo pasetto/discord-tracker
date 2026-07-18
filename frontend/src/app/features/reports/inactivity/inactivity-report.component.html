@@ -81,8 +81,8 @@
     <div *ngIf="trackedMembersCount > 0 && concernEntries.length === 0" class="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-gray-700 dark:border-brand-900 dark:bg-brand-500/10 dark:text-gray-200">
       <p class="font-medium">Nenhum colaborador marcado como "quem sumiu" nesta semana.</p>
       <p class="mt-2">
-        O relatório compara sinais de presença, voz e texto dos membros rastreados com os critérios de inatividade
-        configurados para o servidor. Se o time está ativo, esta lista pode ficar vazia — isso é um bom sinal.
+        O relatório compara sinais de presença, voz e texto com o calendário de trabalho e PTO.
+        Ausências planejadas e fora da jornada não contam como inatividade.
       </p>
       <p class="mt-2">
         Verifique em
