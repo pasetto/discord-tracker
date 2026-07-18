@@ -128,19 +128,57 @@ async function main() {
   const db = mongoose.connection.db;
   if (!db) throw new Error('Conexão Mongo sem db');
 
-  const app = await db.collection('discordapplications').findOne({
+  /**
+   * Escolhe collection pelo nome canônico ou pelo primeiro match parcial.
+   * @param {string[]} preferred Nomes preferidos em ordem
+   * @param {string} needle Substring para fallback
+   * @returns {Promise<string>}
+   */
+  async function resolveCollectionName(preferred, needle) {
+    const names = (await db.listCollections().toArray()).map((c) => c.name);
+    for (const name of preferred) {
+      if (names.includes(name)) return name;
+    }
+    const fuzzy = names.find((n) => n.toLowerCase().includes(needle.toLowerCase()));
+    if (fuzzy) return fuzzy;
+    throw new Error(`Collection não encontrada (${needle}). Disponíveis: ${names.join(', ')}`);
+  }
+
+  const discordAppCol = await resolveCollectionName(
+    ['discordapplications', 'discord_applications', 'DiscordApplication'],
+    'discordapp',
+  );
+  const guildConnCol = await resolveCollectionName(
+    ['guildconnections', 'guild_connections', 'GuildConnection'],
+    'guildconnection',
+  );
+  const orgCol = await resolveCollectionName(['organizations', 'organization'], 'organization');
+
+  let resolvedApp = await db.collection(discordAppCol).findOne({
     isPlatformDefault: true,
     isActive: true,
   });
-  if (!app?.botTokenEncrypted) {
-    throw new Error('DiscordApplication padrão ativo não encontrado');
+  if (!resolvedApp?.botTokenEncrypted) {
+    resolvedApp = await db.collection(discordAppCol).findOne({
+      isActive: true,
+      botTokenEncrypted: { $exists: true },
+    });
+  }
+  if (!resolvedApp?.botTokenEncrypted) {
+    const sample = await db
+      .collection(discordAppCol)
+      .findOne({}, { projection: { name: 1, isActive: 1, isPlatformDefault: 1, clientId: 1 } });
+    const count = await db.collection(discordAppCol).countDocuments();
+    throw new Error(
+      `DiscordApplication com token não encontrado em ${discordAppCol} (count=${count}). sample=${JSON.stringify(sample)}`,
+    );
   }
 
-  const botToken = decryptSecret(app.botTokenEncrypted, key);
+  const botToken = decryptSecret(resolvedApp.botTokenEncrypted, key);
   const botGuilds = await listBotGuilds(botToken);
 
   const connections = await db
-    .collection('guildconnections')
+    .collection(guildConnCol)
     .find({})
     .project({
       organizationId: 1,
@@ -154,7 +192,7 @@ async function main() {
   const orgIds = [...new Set(connections.map((c) => String(c.organizationId)))];
   const orgs = orgIds.length
     ? await db
-        .collection('organizations')
+        .collection(orgCol)
         .find({ _id: { $in: orgIds.map((id) => new mongoose.Types.ObjectId(id)) } })
         .project({ name: 1, slug: 1 })
         .toArray()
@@ -170,8 +208,9 @@ async function main() {
 
   const summary = {
     dryRun,
-    botClientId: app.clientId,
-    botUsername: app.botUsername ?? null,
+    collections: { discordAppCol, guildConnCol, orgCol },
+    botClientId: resolvedApp.clientId,
+    botUsername: resolvedApp.botUsername ?? null,
     botGuildCount: botGuilds.length,
     botGuilds: botGuilds.map((g) => ({ guildId: g.id, guildName: g.name })),
     existingConnections: connections.map((c) => ({
@@ -228,7 +267,7 @@ async function main() {
   }
 
   const orgObjectId = new mongoose.Types.ObjectId(smokeOrgId);
-  const org = await db.collection('organizations').findOne({ _id: orgObjectId });
+  const org = await db.collection(orgCol).findOne({ _id: orgObjectId });
   if (!org) {
     summary.provision = { applied: false, reason: `Org ${smokeOrgId} não existe` };
     console.log(JSON.stringify(summary, null, 2));
@@ -258,13 +297,13 @@ async function main() {
     process.exit(0);
   }
 
-  await db.collection('guildconnections').updateMany(
+  await db.collection(guildConnCol).updateMany(
     { organizationId: orgObjectId },
     { $set: { isMonitoringEnabled: false } },
   );
 
   const now = new Date();
-  await db.collection('guildconnections').updateOne(
+  await db.collection(guildConnCol).updateOne(
     { organizationId: orgObjectId, guildId: targetGuild.id },
     {
       $set: {
