@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, of } from 'rxjs';
 import { UserDropdownComponent } from './user-dropdown.component';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { OnboardingProgressService } from '../../../../core/onboarding/onboarding-progress.service';
@@ -22,6 +22,10 @@ describe('UserDropdownComponent', () => {
             getUser: () => ({ email: 'gestor@test.com' }),
             getOrganization: () => ({ name: 'Org Teste' }),
             getOrganizationId: () => 'org-1',
+            getActiveOrganizations: () => [],
+            isSuperAdmin: () => false,
+            syncSession: () => of(undefined),
+            switchOrganization: () => of(undefined),
             logout: jasmine.createSpy('logout'),
           },
         },
