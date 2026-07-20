@@ -13,27 +13,41 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * Resolve `mongoose` no monorepo (hoist na raiz ou em backend/).
- * @returns {typeof import('mongoose')}
+ * Carrega o driver oficial `mongodb` a partir do monorepo no host.
+ * @returns {{ MongoClient: typeof import('mongodb').MongoClient, ObjectId: typeof import('mongodb').ObjectId }}
  */
-function loadMongoose() {
-  const candidates = [
-    resolve(process.cwd(), 'package.json'),
-    resolve(process.cwd(), 'backend/package.json'),
+function loadMongodb() {
+  const bases = [
+    resolve(process.cwd(), 'backend'),
+    process.cwd(),
+    resolve(process.cwd(), 'node_modules/mongodb'),
+    resolve(process.cwd(), 'backend/node_modules/mongodb'),
   ];
-  for (const pkg of candidates) {
+  /** @type {string[]} */
+  const errors = [];
+  for (const base of bases) {
+    const pkgJson = existsSync(resolve(base, 'package.json'))
+      ? resolve(base, 'package.json')
+      : null;
+    if (!pkgJson) {
+      errors.push(`${base}: sem package.json`);
+      continue;
+    }
     try {
-      const requireFrom = createRequire(pkg);
-      return requireFrom('mongoose');
-    } catch {
-      // tenta próximo candidato
+      const requireFrom = createRequire(pkgJson);
+      const mod = requireFrom('mongodb');
+      if (!mod?.MongoClient || !mod?.ObjectId) {
+        throw new Error('módulo mongodb sem MongoClient/ObjectId');
+      }
+      return { MongoClient: mod.MongoClient, ObjectId: mod.ObjectId };
+    } catch (err) {
+      errors.push(`${base}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
-  throw new Error('mongoose não encontrado (rode npm ci no deploy root)');
+  throw new Error(`mongodb não encontrado. Tentativas: ${errors.join(' | ')}`);
 }
 
-/** @type {typeof import('mongoose')} */
-const mongoose = loadMongoose();
+const { MongoClient, ObjectId } = loadMongodb();
 
 /**
  * Carrega pares KEY=VALUE de um arquivo dotenv sem sobrescrever env já definida.
@@ -133,152 +147,148 @@ async function main() {
   const mongoUri = process.env.MONGODB_URI?.trim();
   if (!mongoUri) throw new Error('MONGODB_URI ausente no host');
 
-  await mongoose.connect(mongoUri, { readPreference: 'primaryPreferred' });
-  const db = mongoose.connection.db;
-  if (!db) throw new Error('Conexão Mongo sem db');
+  const client = new MongoClient(mongoUri, { readPreference: 'primaryPreferred' });
+  await client.connect();
+  const db = client.db();
 
-  const orgCol = await resolveCollectionName(db, ['organizations', 'organization'], 'organization');
-  const usersCol = await resolveCollectionName(
-    db,
-    ['platformusers', 'platform_users', 'PlatformUser'],
-    'platformuser',
-  );
+  try {
+    const orgCol = await resolveCollectionName(db, ['organizations', 'organization'], 'organization');
+    const usersCol = await resolveCollectionName(
+      db,
+      ['platformusers', 'platform_users', 'PlatformUser'],
+      'platformuser',
+    );
 
-  const userFilter = {
-    $or: [
-      { email: 'bootstrap@syntra.local' },
-      { email: /@syntra\.test$/i },
-      { email: /smoke/i },
-      { displayName: /smoke|e2e|bootstrap/i },
-    ],
-  };
+    const userFilter = {
+      $or: [
+        { email: 'bootstrap@syntra.local' },
+        { email: /@syntra\.test$/i },
+        { email: /smoke/i },
+        { displayName: /smoke|e2e|bootstrap/i },
+      ],
+    };
 
-  const orgFilter = {
-    $or: [
-      { slug: /smoke|e2e|teste|(^|-)test($|-)|test-/i },
-      { name: /smoke|e2e|teste|\btest\b|syntra e2e/i },
-    ],
-  };
+    const orgFilter = {
+      $or: [
+        { slug: /smoke|e2e|teste|(^|-)test($|-)|test-/i },
+        { name: /smoke|e2e|teste|\btest\b|syntra e2e/i },
+      ],
+    };
 
-  const [usersTotal, orgsTotal, flaggedUsers, flaggedOrgs] = await Promise.all([
-    db.collection(usersCol).countDocuments({}),
-    db.collection(orgCol).countDocuments({}),
-    db
-      .collection(usersCol)
-      .find(userFilter, {
-        projection: {
-          email: 1,
-          displayName: 1,
-          isSuperAdmin: 1,
-          discordId: 1,
-          memberships: 1,
-          createdAt: 1,
-          updatedAt: 1,
-        },
-      })
-      .sort({ createdAt: 1 })
-      .limit(500)
-      .toArray(),
-    db
-      .collection(orgCol)
-      .find(orgFilter, {
-        projection: {
-          name: 1,
-          slug: 1,
-          inviteCode: 1,
-          'subscription.status': 1,
-          'onboarding.currentStep': 1,
-          createdAt: 1,
-          updatedAt: 1,
-        },
-      })
-      .sort({ createdAt: 1 })
-      .limit(500)
-      .toArray(),
-  ]);
+    const [usersTotal, orgsTotal, flaggedUsers, flaggedOrgs] = await Promise.all([
+      db.collection(usersCol).countDocuments({}),
+      db.collection(orgCol).countDocuments({}),
+      db
+        .collection(usersCol)
+        .find(userFilter, {
+          projection: {
+            email: 1,
+            displayName: 1,
+            isSuperAdmin: 1,
+            discordId: 1,
+            memberships: 1,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        })
+        .sort({ createdAt: 1 })
+        .limit(500)
+        .toArray(),
+      db
+        .collection(orgCol)
+        .find(orgFilter, {
+          projection: {
+            name: 1,
+            slug: 1,
+            inviteCode: 1,
+            'subscription.status': 1,
+            'onboarding.currentStep': 1,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        })
+        .sort({ createdAt: 1 })
+        .limit(500)
+        .toArray(),
+    ]);
 
-  const bootstrapExact = flaggedUsers.filter(
-    (u) => String(u.email || '').toLowerCase() === 'bootstrap@syntra.local',
-  );
-  const syntraTestUsers = flaggedUsers.filter((u) =>
-    /@syntra\.test$/i.test(String(u.email || '')),
-  );
-  const otherFlaggedUsers = flaggedUsers.filter((u) => {
-    const email = String(u.email || '').toLowerCase();
-    return email !== 'bootstrap@syntra.local' && !/@syntra\.test$/i.test(email);
-  });
+    const bootstrapExact = flaggedUsers.filter(
+      (u) => String(u.email || '').toLowerCase() === 'bootstrap@syntra.local',
+    );
+    const syntraTestUsers = flaggedUsers.filter((u) =>
+      /@syntra\.test$/i.test(String(u.email || '')),
+    );
+    const otherFlaggedUsers = flaggedUsers.filter((u) => {
+      const email = String(u.email || '').toLowerCase();
+      return email !== 'bootstrap@syntra.local' && !/@syntra\.test$/i.test(email);
+    });
 
-  const membershipOrgIds = [
-    ...new Set(
-      flaggedUsers.flatMap((u) =>
-        (u.memberships || []).map((m) => String(m.organizationId)).filter(Boolean),
+    const membershipOrgIds = [
+      ...new Set(
+        flaggedUsers.flatMap((u) =>
+          (u.memberships || []).map((m) => String(m.organizationId)).filter(Boolean),
+        ),
       ),
-    ),
-  ];
+    ];
 
-  let membershipOrgs = [];
-  if (membershipOrgIds.length) {
-    membershipOrgs = await db
-      .collection(orgCol)
-      .find(
-        { _id: { $in: membershipOrgIds.map((id) => new mongoose.Types.ObjectId(id)) } },
-        { projection: { name: 1, slug: 1, createdAt: 1, 'subscription.status': 1 } },
-      )
-      .toArray();
+    let membershipOrgs = [];
+    if (membershipOrgIds.length) {
+      membershipOrgs = await db
+        .collection(orgCol)
+        .find(
+          { _id: { $in: membershipOrgIds.map((id) => new ObjectId(id)) } },
+          { projection: { name: 1, slug: 1, createdAt: 1, 'subscription.status': 1 } },
+        )
+        .toArray();
+    }
+
+    const report = {
+      auditedAt: new Date().toISOString(),
+      mode: 'read_only',
+      database: db.databaseName,
+      collections: { organizations: orgCol, platformUsers: usersCol },
+      totals: {
+        organizations: orgsTotal,
+        platformUsers: usersTotal,
+      },
+      matches: {
+        bootstrapAtSyntraLocal: {
+          count: bootstrapExact.length,
+          users: serialize(bootstrapExact),
+        },
+        emailAtSyntraTest: {
+          count: syntraTestUsers.length,
+          users: serialize(syntraTestUsers),
+        },
+        otherSmokeLikeUsers: {
+          count: otherFlaggedUsers.length,
+          users: serialize(otherFlaggedUsers),
+        },
+        smokeLikeOrganizations: {
+          count: flaggedOrgs.length,
+          organizations: serialize(flaggedOrgs),
+        },
+        orgsLinkedFromFlaggedUsers: {
+          count: membershipOrgs.length,
+          organizations: serialize(membershipOrgs),
+        },
+      },
+      notes: [
+        'Sem delete/update. passwordHash e secrets omitidos.',
+        'Filtros: bootstrap@syntra.local, *@syntra.test, email/displayName com smoke|e2e|bootstrap; orgs name/slug smoke|e2e|teste|test (+ orgs das memberships dos users flagados).',
+        'Limite 500 docs por lista.',
+      ],
+    };
+
+    console.log('=== SYN-94 audit-pilot-mongo-smoke (READ ONLY) ===');
+    console.log(JSON.stringify(report, null, 2));
+    console.log('=== END AUDIT ===');
+  } finally {
+    await client.close();
   }
-
-  const report = {
-    auditedAt: new Date().toISOString(),
-    mode: 'read_only',
-    database: db.databaseName,
-    collections: { organizations: orgCol, platformUsers: usersCol },
-    totals: {
-      organizations: orgsTotal,
-      platformUsers: usersTotal,
-    },
-    matches: {
-      bootstrapAtSyntraLocal: {
-        count: bootstrapExact.length,
-        users: serialize(bootstrapExact),
-      },
-      emailAtSyntraTest: {
-        count: syntraTestUsers.length,
-        users: serialize(syntraTestUsers),
-      },
-      otherSmokeLikeUsers: {
-        count: otherFlaggedUsers.length,
-        users: serialize(otherFlaggedUsers),
-      },
-      smokeLikeOrganizations: {
-        count: flaggedOrgs.length,
-        organizations: serialize(flaggedOrgs),
-      },
-      orgsLinkedFromFlaggedUsers: {
-        count: membershipOrgs.length,
-        organizations: serialize(membershipOrgs),
-      },
-    },
-    notes: [
-      'Sem delete/update. passwordHash e secrets omitidos.',
-      'Filtros: bootstrap@syntra.local, *@syntra.test, email/displayName com smoke|e2e|bootstrap; orgs name/slug smoke|e2e|teste|test (+ orgs das memberships dos users flagados).',
-      'Limite 500 docs por lista.',
-    ],
-  };
-
-  console.log('=== SYN-94 audit-pilot-mongo-smoke (READ ONLY) ===');
-  console.log(JSON.stringify(report, null, 2));
-  console.log('=== END AUDIT ===');
 }
 
-main()
-  .catch((err) => {
-    console.error('AUDIT_FAILED', err instanceof Error ? err.message : err);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    try {
-      await mongoose.disconnect();
-    } catch {
-      // ignore
-    }
-  });
+main().catch((err) => {
+  console.error('AUDIT_FAILED', err instanceof Error ? err.message : err);
+  process.exitCode = 1;
+});

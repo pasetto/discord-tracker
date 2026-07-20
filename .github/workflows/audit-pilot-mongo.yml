@@ -41,5 +41,6 @@ jobs:
             [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
             cd "$DEPLOY_PATH"
             test -f scripts/audit-pilot-mongo-smoke.mjs
+            export NODE_PATH="$DEPLOY_PATH/node_modules:$DEPLOY_PATH/backend/node_modules${NODE_PATH:+:$NODE_PATH}"
             echo "=== audit-pilot-mongo-smoke (READ ONLY) ==="
             node scripts/audit-pilot-mongo-smoke.mjs
