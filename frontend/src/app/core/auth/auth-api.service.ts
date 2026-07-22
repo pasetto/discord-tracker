@@ -151,4 +151,24 @@ export class AuthApiService {
   logout(): Observable<void> {
     return this.http.post<void>('/api/v1/auth/logout', {}, this.authRequestOptions);
   }
+
+  /**
+   * Solicita email de redefinição de senha (resposta sempre genérica).
+   * @param email Email informado
+   */
+  forgotPassword(email: string): Observable<{ ok: true; message?: string }> {
+    return this.http.post<{ ok: true; message?: string }>(
+      '/api/v1/auth/forgot-password',
+      { email },
+      this.authRequestOptions,
+    );
+  }
+
+  /**
+   * Conclui redefinição de senha com token do email/link.
+   * @param payload Token + nova senha
+   */
+  resetPassword(payload: { token: string; newPassword: string }): Observable<{ ok: true }> {
+    return this.http.post<{ ok: true }>('/api/v1/auth/reset-password', payload, this.authRequestOptions);
+  }
 }

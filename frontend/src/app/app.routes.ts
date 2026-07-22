@@ -352,6 +352,24 @@ export const routes: Routes = [
     title: 'Entrar | Syntra',
   },
   {
+    path: 'forgot-password',
+    canActivate: [guestGuard],
+    loadComponent: () =>
+      import('./pages/auth-pages/forgot-password/forgot-password.component').then(
+        (module) => module.ForgotPasswordComponent,
+      ),
+    title: 'Esqueci a senha | Syntra',
+  },
+  {
+    path: 'reset-password',
+    canActivate: [guestGuard],
+    loadComponent: () =>
+      import('./pages/auth-pages/reset-password/reset-password.component').then(
+        (module) => module.ResetPasswordComponent,
+      ),
+    title: 'Redefinir senha | Syntra',
+  },
+  {
     path: 'signin',
     pathMatch: 'full',
     redirectTo: 'login',

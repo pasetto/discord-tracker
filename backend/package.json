@@ -33,10 +33,12 @@
   ],
   "license": "MIT",
   "dependencies": {
+    "@better-auth/mongo-adapter": "^1.6.24",
     "@koa/router": "^13.1.0",
     "@sentry/node": "^10.61.0",
     "@types/web-push": "^3.6.4",
     "bcryptjs": "^3.0.3",
+    "better-auth": "^1.6.24",
     "discord.js": "^14.18.0",
     "dotenv": "^16.4.7",
     "jsonwebtoken": "^9.0.3",

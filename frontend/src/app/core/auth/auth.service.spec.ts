@@ -257,4 +257,25 @@ describe('AuthService', () => {
 
     expect(hasActive).toBeTrue();
   });
+
+  it('solicita forgot-password via API', () => {
+    service.forgotPassword('owner@test.com').subscribe((body) => {
+      expect(body.ok).toBeTrue();
+    });
+
+    const req = httpMock.expectOne('/api/v1/auth/forgot-password');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ email: 'owner@test.com' });
+    req.flush({ ok: true, message: 'ok' });
+  });
+
+  it('conclui reset-password via API', () => {
+    service.resetPassword({ token: 'tok', newPassword: 'senha-nova-123' }).subscribe((body) => {
+      expect(body.ok).toBeTrue();
+    });
+
+    const req = httpMock.expectOne('/api/v1/auth/reset-password');
+    expect(req.request.body).toEqual({ token: 'tok', newPassword: 'senha-nova-123' });
+    req.flush({ ok: true });
+  });
 });
