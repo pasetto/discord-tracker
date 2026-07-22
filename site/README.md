@@ -27,6 +27,7 @@ Abra [http://localhost:4321](http://localhost:4321).
 | `npm run build` | Build estático em `dist/` |
 | `npm run preview` | Serve o build |
 | `npm run check` | Typecheck Astro |
+| `npm run test` | Vitest (motion + pricing helpers) |
 
 Na raiz do monorepo:
 
