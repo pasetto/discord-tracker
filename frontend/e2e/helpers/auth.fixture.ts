@@ -1,4 +1,5 @@
 import type { APIRequestContext, APIResponse } from '@playwright/test';
+import { assertSafeE2EBaseURL } from '../../src/app/core/e2e-safety/assert-safe-e2e-base-url';
 
 /**
  * Credenciais geradas para autenticação E2E.
@@ -34,6 +35,9 @@ export interface E2EAuthSetupResult {
  * }
  */
 export async function registerE2EUser(request: APIRequestContext): Promise<E2EAuthSetupResult> {
+  // Fail-fast antes de POST /auth/register (evita poluir o piloto público).
+  assertSafeE2EBaseURL(process.env.E2E_BASE_URL || 'http://127.0.0.1:4200');
+
   const timestamp = Date.now();
   const credentials: E2EAuthCredentials = {
     email: `e2e+quem-sumiu-${timestamp}@syntra.test`,
