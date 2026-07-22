@@ -7,5 +7,5 @@
     }
   },
   "include": ["src/**/*", ".astro/types.d.ts"],
-  "exclude": ["dist"]
+  "exclude": ["dist", "src/**/*.test.ts"]
 }
