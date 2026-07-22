@@ -36,6 +36,13 @@ export interface AdminPlatformUser {
   createdAt: string;
 }
 
+/** Resultado do reset de senha gerado no admin (URL copiável para suporte). */
+export interface AdminPasswordResetResult {
+  resetUrl: string;
+  expiresAt: string;
+  emailed: boolean;
+}
+
 /** Organização tenant (listagem admin). */
 export interface AdminOrganization {
   id: string;
@@ -114,5 +121,21 @@ export class AdminApiService {
     return this.http.get<{ organizations: AdminOrganization[]; total: number }>(`${this.baseUrl}/organizations`, {
       params,
     });
+  }
+
+  /**
+   * Gera reset de senha e retorna URL recuperável para suporte.
+   * @param userId ID do PlatformUser
+   */
+  createUserPasswordReset(userId: string): Observable<AdminPasswordResetResult> {
+    return this.http.post<AdminPasswordResetResult>(`${this.baseUrl}/users/${userId}/password-reset`, {});
+  }
+
+  /**
+   * Regenera/reenvia reset de senha e devolve nova URL.
+   * @param userId ID do PlatformUser
+   */
+  resendUserPasswordReset(userId: string): Observable<AdminPasswordResetResult> {
+    return this.http.post<AdminPasswordResetResult>(`${this.baseUrl}/users/${userId}/password-reset/resend`, {});
   }
 }
