@@ -50,7 +50,7 @@ export class MobileBottomNavComponent implements OnInit, OnDestroy {
     { label: 'Início', route: '/app/dashboard' },
     { label: 'Ao vivo', route: '/app/live' },
     { label: 'Relatórios', route: '/app/reports/inactivity', matchPrefix: '/app/reports' },
-    { label: 'Config', route: '/app/settings/discord', matchPrefix: '/app/settings' },
+    { label: 'Config', route: '/app/settings', matchPrefix: '/app/settings' },
   ];
 
   currentUrl = '';
