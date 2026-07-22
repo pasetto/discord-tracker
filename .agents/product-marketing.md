@@ -1,11 +1,12 @@
 # Product Marketing Context — Syntra
 
-**Document version:** 1.1  
+**Document version:** 1.2  
 **Last updated:** 2026-07-18  
 **Source of truth (full brief):** Paperclip issue SYN-32 document `brief`  
 **Claims gate:** SYN-35 — aprovado (patches C7/C9/C10 + FAQ #6 aplicados)
 
 ## Changelog
+- 2026-07-18 — v1.2: landing Angular usa planos reais da API (`PublicPricingService`); copy pack SYN-64
 - 2026-07-18 — v1.1: claims validados (SYN-35); C7/C9/C10 + FAQ #6
 - 2026-07-18 — v1.0: bootstrap from SYN-32 messaging brief (Growth Marketer)
 
@@ -44,4 +45,4 @@
 - No Jira replacement
 - No reading messages / recording audio / DM spying
 - No invented ROI % or fake testimonials
-- No price table on v0 landing; teaser “Planos em BRL” only
+- Landing do app (`frontend/.../landing`) exibe tabela real via `GET /api/v1/pricing` (`PublicPricingService`). Fallback local só offline/erro. Site Astro (`site/`) pode espelhar depois; não inventar preços no copy.

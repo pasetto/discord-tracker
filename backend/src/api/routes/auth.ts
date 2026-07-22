@@ -11,6 +11,10 @@ import {
   switchPlatformOrganization,
 } from '../../services/platformAuthService';
 import { requestOrganizationJoin } from '../../services/organizationTeamService';
+import {
+  completePasswordReset,
+  requestPublicPasswordReset,
+} from '../../services/betterAuthBridgeService';
 import { config } from '../../config/env';
 
 /** Rotas públicas de autenticação com email e senha. */
@@ -190,6 +194,45 @@ authRouter.post('/auth/logout', async (ctx) => {
     secure: shouldUseSecureCookie(ctx),
   });
   ctx.status = 204;
+});
+
+/**
+ * @openapi
+ * /auth/forgot-password:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Solicita email de redefinição de senha (resposta genérica)
+ */
+authRouter.post('/auth/forgot-password', async (ctx) => {
+  const payload = ctx.request.body as { email?: string };
+  await requestPublicPasswordReset(payload.email ?? '');
+  ctx.body = {
+    ok: true,
+    message: 'Se o email existir, enviaremos instruções para redefinir a senha.',
+  };
+});
+
+/**
+ * @openapi
+ * /auth/reset-password:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Redefine senha com token Better Auth
+ */
+authRouter.post('/auth/reset-password', async (ctx) => {
+  const payload = ctx.request.body as { token?: string; newPassword?: string };
+  try {
+    await completePasswordReset({
+      token: payload.token ?? '',
+      newPassword: payload.newPassword ?? '',
+    });
+    ctx.body = { ok: true };
+  } catch (error) {
+    ctx.status = 400;
+    ctx.body = { error: (error as Error).message };
+  }
 });
 
 /**

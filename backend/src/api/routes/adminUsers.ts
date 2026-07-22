@@ -4,6 +4,7 @@ import {
   updateAdminPlatformUser,
   type UpdateAdminPlatformUserInput,
 } from '../../services/adminPlatformService';
+import { adminCreatePasswordReset } from '../../services/betterAuthBridgeService';
 import { getPlatformUserId } from '../middleware/superAdmin';
 
 /** Rotas super admin para gestão de usuários da plataforma. */
@@ -49,5 +50,43 @@ adminUsersRouter.patch('/users/:userId', async (ctx) => {
   } catch (error) {
     ctx.status = 400;
     ctx.body = { error: (error as Error).message };
+  }
+});
+
+/**
+ * @openapi
+ * /admin/users/{userId}/password-reset:
+ *   post:
+ *     tags: [Admin]
+ *     summary: Gera reset de senha e retorna URL recuperável para suporte
+ */
+adminUsersRouter.post('/users/:userId/password-reset', async (ctx) => {
+  const actorId = getPlatformUserId(ctx);
+  try {
+    const result = await adminCreatePasswordReset(ctx.params.userId, actorId);
+    ctx.body = result;
+  } catch (error) {
+    const message = (error as Error).message;
+    ctx.status = message === 'Usuário não encontrado' ? 404 : 400;
+    ctx.body = { error: message };
+  }
+});
+
+/**
+ * @openapi
+ * /admin/users/{userId}/password-reset/resend:
+ *   post:
+ *     tags: [Admin]
+ *     summary: Regenera e reenvia reset de senha (retorna nova URL)
+ */
+adminUsersRouter.post('/users/:userId/password-reset/resend', async (ctx) => {
+  const actorId = getPlatformUserId(ctx);
+  try {
+    const result = await adminCreatePasswordReset(ctx.params.userId, actorId);
+    ctx.body = result;
+  } catch (error) {
+    const message = (error as Error).message;
+    ctx.status = message === 'Usuário não encontrado' ? 404 : 400;
+    ctx.body = { error: message };
   }
 });

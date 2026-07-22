@@ -1,6 +1,8 @@
+import { AsyncPipe, NgClass } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
-import { filter, Subscription } from 'rxjs';
+import { Observable, Subscription, filter } from 'rxjs';
+import { SidebarService } from '../../services/sidebar.service';
 
 /** Item de navegação inferior para mobile. */
 interface MobileNavItem {
@@ -11,15 +13,17 @@ interface MobileNavItem {
 
 /**
  * Barra de navegação inferior alinhada à IA principal do produto.
+ * Esconde-se abaixo de xl e enquanto o drawer lateral estiver aberto (Hick / Cognitive Load).
  */
 @Component({
   selector: 'app-mobile-bottom-nav',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, AsyncPipe, NgClass],
   template: `
     <nav
-      class="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur lg:hidden dark:border-gray-800 dark:bg-gray-900/95"
+      class="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur xl:hidden dark:border-gray-800 dark:bg-gray-900/95"
       aria-label="Navegação principal mobile"
+      [ngClass]="{ hidden: (isMobileOpen$ | async) }"
     >
       <ul class="mx-auto flex max-w-lg items-stretch justify-around px-2 pb-[env(safe-area-inset-bottom)]">
         @for (item of items; track item.route) {
@@ -50,10 +54,16 @@ export class MobileBottomNavComponent implements OnInit, OnDestroy {
   ];
 
   currentUrl = '';
+  readonly isMobileOpen$: Observable<boolean>;
 
   private subscription = new Subscription();
 
-  constructor(private readonly router: Router) {}
+  constructor(
+    private readonly router: Router,
+    sidebarService: SidebarService,
+  ) {
+    this.isMobileOpen$ = sidebarService.isMobileOpen$;
+  }
 
   ngOnInit(): void {
     this.currentUrl = this.router.url;
