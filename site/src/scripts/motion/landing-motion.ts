@@ -3,6 +3,7 @@ import { LANDING_MOTION } from './motion-tokens';
 /** Seletores das seções que recebem reveal único no scroll. */
 export const SCROLL_REVEAL_SECTION_SELECTORS = [
   '[data-testid="landing-problem"]',
+  '[data-testid="landing-product"]',
   '[data-testid="landing-how"]',
   '[data-testid="landing-privacy"]',
   '#pricing',
@@ -35,6 +36,26 @@ export function exitDuration(enterMs: number): number {
  */
 export function applyMotionReadyClass(root: Element, enabled: boolean): void {
   root.classList.toggle('has-motion', enabled);
+}
+
+/**
+ * Remove o gate CSS `has-motion` e força alvos visíveis.
+ * Usado quando a timeline falha / cancela / timeout — evita `opacity: 0` preso.
+ * @param root - Raiz da landing
+ */
+export function clearMotionGate(root: Element): void {
+  applyMotionReadyClass(root, false);
+  const gated = root.querySelectorAll<HTMLElement>(
+    [
+      '[data-motion]',
+      '[data-testid="landing-hero-mock"]',
+      '[data-testid="landing-hero-mock-members"] li',
+    ].join(','),
+  );
+  gated.forEach((el) => {
+    el.style.opacity = '1';
+    el.style.transform = 'none';
+  });
 }
 
 /**
@@ -126,128 +147,166 @@ export function playHeroEntrance(
     return null;
   }
 
+  const rootEl =
+    opts.root instanceof Element
+      ? opts.root
+      : ((opts.root as Document).querySelector?.('.landing-root') ?? null);
+
   const targets = resolveHeroEntranceTargets(opts.root);
   const { animate, createTimeline, stagger } = opts.anime;
   const m = LANDING_MOTION;
+  let settled = false;
+  let failSafeTimer = 0;
 
-  const tl = createTimeline({ defaults: { ease: m.easeOutSoft } });
+  /** Só em falha/cancel/timeout — sucesso deixa `has-motion` para scroll reveals. */
+  const failSafeVisible = () => {
+    if (settled) return;
+    settled = true;
+    globalThis.clearTimeout(failSafeTimer);
+    if (rootEl) {
+      clearMotionGate(rootEl);
+    }
+  };
 
-  if (targets.brand.length) {
-    tl.add(
-      targets.brand,
-      {
-        opacity: [0, 1],
-        y: [m.yEnter, 0],
-        duration: m.durationEnter,
-        ease: m.easeOutSoft,
+  let tl: ReturnType<AnimeMotionApi['createTimeline']>;
+  try {
+    tl = createTimeline({
+      defaults: { ease: m.easeOutSoft },
+      onComplete: () => {
+        settled = true;
+        globalThis.clearTimeout(failSafeTimer);
       },
-      0,
-    );
-  }
-
-  if (targets.headline) {
-    tl.add(
-      targets.headline,
-      {
-        opacity: [0, 1],
-        y: [m.yEnter, 0],
-        duration: m.durationHero,
-        ease: m.easeOutSoft,
-      },
-      m.staggerBase,
-    );
-  }
-
-  if (targets.subcopy) {
-    tl.add(
-      targets.subcopy,
-      {
-        opacity: [0, 1],
-        y: [m.yEnter, 0],
-        duration: m.durationEnter,
-        ease: m.easeOut,
-      },
-      `+=${m.staggerBase}`,
-    );
-  }
-
-  if (targets.ctas) {
-    tl.add(
-      targets.ctas,
-      {
-        opacity: [0, 1],
-        duration: m.durationEnter,
-        ease: m.easeOut,
-      },
-      `+=${m.staggerBase}`,
-    );
-  }
-
-  if (targets.trust) {
-    tl.add(
-      targets.trust,
-      {
-        opacity: [0, 1],
-        duration: m.durationFast,
-        ease: m.easeOut,
-      },
-      `+=${m.staggerBase}`,
-    );
-  }
-
-  if (targets.mock) {
-    tl.add(
-      targets.mock,
-      {
-        opacity: [0, 1],
-        y: [m.yCard, 0],
-        duration: m.durationHero,
-        ease: m.easeOutSoft,
-      },
-      `+=${m.staggerCards}`,
-    );
-  }
-
-  if (targets.mockChrome.length) {
-    tl.add(
-      targets.mockChrome,
-      {
-        opacity: [0, 1],
-        duration: m.durationFast,
-        ease: m.easeOut,
-      },
-      `+=${m.staggerTight}`,
-    );
-  }
-
-  if (targets.members.length) {
-    tl.add(
-      targets.members,
-      {
-        opacity: [0, 1],
-        y: [m.yMock, 0],
-        duration: m.durationEnter,
-        ease: m.easeOut,
-        delay: stagger(m.staggerTight),
-      },
-      '<',
-    );
-  }
-
-  const missing = targets.mock ? selectMissingStatusChips(targets.mock) : [];
-  if (missing.length) {
-    animate(missing, {
-      scale: [1, m.sumiuPulseScale, 1, m.sumiuPulseScale, 1],
-      duration: m.sumiuPulseMs,
-      ease: m.easeOut,
-      delay: m.durationEnter + m.staggerTight * missing.length,
     });
+  } catch {
+    failSafeVisible();
+    return null;
   }
+
+  try {
+    if (targets.brand.length) {
+      tl.add(
+        targets.brand,
+        {
+          opacity: [0, 1],
+          y: [m.yEnter, 0],
+          duration: m.durationEnter,
+          ease: m.easeOutSoft,
+        },
+        0,
+      );
+    }
+
+    if (targets.headline) {
+      tl.add(
+        targets.headline,
+        {
+          opacity: [0, 1],
+          y: [m.yEnter, 0],
+          duration: m.durationHero,
+          ease: m.easeOutSoft,
+        },
+        m.staggerBase,
+      );
+    }
+
+    if (targets.subcopy) {
+      tl.add(
+        targets.subcopy,
+        {
+          opacity: [0, 1],
+          y: [m.yEnter, 0],
+          duration: m.durationEnter,
+          ease: m.easeOut,
+        },
+        `+=${m.staggerBase}`,
+      );
+    }
+
+    if (targets.ctas) {
+      tl.add(
+        targets.ctas,
+        {
+          opacity: [0, 1],
+          duration: m.durationEnter,
+          ease: m.easeOut,
+        },
+        `+=${m.staggerBase}`,
+      );
+    }
+
+    if (targets.trust) {
+      tl.add(
+        targets.trust,
+        {
+          opacity: [0, 1],
+          duration: m.durationFast,
+          ease: m.easeOut,
+        },
+        `+=${m.staggerBase}`,
+      );
+    }
+
+    if (targets.mock) {
+      tl.add(
+        targets.mock,
+        {
+          opacity: [0, 1],
+          y: [m.yCard, 0],
+          duration: m.durationHero,
+          ease: m.easeOutSoft,
+        },
+        `+=${m.staggerCards}`,
+      );
+    }
+
+    if (targets.mockChrome.length) {
+      tl.add(
+        targets.mockChrome,
+        {
+          opacity: [0, 1],
+          duration: m.durationFast,
+          ease: m.easeOut,
+        },
+        `+=${m.staggerTight}`,
+      );
+    }
+
+    if (targets.members.length) {
+      tl.add(
+        targets.members,
+        {
+          opacity: [0, 1],
+          y: [m.yMock, 0],
+          duration: m.durationEnter,
+          ease: m.easeOut,
+          delay: stagger(m.staggerTight),
+        },
+        '<',
+      );
+    }
+
+    const missing = targets.mock ? selectMissingStatusChips(targets.mock) : [];
+    if (missing.length) {
+      animate(missing, {
+        scale: [1, m.sumiuPulseScale, 1, m.sumiuPulseScale, 1],
+        duration: m.sumiuPulseMs,
+        ease: m.easeOut,
+        delay: m.durationEnter + m.staggerTight * missing.length,
+      });
+    }
+  } catch {
+    failSafeVisible();
+    return null;
+  }
+
+  failSafeTimer = globalThis.setTimeout(failSafeVisible, 2000) as unknown as number;
 
   return {
     cancel: () => {
+      globalThis.clearTimeout(failSafeTimer);
       tl.pause?.();
       tl.cancel?.();
+      failSafeVisible();
     },
   };
 }
@@ -287,6 +346,13 @@ export function playModeToggleTransition(
 
   const tl = createTimeline();
   const exitMs = exitDuration(m.durationEnter);
+  let cancelled = false;
+  let pulseTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
+
+  const safeSwap = () => {
+    if (cancelled) return;
+    opts.swapContent();
+  };
 
   tl.add(
     [headline, ...members],
@@ -299,12 +365,7 @@ export function playModeToggleTransition(
     0,
   );
 
-  tl.call?.(
-    () => {
-      opts.swapContent();
-    },
-    m.durationInstant,
-  );
+  tl.call?.(safeSwap, m.durationInstant);
 
   tl.add(
     headline,
@@ -333,6 +394,7 @@ export function playModeToggleTransition(
 
   if (opts.pulseMissing) {
     const runPulse = () => {
+      if (cancelled) return;
       const chips = selectMissingStatusChips(opts.root);
       if (!chips.length) {
         return;
@@ -345,7 +407,7 @@ export function playModeToggleTransition(
     };
     tl.call?.(runPulse, m.durationLayout);
     if (!tl.call) {
-      globalThis.setTimeout(runPulse, m.durationLayout);
+      pulseTimer = globalThis.setTimeout(runPulse, m.durationLayout);
     }
   }
 
@@ -353,8 +415,21 @@ export function playModeToggleTransition(
 
   return {
     cancel: () => {
+      cancelled = true;
+      if (pulseTimer !== null) {
+        globalThis.clearTimeout(pulseTimer);
+      }
       tl.pause?.();
       tl.cancel?.();
+      const targets = [headline, ...members].filter(
+        (el): el is Element => el instanceof Element,
+      );
+      targets.forEach((el) => {
+        if (el instanceof HTMLElement) {
+          el.style.opacity = '1';
+          el.style.transform = 'none';
+        }
+      });
     },
   };
 }

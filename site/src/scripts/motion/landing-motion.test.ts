@@ -6,6 +6,7 @@ import { LANDING_MOTION } from './motion-tokens';
 import {
   type AnimeMotionApi,
   applyMotionReadyClass,
+  clearMotionGate,
   exitDuration,
   isRevealPlayed,
   markRevealPlayed,
@@ -105,11 +106,22 @@ describe('site landing motion (SYN-111)', () => {
 
   it('lista seções de scroll reveal da landing', () => {
     expect(SCROLL_REVEAL_SECTION_SELECTORS).toContain('[data-testid="landing-problem"]');
+    expect(SCROLL_REVEAL_SECTION_SELECTORS).toContain('[data-testid="landing-product"]');
     expect(SCROLL_REVEAL_SECTION_SELECTORS).toContain('[data-testid="landing-how"]');
     expect(SCROLL_REVEAL_SECTION_SELECTORS).toContain('[data-testid="landing-privacy"]');
     expect(SCROLL_REVEAL_SECTION_SELECTORS).toContain('#pricing');
     expect(SCROLL_REVEAL_SECTION_SELECTORS).toContain('[data-testid="landing-faq"]');
     expect(SCROLL_REVEAL_SECTION_SELECTORS).toContain('[data-testid="landing-final-cta"]');
+  });
+
+  it('clearMotionGate remove has-motion para não deixar opacity:0 preso', () => {
+    const root = document.createElement('main');
+    root.classList.add('landing-root', 'has-motion');
+    root.innerHTML = `<h1 data-motion="hero-headline" style="opacity: 0">Quem sumiu</h1>`;
+    clearMotionGate(root);
+    expect(root.classList.contains('has-motion')).toBe(false);
+    const headline = root.querySelector<HTMLElement>('[data-motion="hero-headline"]');
+    expect(headline?.style.opacity).toBe('1');
   });
 
   it('playHeroEntrance não cria timeline sob reduced-motion', () => {
@@ -159,6 +171,32 @@ describe('site landing motion (SYN-111)', () => {
     expect(handle).toBeNull();
     expect(swapped).toBe(true);
     expect(anime.createTimeline).not.toHaveBeenCalled();
+  });
+
+  it('playModeToggleTransition cancel impede swap tardio', () => {
+    const anime = createAnimeMock();
+    const root = document.createElement('div');
+    root.innerHTML = `
+      <p data-testid="landing-hero-mock-headline">Antes</p>
+      <ul data-testid="landing-hero-mock-members"><li>A</li></ul>
+    `;
+    let swaps = 0;
+    const handle = playModeToggleTransition({
+      root,
+      reducedMotion: false,
+      anime,
+      pulseMissing: false,
+      swapContent: () => {
+        swaps += 1;
+      },
+    });
+    expect(handle).not.toBeNull();
+    handle?.cancel();
+    const callSpy = anime.createTimeline.mock.results[0]?.value.call as ReturnType<typeof vi.fn>;
+    const swapCb = callSpy.mock.calls[0]?.[0] as (() => void) | undefined;
+    expect(typeof swapCb).toBe('function');
+    swapCb?.();
+    expect(swaps).toBe(0);
   });
 
   it('playSectionReveal marca played e anima filhos', () => {

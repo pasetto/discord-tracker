@@ -1,9 +1,11 @@
 /**
  * Boot client-side do motion system (lazy anime.js).
  * Respeita prefers-reduced-motion; no-op se falhar o import.
+ * Aplica `has-motion` só depois do import OK — evita opacity:0 preso.
  */
 import {
   applyMotionReadyClass,
+  clearMotionGate,
   loadAnimeMotionApi,
   observeScrollReveals,
   playHeroEntrance,
@@ -24,10 +26,9 @@ export async function bootLandingMotion(): Promise<() => void> {
     return () => undefined;
   }
 
-  applyMotionReadyClass(root, true);
-
   try {
     const anime = await loadAnimeMotionApi();
+    applyMotionReadyClass(root, true);
     const heroHandle = playHeroEntrance({ root, reducedMotion: false, anime });
     const cleanupReveals = observeScrollReveals(root, {
       reducedMotion: false,
@@ -38,7 +39,7 @@ export async function bootLandingMotion(): Promise<() => void> {
       cleanupReveals();
     };
   } catch {
-    applyMotionReadyClass(root, false);
+    clearMotionGate(root);
     return () => undefined;
   }
 }
