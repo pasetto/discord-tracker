@@ -1,21 +1,49 @@
-<div class="relative p-6 bg-white z-1 dark:bg-gray-900 sm:p-0">
+<div class="relative z-1 min-h-screen overflow-x-hidden bg-white p-4 dark:bg-gray-900 sm:p-6 lg:p-0">
   <div
-    class="relative flex flex-col justify-center w-full h-screen lg:flex-row dark:bg-gray-900 sm:p-0"
+    class="relative flex min-h-screen w-full max-w-full flex-col justify-center dark:bg-gray-900 lg:flex-row lg:p-0"
   >
-    <ng-content></ng-content>
+    <!-- Logo + tema no mobile (painel de marca some abaixo de lg) -->
     <div
-      class="items-center hidden w-full h-full lg:w-1/2 bg-brand-950 dark:bg-white/5 lg:grid relative"
+      class="mx-auto mb-4 flex w-full max-w-md shrink-0 items-center justify-between lg:hidden"
+      data-testid="auth-mobile-brand"
     >
-      <div class="flex items-center justify-center z-1">
-        <!-- ===== Common Grid Shape Start ===== -->
+      <a routerLink="/" class="block min-w-0" aria-label="Syntra — início">
+        <img
+          class="h-8 w-auto max-w-[160px] dark:hidden"
+          src="/images/logo/logo.svg"
+          alt="Syntra"
+          width="160"
+          height="40"
+          data-testid="auth-logo-light"
+        />
+        <img
+          class="hidden h-8 w-auto max-w-[160px] dark:block"
+          src="/images/logo/logo-dark.svg"
+          alt="Syntra"
+          width="160"
+          height="40"
+          data-testid="auth-logo-dark"
+        />
+      </a>
+      <app-theme-toggle-two />
+    </div>
+
+    <ng-content></ng-content>
+
+    <div
+      class="relative hidden h-full w-full items-center bg-brand-950 dark:bg-white/5 lg:grid lg:w-1/2"
+      data-testid="auth-brand-panel"
+    >
+      <div class="z-1 flex items-center justify-center">
         <app-grid-shape />
-        <div class="flex flex-col items-center max-w-xs">
-          <a routerLink="/" class="block mb-4">
+        <div class="flex max-w-xs flex-col items-center">
+          <a routerLink="/" class="mb-4 block">
             <img
               width="231"
               height="48"
               src="/images/logo/logo-dark.svg"
-              alt="Logo"
+              alt="Syntra"
+              data-testid="auth-panel-logo"
             />
           </a>
           <p class="text-center text-gray-400 dark:text-white/60">
@@ -24,7 +52,8 @@
         </div>
       </div>
     </div>
-    <div class="fixed z-50 hidden bottom-6 right-6 sm:block">
+
+    <div class="fixed bottom-6 right-6 z-50 hidden lg:block">
       <app-theme-toggle-two />
     </div>
   </div>
