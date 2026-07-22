@@ -68,6 +68,18 @@ describe('RankingReportComponent', () => {
     expect(content).toContain('12.0 h');
   });
 
+  it('expõe cards mobile e tabela desktop com classes de breakpoint md', () => {
+    const mobile = fixture.nativeElement.querySelector('[data-testid="ranking-mobile-cards"]') as HTMLElement;
+    const desktop = fixture.nativeElement.querySelector('[data-testid="ranking-desktop-table"]') as HTMLElement;
+    expect(mobile).toBeTruthy();
+    expect(desktop).toBeTruthy();
+    expect(mobile.className).toContain('md:hidden');
+    expect(desktop.className).toContain('hidden');
+    expect(desktop.className).toContain('md:block');
+    expect(mobile.querySelectorAll('article').length).toBe(1);
+    expect(desktop.querySelector('table')).toBeTruthy();
+  });
+
   it('exibe CTA Disponível no plano Team… quando ranking é gated pelo plano', () => {
     fixture.componentInstance.loadReport();
     httpMock.expectOne((request) => request.url.includes('/gamification/ranking')).flush({
