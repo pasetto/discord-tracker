@@ -1,8 +1,12 @@
 import { defineConfig } from '@playwright/test';
+import { assertSafeE2EBaseURL } from './src/app/core/e2e-safety/assert-safe-e2e-base-url';
 
 /**
  * Configuração de E2E Playwright para smoke tests do frontend.
+ * Recusa `E2E_BASE_URL` apontando para o piloto público (disc.econdos.com.br).
  */
+const e2eBaseURL = assertSafeE2EBaseURL(process.env.E2E_BASE_URL || 'http://127.0.0.1:4200');
+
 const playwrightConfig = defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -11,7 +15,7 @@ const playwrightConfig = defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'list',
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:4200',
+    baseURL: e2eBaseURL,
     trace: 'retain-on-failure',
   },
   webServer: {
