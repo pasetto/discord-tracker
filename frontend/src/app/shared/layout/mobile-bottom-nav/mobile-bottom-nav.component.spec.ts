@@ -27,6 +27,12 @@ describe('MobileBottomNavComponent', () => {
     expect(labels).toEqual(['Início', 'Ao vivo', 'Relatórios', 'Config']);
   });
 
+  it('deve apontar Config para o hub de settings (não Discord)', () => {
+    const configItem = fixture.componentInstance.items.find((item) => item.label === 'Config');
+    expect(configItem?.route).toBe('/app/settings');
+    expect(configItem?.matchPrefix).toBe('/app/settings');
+  });
+
   it('deve usar breakpoint xl (não lg) para esconder a bottom-nav no desktop', () => {
     const nav = fixture.nativeElement.querySelector('nav') as HTMLElement;
     const classes = nav.className.split(/\s+/);
@@ -49,5 +55,12 @@ describe('MobileBottomNavComponent', () => {
 
     const reportsItem = fixture.componentInstance.items[2];
     expect(fixture.componentInstance.isActive(reportsItem)).toBeTrue();
+  });
+
+  it('deve destacar Config para qualquer rota de settings', () => {
+    fixture.componentInstance.currentUrl = '/app/settings/calendar';
+
+    const configItem = fixture.componentInstance.items[3];
+    expect(fixture.componentInstance.isActive(configItem)).toBeTrue();
   });
 });

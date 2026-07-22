@@ -99,7 +99,8 @@
             "include": [
               "src/app/core/**/*.spec.ts",
               "src/app/features/**/*.spec.ts",
-              "src/app/shared/**/*.spec.ts"
+              "src/app/shared/**/*.spec.ts",
+              "src/app/app.routes.settings.spec.ts"
             ],
             "assets": [
               {

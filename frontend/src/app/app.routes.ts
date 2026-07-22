@@ -110,6 +110,11 @@ const loadTeamSettings = () =>
     (module) => module.TeamSettingsComponent,
   );
 
+const loadSettingsHub = () =>
+  import('./features/settings/settings-hub/settings-hub.component').then(
+    (module) => module.SettingsHubComponent,
+  );
+
 const loadJoinOrganization = () =>
   import('./features/organization/join-organization.component').then(
     (module) => module.JoinOrganizationComponent,
@@ -222,7 +227,8 @@ const featureRoutes: Routes = [
       {
         path: '',
         pathMatch: 'full',
-        redirectTo: 'discord',
+        loadComponent: loadSettingsHub,
+        title: 'Configurações | Syntra',
       },
       {
         path: 'categories',
