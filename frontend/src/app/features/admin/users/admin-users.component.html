@@ -8,6 +8,10 @@
     <p class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ errorMessage }}</p>
   }
 
+  @if (successMessage) {
+    <p class="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{{ successMessage }}</p>
+  }
+
   <div class="overflow-x-auto rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
     @if (loading) {
       <p class="p-5 text-sm text-gray-500">Carregando…</p>
@@ -18,12 +22,13 @@
             <th class="px-4 py-3">Usuário</th>
             <th class="px-4 py-3">Organizações</th>
             <th class="px-4 py-3">Super admin</th>
+            <th class="px-4 py-3">Senha</th>
             <th class="px-4 py-3">Criado em</th>
           </tr>
         </thead>
         <tbody>
           @for (user of users; track user.id) {
-            <tr class="border-b border-gray-100 dark:border-gray-800">
+            <tr class="border-b border-gray-100 dark:border-gray-800 align-top">
               <td class="px-4 py-3">
                 <p class="font-medium text-gray-900 dark:text-white">{{ user.displayName }}</p>
                 <p class="text-xs text-gray-500">{{ user.email }}</p>
@@ -38,6 +43,48 @@
                 >
                   {{ user.isSuperAdmin ? 'Super admin' : 'Promover' }}
                 </button>
+              </td>
+              <td class="px-4 py-3 space-y-2 min-w-[16rem]">
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    class="rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    [disabled]="resetBusyId === user.id"
+                    (click)="resetPassword(user)"
+                  >
+                    Resetar senha
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    [disabled]="resetBusyId === user.id"
+                    (click)="resendPasswordReset(user)"
+                  >
+                    Reenviar e-mail
+                  </button>
+                </div>
+                @if (latestResets[user.id]; as reset) {
+                  <div class="space-y-1">
+                    <p class="text-xs text-gray-500">
+                      Expira {{ reset.expiresAt | date: 'dd/MM/yyyy HH:mm' }}
+                      · {{ reset.emailed ? 'email enviado' : 'sem SMTP' }}
+                    </p>
+                    <div class="flex items-start gap-2">
+                      <input
+                        class="w-full rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700"
+                        [value]="reset.resetUrl"
+                        readonly
+                      />
+                      <button
+                        type="button"
+                        class="shrink-0 rounded-lg bg-brand-500 px-2 py-1 text-xs text-white hover:bg-brand-600"
+                        (click)="copyResetUrl(user.id)"
+                      >
+                        Copiar
+                      </button>
+                    </div>
+                  </div>
+                }
               </td>
               <td class="px-4 py-3 text-xs text-gray-500">{{ user.createdAt | date: 'dd/MM/yyyy' }}</td>
             </tr>

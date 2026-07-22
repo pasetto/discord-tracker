@@ -1,0 +1,91 @@
+<div
+  data-testid="landing-hero-mock"
+  class="rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5"
+>
+  <div class="flex flex-wrap items-center justify-between gap-3" data-motion="mock-chrome">
+    <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Time agora</h2>
+
+    <div
+      role="radiogroup"
+      aria-label="Comparar Sem Syntra e Com Syntra"
+      class="inline-flex rounded-lg border border-gray-200 p-0.5 dark:border-gray-700"
+      data-testid="landing-hero-toggle"
+    >
+      <button
+        type="button"
+        role="radio"
+        [attr.aria-checked]="mode === 'without'"
+        data-testid="landing-hero-toggle-without"
+        class="min-h-9 rounded-md px-3 text-xs font-semibold transition"
+        [class.bg-gray-900]="mode === 'without'"
+        [class.text-white]="mode === 'without'"
+        [class.dark:bg-gray-100]="mode === 'without'"
+        [class.dark:text-gray-900]="mode === 'without'"
+        [class.text-gray-600]="mode !== 'without'"
+        [class.dark:text-gray-300]="mode !== 'without'"
+        (click)="setMode('without')"
+      >
+        Sem Syntra
+      </button>
+      <button
+        type="button"
+        role="radio"
+        [attr.aria-checked]="mode === 'with'"
+        data-testid="landing-hero-toggle-with"
+        class="min-h-9 rounded-md px-3 text-xs font-semibold transition"
+        [class.bg-gray-900]="mode === 'with'"
+        [class.text-white]="mode === 'with'"
+        [class.dark:bg-gray-100]="mode === 'with'"
+        [class.dark:text-gray-900]="mode === 'with'"
+        [class.text-gray-600]="mode !== 'with'"
+        [class.dark:text-gray-300]="mode !== 'with'"
+        (click)="setMode('with')"
+      >
+        Com Syntra
+      </button>
+    </div>
+  </div>
+
+  <div class="hero-mock-fade mt-4" data-motion="mock-body" [attr.data-mode]="mode">
+    <p class="text-sm font-medium text-gray-900 dark:text-white" data-testid="landing-hero-mock-headline">
+      {{ headline }}
+    </p>
+    <p *ngIf="supportLine" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      {{ supportLine }}
+    </p>
+
+    <ul class="mt-4 space-y-2" data-testid="landing-hero-mock-members">
+      <li
+        *ngFor="let member of members"
+        class="flex items-center justify-between gap-3 rounded-lg px-1 py-1.5 transition"
+      >
+        <div class="flex min-w-0 items-center gap-3">
+          <span
+            class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
+            [ngClass]="member.avatarClass"
+            aria-hidden="true"
+          >
+            {{ member.initials }}
+          </span>
+          <span class="truncate text-sm font-medium text-gray-800 dark:text-gray-100">
+            {{ member.name }}
+          </span>
+        </div>
+        <span
+          class="shrink-0 rounded-md px-2 py-1 text-xs font-semibold"
+          [ngClass]="statusChipClass(statusOf(member))"
+          [attr.data-status]="statusOf(member)"
+        >
+          {{ statusLabel(statusOf(member)) }}
+        </span>
+      </li>
+    </ul>
+  </div>
+
+  <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
+    Ilustração. Não é dado do seu servidor.
+  </p>
+  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+    Só metadados. Conteúdo de mensagem fica fora.
+  </p>
+</div>

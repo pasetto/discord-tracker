@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, map, of } from 'rxjs';
+import { Observable, map } from 'rxjs';
 
 /**
  * Features de plano expostas na API pública de pricing.
@@ -152,7 +152,9 @@ export class PublicPricingService {
 
   /**
    * Busca planos ativos para exibição na landing.
-   * @returns Observable com cards prontos para UI; fallback local em erro de rede
+   * Em lista vazia, retorna fallback local. Erros HTTP propagam para o caller
+   * (a pricing-section aplica fallback + mensagem).
+   * @returns Observable com cards prontos para UI
    */
   fetchPricingCards(): Observable<PricingPlanCardView[]> {
     return this.http.get<{ plans: PublicPlanDto[] }>('/api/v1/pricing').pipe(
@@ -162,7 +164,6 @@ export class PublicPricingService {
         }
         return response.plans.map(toPricingPlanCard);
       }),
-      catchError(() => of(FALLBACK_PRICING_PLANS)),
     );
   }
 }

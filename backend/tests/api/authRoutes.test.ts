@@ -8,10 +8,20 @@ const platformAuthMocks = vi.hoisted(() => ({
   refreshPlatformUserSession: vi.fn(),
 }));
 
+const passwordResetMocks = vi.hoisted(() => ({
+  requestPublicPasswordReset: vi.fn(),
+  completePasswordReset: vi.fn(),
+}));
+
 vi.mock('../../src/services/platformAuthService', () => ({
   registerPlatformUser: platformAuthMocks.registerPlatformUser,
   loginPlatformUser: platformAuthMocks.loginPlatformUser,
   refreshPlatformUserSession: platformAuthMocks.refreshPlatformUserSession,
+}));
+
+vi.mock('../../src/services/betterAuthBridgeService', () => ({
+  requestPublicPasswordReset: passwordResetMocks.requestPublicPasswordReset,
+  completePasswordReset: passwordResetMocks.completePasswordReset,
 }));
 
 describe('auth routes', () => {
@@ -185,5 +195,43 @@ describe('auth routes', () => {
     const response = await request(app.callback()).get('/api/v1/org/org-1/reports/daily');
 
     expect(response.status).toBe(401);
+  });
+
+  it('aceita POST /api/v1/auth/forgot-password com resposta genérica', async () => {
+    passwordResetMocks.requestPublicPasswordReset.mockResolvedValue({ ok: true });
+    const app = createApp();
+    const response = await request(app.callback())
+      .post('/api/v1/auth/forgot-password')
+      .send({ email: 'owner@test.com' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(passwordResetMocks.requestPublicPasswordReset).toHaveBeenCalledWith('owner@test.com');
+  });
+
+  it('aceita POST /api/v1/auth/reset-password com token válido', async () => {
+    passwordResetMocks.completePasswordReset.mockResolvedValue(undefined);
+    const app = createApp();
+    const response = await request(app.callback())
+      .post('/api/v1/auth/reset-password')
+      .send({ token: 'tok', newPassword: 'nova-senha-123' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(passwordResetMocks.completePasswordReset).toHaveBeenCalledWith({
+      token: 'tok',
+      newPassword: 'nova-senha-123',
+    });
+  });
+
+  it('retorna 400 em reset-password com token inválido', async () => {
+    passwordResetMocks.completePasswordReset.mockRejectedValue(new Error('Token de redefinição inválido ou expirado'));
+    const app = createApp();
+    const response = await request(app.callback())
+      .post('/api/v1/auth/reset-password')
+      .send({ token: 'bad', newPassword: 'nova-senha-123' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain('inválido');
   });
 });

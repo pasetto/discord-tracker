@@ -1,7 +1,7 @@
 <section class="space-y-6">
   <p class="text-sm text-gray-500 dark:text-gray-400">{{ organizationName }}</p>
 
-  <section *ngIf="!hasGuild" class="rounded-2xl border border-brand-200 bg-brand-50 p-6 dark:border-brand-900 dark:bg-brand-500/10">
+  <section *ngIf="!hasGuild" class="rounded-2xl border border-brand-200 bg-brand-50 p-6 dark:border-brand-500/30 dark:bg-brand-500/15">
     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Configure o Discord para começar</h2>
     <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
       Cadastre seu bot, adicione-o ao servidor e escolha qual servidor monitorar para ver a colaboração do time.
@@ -17,7 +17,7 @@
   <ng-container *ngIf="hasGuild">
     <section
       *ngIf="showSyncMembersEmptyState"
-      class="rounded-2xl border border-brand-200 bg-brand-50 p-6 dark:border-brand-900 dark:bg-brand-500/10"
+      class="rounded-2xl border border-brand-200 bg-brand-50 p-6 dark:border-brand-500/30 dark:bg-brand-500/15"
       data-testid="sync-members-empty"
     >
       <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ syncMembersEmptyCopy.title }}</h2>
@@ -46,7 +46,7 @@
     <section
       *ngIf="showFirstValueChecklist"
       data-testid="first-value-checklist"
-      class="rounded-2xl border border-brand-200 bg-brand-50/80 p-5 dark:border-brand-900 dark:bg-brand-500/10 md:p-6"
+      class="rounded-2xl border border-brand-200 bg-brand-50/80 p-5 dark:border-brand-500/30 dark:bg-brand-500/15 md:p-6"
     >
       <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Setup pronto — aguardando o primeiro sinal</h2>
       <p class="mt-2 max-w-3xl text-sm text-gray-600 dark:text-gray-300">
@@ -88,10 +88,20 @@
       </ul>
     </section>
 
-    <!-- Hero: quem precisa de atenção -->
+    <!-- Hero + lista acionável acima das métricas no mobile (<lg) -->
     <ng-container *ngIf="!showSyncMembersEmptyState">
+    <div
+      data-testid="dashboard-priority-stack"
+      class="flex flex-col gap-6"
+    >
     <section
-      class="relative overflow-hidden rounded-2xl border border-warning-200 bg-gradient-to-br from-warning-50 via-white to-brand-50 p-6 dark:border-warning-900/60 dark:from-warning-500/10 dark:via-gray-900/40 dark:to-brand-500/5 md:p-8"
+      data-testid="dashboard-attention-hero"
+      class="relative order-1 overflow-hidden rounded-2xl border p-6 md:p-8"
+      [ngClass]="
+        attentionCount > 0
+          ? 'border-warning-200 bg-gradient-to-br from-warning-50 via-white to-brand-50 dark:border-warning-900/60 dark:from-warning-500/10 dark:via-gray-900/40 dark:to-brand-500/5'
+          : 'border-success-200 bg-gradient-to-br from-success-50 via-white to-brand-50 dark:border-success-900/60 dark:from-success-500/10 dark:via-gray-900/40 dark:to-brand-500/5'
+      "
     >
       <div class="relative z-10 max-w-3xl">
         <p class="text-sm font-medium text-gray-600 dark:text-gray-300">{{ greeting }}, {{ userFirstName }}!</p>
@@ -127,7 +137,12 @@
 
         <a
           routerLink="/app/reports/inactivity"
-          class="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl bg-warning-500 px-5 py-2.5 text-sm font-semibold text-white shadow-theme-sm transition hover:bg-warning-600"
+          class="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-theme-sm transition"
+          [ngClass]="
+            attentionCount > 0
+              ? 'bg-warning-500 hover:bg-warning-600'
+              : 'bg-success-500 hover:bg-success-600'
+          "
         >
           Abrir relatório de inatividade
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -145,7 +160,14 @@
       </div>
 
       <div class="pointer-events-none absolute -right-4 -top-4 hidden opacity-80 md:block" aria-hidden="true">
-        <div class="flex size-36 items-center justify-center rounded-full bg-warning-100 text-warning-500 dark:bg-warning-500/15">
+        <div
+          class="flex size-36 items-center justify-center rounded-full"
+          [ngClass]="
+            attentionCount > 0
+              ? 'bg-warning-100 text-warning-500 dark:bg-warning-500/15'
+              : 'bg-success-100 text-success-500 dark:bg-success-500/15'
+          "
+        >
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
             <path
               d="M12 3C8.68629 3 6 5.68629 6 9V10.262C4.79486 10.8837 4 12.149 4 13.6V17.2C4 18.8807 5.35931 20.24 7.04 20.24H16.96C18.6407 20.24 20 18.8807 20 17.2V13.6C20 12.149 19.2051 10.8837 18 10.262V9C18 5.68629 15.3137 3 12 3Z"
@@ -158,17 +180,105 @@
       </div>
     </section>
 
-    <!-- Métricas rápidas -->
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    <!-- Lista acionável: order-2 no mobile (acima dos KPIs); lg:order-3 restaura KPIs antes da lista -->
+    <section
+      data-testid="dashboard-attention-list"
+      class="order-2 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:order-3"
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Quem precisa de atenção</h2>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Alertas de hoje, semana e metas individuais.</p>
+        </div>
+        <button
+          type="button"
+          class="min-h-11 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 dark:border-gray-700 dark:text-gray-200"
+          (click)="loadAllData()"
+          [disabled]="isLoading"
+        >
+          {{ isLoading ? 'Atualizando...' : 'Atualizar' }}
+        </button>
+      </div>
+
+      <p *ngIf="isLoading && attentionItems.length === 0 && !showTrustedEmptyState && !showFirstValueChecklist" class="mt-6 text-sm text-gray-500">Carregando alertas...</p>
+
+      <p
+        *ngIf="!isLoading && attentionItems.length === 0 && !showTrustedEmptyState && !showFirstValueChecklist"
+        class="mt-6 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800 dark:border-success-900 dark:bg-success-500/10 dark:text-success-200"
+      >
+        Ninguém em alerta — time dentro dos critérios de colaboração configurados.
+      </p>
+
+      <p
+        *ngIf="!isLoading && attentionItems.length === 0 && showFirstValueChecklist"
+          class="mt-6 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800 dark:border-brand-500/30 dark:bg-brand-500/15 dark:text-brand-300"
+      >
+        Sem alertas por enquanto — revise o checklist de primeiro valor acima enquanto o time colabora.
+      </p>
+
+      <ul *ngIf="attentionItems.length > 0" class="mt-4 space-y-3">
+        <li
+          *ngFor="let item of attentionItems"
+          class="flex flex-col gap-3 rounded-xl border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-700"
+        >
+          <div class="flex items-start gap-3">
+            <span class="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
+              {{ memberInitials(item.displayName) }}
+            </span>
+            <div>
+              <p class="font-semibold text-gray-900 dark:text-white">{{ item.displayName }}</p>
+              <p *ngIf="item.categoryName" class="text-xs text-gray-500 dark:text-gray-400">{{ item.categoryName }}</p>
+              <p class="mt-1 text-sm font-medium" [ngClass]="getAttentionMessageClass(item.severity)">{{ item.message }}</p>
+            </div>
+          </div>
+          <a
+            data-testid="dashboard-attention-cta"
+            [routerLink]="item.actionRoute"
+            [queryParams]="item.actionQueryParams"
+            class="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-800"
+          >
+            {{ item.actionLabel }}
+          </a>
+        </li>
+      </ul>
+
+      <div *ngIf="explainabilityItems.length > 0" class="mt-5 border-t border-gray-200 pt-4 dark:border-gray-700">
+        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Por que NÃO é “sumiu”</h3>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          Contexto de calendário, jornada e PTO — esses colaboradores não entram no alerta de inatividade.
+        </p>
+        <ul class="mt-3 space-y-2">
+          <li
+            *ngFor="let item of explainabilityItems"
+            class="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-sm dark:border-gray-800 dark:bg-white/[0.02]"
+          >
+            <p class="font-medium text-gray-900 dark:text-white">{{ item.displayName }}</p>
+            <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-300">{{ item.message }}</p>
+          </li>
+        </ul>
+      </div>
+
+      <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
+        Canais AFK/almoço/ignorados não contam como colaboração.
+        <a routerLink="/app/settings/channels" class="font-medium text-brand-600 hover:underline dark:text-brand-400">Ajustar canais</a>
+      </p>
+    </section>
+
+    <!-- Métricas rápidas: abaixo da lista no mobile; acima da lista em lg+ -->
+    <div
+      data-testid="dashboard-metric-cards"
+      class="order-3 grid gap-4 sm:grid-cols-2 lg:order-2 xl:grid-cols-5"
+    >
       <article
         *ngFor="let card of metricCards"
-        class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]"
+        data-testid="dashboard-metric-card"
+        class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900/60"
       >
         <div class="flex items-start justify-between gap-3">
           <div>
-            <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ card.label }}</p>
+            <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-300">{{ card.label }}</p>
             <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ card.value }}</p>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ card.hint }}</p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-300">{{ card.hint }}</p>
           </div>
           <span class="inline-flex size-10 items-center justify-center rounded-xl" [ngClass]="getMetricIconClass(card.tone)">
             <svg *ngIf="card.id === 'collaborating'" width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -190,89 +300,10 @@
         </div>
       </article>
     </div>
+    </div>
 
-    <!-- Quem precisa de atenção + Heatmap -->
-    <div class="grid gap-4 xl:grid-cols-2">
-      <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Quem precisa de atenção</h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Alertas de hoje, semana e metas individuais.</p>
-          </div>
-          <button
-            type="button"
-            class="min-h-10 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 dark:border-gray-700 dark:text-gray-200"
-            (click)="loadAllData()"
-            [disabled]="isLoading"
-          >
-            {{ isLoading ? 'Atualizando...' : 'Atualizar' }}
-          </button>
-        </div>
-
-        <p *ngIf="isLoading && attentionItems.length === 0 && !showTrustedEmptyState && !showFirstValueChecklist" class="mt-6 text-sm text-gray-500">Carregando alertas...</p>
-
-        <p
-          *ngIf="!isLoading && attentionItems.length === 0 && !showTrustedEmptyState && !showFirstValueChecklist"
-          class="mt-6 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800 dark:border-success-900 dark:bg-success-500/10 dark:text-success-200"
-        >
-          Ninguém em alerta — time dentro dos critérios de colaboração configurados.
-        </p>
-
-        <p
-          *ngIf="!isLoading && attentionItems.length === 0 && showFirstValueChecklist"
-          class="mt-6 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800 dark:border-brand-900 dark:bg-brand-500/10 dark:text-brand-200"
-        >
-          Sem alertas por enquanto — revise o checklist de primeiro valor acima enquanto o time colabora.
-        </p>
-
-        <ul *ngIf="attentionItems.length > 0" class="mt-4 space-y-3">
-          <li
-            *ngFor="let item of attentionItems"
-            class="flex flex-col gap-3 rounded-xl border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-700"
-          >
-            <div class="flex items-start gap-3">
-              <span class="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
-                {{ memberInitials(item.displayName) }}
-              </span>
-              <div>
-                <p class="font-semibold text-gray-900 dark:text-white">{{ item.displayName }}</p>
-                <p *ngIf="item.categoryName" class="text-xs text-gray-500 dark:text-gray-400">{{ item.categoryName }}</p>
-                <p class="mt-1 text-sm font-medium" [ngClass]="getAttentionMessageClass(item.severity)">{{ item.message }}</p>
-              </div>
-            </div>
-            <a
-              [routerLink]="item.actionRoute"
-              [queryParams]="item.actionQueryParams"
-              class="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-800"
-            >
-              {{ item.actionLabel }}
-            </a>
-          </li>
-        </ul>
-
-        <div *ngIf="explainabilityItems.length > 0" class="mt-5 border-t border-gray-200 pt-4 dark:border-gray-700">
-          <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Por que NÃO é “sumiu”</h3>
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Contexto de calendário, jornada e PTO — esses colaboradores não entram no alerta de inatividade.
-          </p>
-          <ul class="mt-3 space-y-2">
-            <li
-              *ngFor="let item of explainabilityItems"
-              class="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-sm dark:border-gray-800 dark:bg-white/[0.02]"
-            >
-              <p class="font-medium text-gray-900 dark:text-white">{{ item.displayName }}</p>
-              <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-300">{{ item.message }}</p>
-            </li>
-          </ul>
-        </div>
-
-        <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
-          Canais AFK/almoço/ignorados não contam como colaboração.
-          <a routerLink="/app/settings/channels" class="font-medium text-brand-600 hover:underline dark:text-brand-400">Ajustar canais</a>
-        </p>
-      </section>
-
-      <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <!-- Heatmap (abaixo do stack prioritário) -->
+    <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Heatmap de colaboração</h2>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Intensidade de sinais colaborativos por dia e hora (voz).</p>
 
@@ -298,8 +329,7 @@
         <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
           Tons mais escuros indicam mais movimentação colaborativa registrada no período.
         </p>
-      </section>
-    </div>
+    </section>
 
     <!-- Timeline + Gráfico semanal -->
     <div class="grid gap-4 xl:grid-cols-2">
@@ -413,7 +443,7 @@
     <!-- Tip Web Push fora do empty de sync — visível com guild mesmo sem membros -->
     <section
       data-testid="dashboard-push-tip"
-      class="rounded-2xl border border-brand-200 bg-brand-50 px-5 py-4 dark:border-brand-900 dark:bg-brand-500/10"
+      class="rounded-2xl border border-brand-200 bg-brand-50 px-5 py-4 dark:border-brand-500/30 dark:bg-brand-500/15"
     >
       <p class="text-sm text-gray-700 dark:text-gray-200">
         <strong>Dica:</strong>

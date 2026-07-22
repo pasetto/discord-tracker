@@ -1,4 +1,3 @@
-import bcrypt from 'bcryptjs';
 import { Types } from 'mongoose';
 import { OrganizationModel } from '../db/models/Organization';
 import { PlanModel } from '../db/models/Plan';
@@ -15,12 +14,14 @@ import {
   signRefreshToken,
   verifyRefreshToken,
 } from './authService';
+import { ensureBetterAuthCredentialUser } from './betterAuthBridgeService';
+import { getBetterAuth } from '../auth/betterAuth';
+import { createLogger } from '../logger';
+import { hashPassword, MIN_PASSWORD_LENGTH, verifyPassword } from './passwordHash';
 
-/** Custo do bcrypt para hash de senha. */
-const PASSWORD_SALT_ROUNDS = 12;
+export { hashPassword, verifyPassword } from './passwordHash';
 
-/** Comprimento mínimo aceito para senhas de usuários da plataforma. */
-const MIN_PASSWORD_LENGTH = 8;
+const authBridgeLog = createLogger('platform-auth-bridge');
 
 /**
  * Dados de entrada para cadastro de conta na plataforma.
@@ -85,25 +86,6 @@ export function slugifyOrganizationName(value: string): string {
     .replace(/^-+|-+$/g, '');
 
   return normalized || 'organizacao';
-}
-
-/**
- * Gera hash bcrypt para senha em texto puro.
- * @param password Senha informada pelo usuário
- * @returns Hash persistível no banco
- */
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, PASSWORD_SALT_ROUNDS);
-}
-
-/**
- * Compara senha informada com hash armazenado.
- * @param password Senha em texto puro
- * @param passwordHash Hash salvo no banco
- * @returns `true` quando a senha confere
- */
-export async function verifyPassword(password: string, passwordHash: string): Promise<boolean> {
-  return bcrypt.compare(password, passwordHash);
 }
 
 /**
@@ -269,6 +251,7 @@ export async function registerPlatformUser(input: RegisterPlatformUserInput): Pr
     ],
   });
 
+  await syncBetterAuthAfterCredentialChange(user, passwordHash);
   return buildPlatformAuthResult(user);
 }
 
@@ -299,6 +282,7 @@ async function registerPlatformUserViaInvite(input: {
     ],
   });
 
+  await syncBetterAuthAfterCredentialChange(user, passwordHash);
   return buildPlatformAuthResult(user);
 }
 
@@ -318,13 +302,33 @@ export async function loginPlatformUser(input: LoginPlatformUserInput): Promise<
     throw new Error('Credenciais inválidas');
   }
 
-  const passwordMatches = await verifyPassword(input.password, user.passwordHash);
-  if (!passwordMatches) {
-    throw new Error('Credenciais inválidas');
-  }
-
   if (!user.isSuperAdmin && user.memberships.length === 0) {
     throw new Error('Usuário sem organização vinculada');
+  }
+
+  // Sync before Better Auth verify so legacy bcrypt hashes are available to the credential account.
+  await syncBetterAuthAfterCredentialChange(user, user.passwordHash);
+
+  let authenticatedViaBetterAuth = false;
+  try {
+    await getBetterAuth().api.signInEmail({
+      body: {
+        email: normalizedEmail,
+        password: input.password,
+      },
+    });
+    authenticatedViaBetterAuth = true;
+  } catch {
+    authenticatedViaBetterAuth = false;
+  }
+
+  if (!authenticatedViaBetterAuth) {
+    // Fallback: usuários só em PlatformUser (hash legado) ainda autenticam via bcrypt local.
+    const passwordMatches = await verifyPassword(input.password, user.passwordHash);
+    if (!passwordMatches) {
+      throw new Error('Credenciais inválidas');
+    }
+    authBridgeLog.warn({ email: normalizedEmail }, 'Login via bcrypt local após falha Better Auth');
   }
 
   return buildPlatformAuthResult(user);
@@ -387,6 +391,29 @@ export async function switchPlatformOrganization(
   }
 
   return buildPlatformAuthResult(user, organizationId);
+}
+
+/**
+ * Sincroniza credencial Better Auth após criar/atualizar PlatformUser.
+ * Falhas de sync não bloqueiam o fluxo legado de sessão Syntra.
+ * @param user Documento PlatformUser
+ * @param passwordHash Hash bcrypt atual
+ * @returns {Promise<void>}
+ */
+async function syncBetterAuthAfterCredentialChange(
+  user: IPlatformUser,
+  passwordHash: string,
+): Promise<void> {
+  try {
+    await ensureBetterAuthCredentialUser({
+      id: String(user._id),
+      email: user.email,
+      displayName: user.displayName,
+      passwordHash,
+    });
+  } catch (error) {
+    authBridgeLog.warn({ err: error, userId: String(user._id) }, 'Falha ao sincronizar Better Auth');
+  }
 }
 
 /**
