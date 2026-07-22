@@ -509,4 +509,20 @@ export class AuthService {
   register(payload: RegisterRequest): Observable<AuthSessionResponse> {
     return this.authApiService.register(payload).pipe(tap((session) => this.persistSession(session)));
   }
+
+  /**
+   * Solicita redefinição de senha por email (SMTP).
+   * @param email Email da conta
+   */
+  forgotPassword(email: string): Observable<{ ok: true; message?: string }> {
+    return this.authApiService.forgotPassword(email);
+  }
+
+  /**
+   * Redefine senha com token recebido por email/link de suporte.
+   * @param payload Token + nova senha
+   */
+  resetPassword(payload: { token: string; newPassword: string }): Observable<{ ok: true }> {
+    return this.authApiService.resetPassword(payload);
+  }
 }
