@@ -1,7 +1,15 @@
 <section id="pricing" class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
   <header class="mb-8 text-center">
-    <h2 class="text-2xl font-semibold text-gray-900 sm:text-3xl dark:text-white">Planos em BRL</h2>
-    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+    <h2
+      class="text-2xl font-semibold text-gray-900 sm:text-3xl dark:text-white"
+      data-motion="reveal-heading"
+    >
+      Planos em BRL
+    </h2>
+    <p
+      class="mt-2 text-sm text-gray-600 dark:text-gray-300"
+      data-motion="reveal-lead"
+    >
       Preços e limites vêm da API pública. Escolha o plano, crie a conta, teste sem cartão.
     </p>
   </header>
@@ -22,6 +30,8 @@
     <article
       *ngFor="let plan of plans"
       class="rounded-2xl border bg-white p-6 shadow-sm dark:bg-gray-900"
+      data-motion="reveal-child"
+      data-hover="card"
       [class.border-brand-400]="plan.featured"
       [class.ring-2]="plan.featured"
       [class.ring-brand-200]="plan.featured"

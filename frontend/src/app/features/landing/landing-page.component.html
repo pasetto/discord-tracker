@@ -1,4 +1,4 @@
-<main class="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white">
+<main class="landing-root min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white">
   <header
     class="sticky top-0 z-20 border-b border-gray-200/80 bg-gray-50/90 backdrop-blur dark:border-gray-800 dark:bg-gray-950/90"
   >
@@ -30,7 +30,7 @@
         </a>
         <a
           routerLink="/signup"
-          class="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
+          class="landing-cta-primary inline-flex min-h-11 items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
         >
           Criar conta
         </a>
@@ -50,6 +50,7 @@
         width="140"
         height="40"
         data-testid="landing-hero-logo"
+        data-motion="hero-brand"
       />
       <img
         src="/images/logo/logo-dark.svg"
@@ -57,20 +58,27 @@
         class="hidden h-10 w-auto dark:block"
         width="140"
         height="40"
+        data-motion="hero-brand"
       />
 
-      <h1 class="mt-6 text-3xl font-bold tracking-tight sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
+      <h1
+        class="mt-6 text-3xl font-bold tracking-tight sm:text-4xl lg:text-[2.75rem] lg:leading-tight"
+        data-motion="hero-headline"
+      >
         Quem sumiu no Discord do seu time — antes do atraso virar crise.
       </h1>
-      <p class="mt-4 max-w-xl text-sm text-gray-600 dark:text-gray-300 sm:text-base">
+      <p
+        class="mt-4 max-w-xl text-sm text-gray-600 dark:text-gray-300 sm:text-base"
+        data-motion="hero-sub"
+      >
         Radar de colaboração para gestores remotos. Você vê quem está no jogo e quem sumiu, com
         calendário e PTO no contexto. Sem ler mensagens. Sem gravar áudio.
       </p>
 
-      <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center" data-motion="hero-ctas">
         <a
           routerLink="/signup"
-          class="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-600"
+          class="landing-cta-primary inline-flex min-h-11 items-center justify-center rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white hover:bg-brand-600"
         >
           Criar conta
         </a>
@@ -82,7 +90,7 @@
         </a>
       </div>
 
-      <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
+      <p class="mt-4 text-xs text-gray-500 dark:text-gray-400" data-motion="hero-trust">
         Sem cartão no teste. Setup em minutos. Só metadados.
       </p>
     </div>
@@ -97,20 +105,30 @@
   <app-faq-section />
 
   <section class="mx-auto max-w-6xl px-4 pb-16 pt-4 sm:px-6" data-testid="landing-final-cta">
-    <div class="rounded-2xl border border-gray-200 bg-white px-6 py-10 text-center dark:border-gray-700 dark:bg-gray-900 sm:px-10">
-      <h2 class="text-2xl font-semibold text-gray-900 sm:text-3xl dark:text-white">
+    <div
+      class="rounded-2xl border border-gray-200 bg-white px-6 py-10 text-center dark:border-gray-700 dark:bg-gray-900 sm:px-10"
+      data-motion="reveal-shell"
+    >
+      <h2
+        class="text-2xl font-semibold text-gray-900 sm:text-3xl dark:text-white"
+        data-motion="reveal-heading"
+      >
         Pare de descobrir sumiço tarde demais.
       </h2>
-      <p class="mx-auto mt-3 max-w-2xl text-sm text-gray-600 dark:text-gray-300 sm:text-base">
+      <p
+        class="mx-auto mt-3 max-w-2xl text-sm text-gray-600 dark:text-gray-300 sm:text-base"
+        data-motion="reveal-lead"
+      >
         Crie a conta e veja quem está colaborando, e quem sumiu, no Discord do seu time.
       </p>
       <a
         routerLink="/signup"
-        class="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-600"
+        class="landing-cta-primary mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white hover:bg-brand-600"
+        data-motion="reveal-child"
       >
         Criar conta
       </a>
-      <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
+      <p class="mt-4 text-xs text-gray-500 dark:text-gray-400" data-motion="reveal-child">
         Sem cartão no teste. Só metadados. Sem ler mensagens.
       </p>
     </div>
