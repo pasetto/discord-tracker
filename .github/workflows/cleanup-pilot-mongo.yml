@@ -37,16 +37,27 @@ jobs:
             exit 1
           fi
 
-      - name: Copy cleanup scripts to pilot
+      - name: Copy cleanup script to pilot
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          source: "scripts/cleanup-pilot-mongo-smoke.mjs,scripts/lib/pilotSmokeTenantMatch.mjs"
-          target: ${{ secrets.DEPLOY_PATH }}/
-          strip_components: 0
+          source: scripts/cleanup-pilot-mongo-smoke.mjs
+          target: ${{ secrets.DEPLOY_PATH }}/scripts/
+          strip_components: 1
+
+      - name: Copy matcher lib to pilot
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: scripts/lib/pilotSmokeTenantMatch.mjs
+          target: ${{ secrets.DEPLOY_PATH }}/scripts/lib/
+          strip_components: 2
 
       - name: Run pilot Mongo smoke cleanup
         uses: appleboy/ssh-action@v1.2.0

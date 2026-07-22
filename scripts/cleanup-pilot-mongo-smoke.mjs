@@ -19,7 +19,8 @@ import { resolve } from 'node:path';
 import { selectCleanupTargets } from './lib/pilotSmokeTenantMatch.mjs';
 
 /**
- * Carrega o driver oficial `mongodb` a partir do monorepo no host.
+ * Carrega MongoClient/ObjectId via `mongodb` direto ou fallback `mongoose.mongo`
+ * (no piloto o driver costuma estar aninhado em mongoose, não hoisted).
  * @returns {{ MongoClient: typeof import('mongodb').MongoClient, ObjectId: typeof import('mongodb').ObjectId }}
  */
 function loadMongodb() {
@@ -31,6 +32,42 @@ function loadMongodb() {
   ];
   /** @type {string[]} */
   const errors = [];
+
+  /**
+   * @param {string} pkgJson
+   * @returns {{ MongoClient: unknown, ObjectId: unknown } | null}
+   */
+  function tryFromPackageJson(pkgJson) {
+    const requireFrom = createRequire(pkgJson);
+    try {
+      const mod = requireFrom('mongodb');
+      if (mod?.MongoClient && mod?.ObjectId) {
+        return { MongoClient: mod.MongoClient, ObjectId: mod.ObjectId };
+      }
+      errors.push(`${pkgJson}: mongodb sem MongoClient/ObjectId`);
+    } catch (err) {
+      errors.push(`${pkgJson} mongodb: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    try {
+      const mongoose = requireFrom('mongoose');
+      const MongoClient = mongoose?.mongo?.MongoClient;
+      const ObjectId = mongoose?.Types?.ObjectId || mongoose?.mongo?.ObjectId;
+      if (MongoClient && ObjectId) {
+        return { MongoClient, ObjectId };
+      }
+      // nested: require mongodb from mongoose install path
+      const mongooseEntry = requireFrom.resolve('mongoose');
+      const nested = createRequire(mongooseEntry)('mongodb');
+      if (nested?.MongoClient && nested?.ObjectId) {
+        return { MongoClient: nested.MongoClient, ObjectId: nested.ObjectId };
+      }
+      errors.push(`${pkgJson}: mongoose sem MongoClient/ObjectId`);
+    } catch (err) {
+      errors.push(`${pkgJson} mongoose: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    return null;
+  }
+
   for (const base of bases) {
     const pkgJson = existsSync(resolve(base, 'package.json'))
       ? resolve(base, 'package.json')
@@ -39,16 +76,8 @@ function loadMongodb() {
       errors.push(`${base}: sem package.json`);
       continue;
     }
-    try {
-      const requireFrom = createRequire(pkgJson);
-      const mod = requireFrom('mongodb');
-      if (!mod?.MongoClient || !mod?.ObjectId) {
-        throw new Error('módulo mongodb sem MongoClient/ObjectId');
-      }
-      return { MongoClient: mod.MongoClient, ObjectId: mod.ObjectId };
-    } catch (err) {
-      errors.push(`${base}: ${err instanceof Error ? err.message : String(err)}`);
-    }
+    const loaded = tryFromPackageJson(pkgJson);
+    if (loaded) return /** @type {{ MongoClient: typeof import('mongodb').MongoClient, ObjectId: typeof import('mongodb').ObjectId }} */ (loaded);
   }
   throw new Error(`mongodb não encontrado. Tentativas: ${errors.join(' | ')}`);
 }
