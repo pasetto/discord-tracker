@@ -8,7 +8,9 @@ import {
   applyMotionReadyClass,
   clearMotionGate,
   exitDuration,
+  HERO_ENTRANCE_FAILSAFE_MS,
   isRevealPlayed,
+  loadAnimeMotionApi,
   markRevealPlayed,
   playHeroEntrance,
   playModeToggleTransition,
@@ -154,6 +156,89 @@ describe('site landing motion (SYN-111)', () => {
     expect(handle).not.toBeNull();
     expect(anime.createTimeline).toHaveBeenCalled();
     expect(anime.animate).toHaveBeenCalled();
+  });
+
+  it('playHeroEntrance termina chrome+members antes do fail-safe (SYN-121)', async () => {
+    const root = document.createElement('main');
+    root.classList.add('landing-root', 'has-motion');
+    root.innerHTML = `
+      <section data-testid="landing-hero">
+        <img data-motion="hero-brand" data-testid="landing-hero-logo" />
+        <h1 data-motion="hero-headline">Quem sumiu</h1>
+        <p data-motion="hero-sub">Radar</p>
+        <div data-motion="hero-ctas"><a href="/signup">Criar conta</a></div>
+        <p data-motion="hero-trust">Sem cartão</p>
+        <div data-testid="landing-hero-mock">
+          <div data-motion="mock-chrome">Time agora</div>
+          <ul data-testid="landing-hero-mock-members">
+            <li>A</li><li>B</li><li>C</li><li>D</li><li>E</li>
+          </ul>
+        </div>
+      </section>
+    `;
+    document.body.appendChild(root);
+
+    const anime = await loadAnimeMotionApi();
+    const realCreate = anime.createTimeline;
+    let timelineDuration = 0;
+    anime.createTimeline = ((params?: unknown) => {
+      const tl = realCreate({
+        ...(typeof params === 'object' && params ? params : {}),
+        autoplay: false,
+      });
+      const realAdd = tl.add.bind(tl);
+      tl.add = (...args: unknown[]) => {
+        const result = realAdd(...args);
+        timelineDuration = (tl as { duration: number }).duration;
+        return result;
+      };
+      return tl;
+    }) as AnimeMotionApi['createTimeline'];
+
+    const handle = playHeroEntrance({ root, reducedMotion: false, anime });
+    expect(handle).not.toBeNull();
+    expect(timelineDuration).toBeGreaterThan(0);
+    // Sequential += chain used to land ~2400ms > fail-safe, leaving chrome/members at opacity 0.
+    expect(timelineDuration).toBeLessThan(HERO_ENTRANCE_FAILSAFE_MS);
+  });
+
+  it('playHeroEntrance sucesso não remove has-motion no fail-safe (SYN-121)', () => {
+    vi.useFakeTimers();
+    const anime = createAnimeMock();
+    const root = document.createElement('main');
+    root.classList.add('landing-root', 'has-motion');
+    root.innerHTML = `
+      <section data-testid="landing-hero">
+        <h1 data-motion="hero-headline">Quem sumiu</h1>
+        <div data-testid="landing-hero-mock">
+          <div data-motion="mock-chrome">chrome</div>
+          <ul data-testid="landing-hero-mock-members"><li>A</li></ul>
+        </div>
+      </section>
+    `;
+    document.body.appendChild(root);
+
+    let onComplete: (() => void) | undefined;
+    anime.createTimeline = vi.fn((params?: { onComplete?: () => void }) => {
+      onComplete = params?.onComplete;
+      return {
+        add: vi.fn(function (this: unknown) {
+          return this;
+        }),
+        call: vi.fn(function (this: unknown) {
+          return this;
+        }),
+        pause: vi.fn(),
+        cancel: vi.fn(),
+      };
+    });
+
+    playHeroEntrance({ root, reducedMotion: false, anime });
+    expect(typeof onComplete).toBe('function');
+    onComplete?.();
+    vi.advanceTimersByTime(HERO_ENTRANCE_FAILSAFE_MS + 100);
+    expect(root.classList.contains('has-motion')).toBe(true);
+    vi.useRealTimers();
   });
 
   it('playModeToggleTransition sob reduced-motion só faz swap', () => {

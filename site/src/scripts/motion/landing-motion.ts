@@ -1,5 +1,8 @@
 import { LANDING_MOTION } from './motion-tokens';
 
+/** Fail-safe: se a entrance não completar, remove `has-motion` para evitar opacity:0 preso. */
+export const HERO_ENTRANCE_FAILSAFE_MS = 2000;
+
 /** Seletores das seções que recebem reveal único no scroll. */
 export const SCROLL_REVEAL_SECTION_SELECTORS = [
   '[data-testid="landing-problem"]',
@@ -183,6 +186,12 @@ export function playHeroEntrance(
   }
 
   try {
+    // Absolute overlapping starts — sequential `+=` after full durations exceeded the
+    // fail-safe (~2.5s), leaving mock-chrome/members at CSS opacity:0 (SYN-121).
+    const step = m.staggerBase;
+    const mockAt = step * 4 + m.staggerCards;
+    const chromeAt = mockAt + m.staggerTight;
+
     if (targets.brand.length) {
       tl.add(
         targets.brand,
@@ -205,7 +214,7 @@ export function playHeroEntrance(
           duration: m.durationHero,
           ease: m.easeOutSoft,
         },
-        m.staggerBase,
+        step,
       );
     }
 
@@ -218,7 +227,7 @@ export function playHeroEntrance(
           duration: m.durationEnter,
           ease: m.easeOut,
         },
-        `+=${m.staggerBase}`,
+        step * 2,
       );
     }
 
@@ -230,7 +239,7 @@ export function playHeroEntrance(
           duration: m.durationEnter,
           ease: m.easeOut,
         },
-        `+=${m.staggerBase}`,
+        step * 3,
       );
     }
 
@@ -242,7 +251,7 @@ export function playHeroEntrance(
           duration: m.durationFast,
           ease: m.easeOut,
         },
-        `+=${m.staggerBase}`,
+        step * 4,
       );
     }
 
@@ -255,7 +264,7 @@ export function playHeroEntrance(
           duration: m.durationHero,
           ease: m.easeOutSoft,
         },
-        `+=${m.staggerCards}`,
+        mockAt,
       );
     }
 
@@ -267,7 +276,7 @@ export function playHeroEntrance(
           duration: m.durationFast,
           ease: m.easeOut,
         },
-        `+=${m.staggerTight}`,
+        chromeAt,
       );
     }
 
@@ -291,7 +300,7 @@ export function playHeroEntrance(
         scale: [1, m.sumiuPulseScale, 1, m.sumiuPulseScale, 1],
         duration: m.sumiuPulseMs,
         ease: m.easeOut,
-        delay: m.durationEnter + m.staggerTight * missing.length,
+        delay: chromeAt + m.durationEnter + m.staggerTight * missing.length,
       });
     }
   } catch {
@@ -299,7 +308,7 @@ export function playHeroEntrance(
     return null;
   }
 
-  failSafeTimer = globalThis.setTimeout(failSafeVisible, 2000) as unknown as number;
+  failSafeTimer = globalThis.setTimeout(failSafeVisible, HERO_ENTRANCE_FAILSAFE_MS) as unknown as number;
 
   return {
     cancel: () => {
