@@ -2,7 +2,7 @@
   data-testid="landing-hero-mock"
   class="rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5"
 >
-  <div class="flex flex-wrap items-center justify-between gap-3">
+  <div class="flex flex-wrap items-center justify-between gap-3" data-motion="mock-chrome">
     <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Time agora</h2>
 
     <div
@@ -46,7 +46,7 @@
     </div>
   </div>
 
-  <div class="hero-mock-fade mt-4" [attr.data-mode]="mode">
+  <div class="hero-mock-fade mt-4" data-motion="mock-body" [attr.data-mode]="mode">
     <p class="text-sm font-medium text-gray-900 dark:text-white" data-testid="landing-hero-mock-headline">
       {{ headline }}
     </p>
@@ -57,7 +57,7 @@
     <ul class="mt-4 space-y-2" data-testid="landing-hero-mock-members">
       <li
         *ngFor="let member of members"
-        class="flex items-center justify-between gap-3 rounded-lg px-1 py-1.5"
+        class="flex items-center justify-between gap-3 rounded-lg px-1 py-1.5 transition"
       >
         <div class="flex min-w-0 items-center gap-3">
           <span
