@@ -58,4 +58,40 @@ describe('TextCollaborationReportComponent', () => {
     expect(fixture.componentInstance.report?.entries[0]?.displayName).toBe('Ana');
     expect(fixture.componentInstance.totalEvents).toBe(3);
   });
+
+  it('expõe cards mobile e tabela desktop com classes de breakpoint md', () => {
+    httpMock.expectOne('/api/v1/org/org-1/discord/status').flush({
+      botConnected: true,
+      activeConnection: { guildId: 'guild-1', guildName: 'Servidor Teste', isMonitoringEnabled: true },
+    });
+    httpMock
+      .expectOne((req) => req.url.includes('/reports/text-collaboration'))
+      .flush({
+        report: {
+          from: '2026-06-24T00:00:00.000Z',
+          to: '2026-06-24T23:59:59.999Z',
+          generatedAt: '2026-06-24T12:00:00.000Z',
+          entries: [
+            {
+              discordId: 'u-1',
+              displayName: 'Ana',
+              categoryId: null,
+              eventsCount: 3,
+              lastOccurredAt: '2026-06-24T11:00:00.000Z',
+            },
+          ],
+        },
+      });
+    fixture.detectChanges();
+
+    const mobile = fixture.nativeElement.querySelector('[data-testid="text-collab-mobile-cards"]') as HTMLElement;
+    const desktop = fixture.nativeElement.querySelector('[data-testid="text-collab-desktop-table"]') as HTMLElement;
+    expect(mobile).toBeTruthy();
+    expect(desktop).toBeTruthy();
+    expect(mobile.className).toContain('md:hidden');
+    expect(desktop.className).toContain('md:block');
+    expect(mobile.textContent).toContain('Ana');
+    expect(mobile.textContent).toContain('3 sinal(is)');
+    expect(desktop.querySelector('table')).toBeTruthy();
+  });
 });
