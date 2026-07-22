@@ -16,52 +16,12 @@ export interface CapturedPasswordReset {
   emailed: boolean;
 }
 
-let authInstance: ReturnType<typeof betterAuth> | null = null;
-const capturedResets = new Map<string, CapturedPasswordReset>();
-
 /**
- * Invalida a instância Better Auth (testes / reconexão Mongo).
- * @returns {void}
- */
-export function resetBetterAuthInstance(): void {
-  authInstance = null;
-  capturedResets.clear();
-}
-
-/**
- * Lê e remove a captura de reset associada a um email.
- * @param email Email do usuário
- * @returns Dados do reset ou `undefined`
- */
-export function takeCapturedPasswordReset(email: string): CapturedPasswordReset | undefined {
-  const key = email.trim().toLowerCase();
-  const value = capturedResets.get(key);
-  if (value) {
-    capturedResets.delete(key);
-  }
-  return value;
-}
-
-/**
- * Espia a captura de reset sem remover (útil após requestPasswordReset).
- * @param email Email do usuário
- * @returns Dados do reset ou `undefined`
- */
-export function peekCapturedPasswordReset(email: string): CapturedPasswordReset | undefined {
-  return capturedResets.get(email.trim().toLowerCase());
-}
-
-/**
- * Obtém (ou cria) a instância Better Auth ligada ao Mongo atual.
- * Requer mongoose conectado. Sem social providers.
- * @returns Instância Better Auth
+ * Cria a instância Better Auth ligada ao Mongo atual.
+ * @returns Instância configurada (email/password only)
  * @throws {Error} Quando MongoDB não está conectado ou secret ausente
  */
-export function getBetterAuth(): ReturnType<typeof betterAuth> {
-  if (authInstance) {
-    return authInstance;
-  }
-
+function createBetterAuthInstance() {
   const db = mongoose.connection.db;
   if (!db) {
     throw new Error('MongoDB não conectado para Better Auth');
@@ -72,7 +32,7 @@ export function getBetterAuth(): ReturnType<typeof betterAuth> {
     throw new Error('BETTER_AUTH_SECRET ou JWT_SECRET é obrigatório');
   }
 
-  authInstance = betterAuth({
+  return betterAuth({
     database: mongodbAdapter(db, {
       // Standalone Mongo (memory-server / sem replica set) não suporta transactions.
       transaction: false,
@@ -122,6 +82,55 @@ export function getBetterAuth(): ReturnType<typeof betterAuth> {
       },
     },
   });
+}
 
+/** Instância Better Auth do Syntra. */
+export type SyntraBetterAuth = ReturnType<typeof createBetterAuthInstance>;
+
+let authInstance: SyntraBetterAuth | null = null;
+const capturedResets = new Map<string, CapturedPasswordReset>();
+
+/**
+ * Invalida a instância Better Auth (testes / reconexão Mongo).
+ * @returns {void}
+ */
+export function resetBetterAuthInstance(): void {
+  authInstance = null;
+  capturedResets.clear();
+}
+
+/**
+ * Lê e remove a captura de reset associada a um email.
+ * @param email Email do usuário
+ * @returns Dados do reset ou `undefined`
+ */
+export function takeCapturedPasswordReset(email: string): CapturedPasswordReset | undefined {
+  const key = email.trim().toLowerCase();
+  const value = capturedResets.get(key);
+  if (value) {
+    capturedResets.delete(key);
+  }
+  return value;
+}
+
+/**
+ * Espia a captura de reset sem remover (útil após requestPasswordReset).
+ * @param email Email do usuário
+ * @returns Dados do reset ou `undefined`
+ */
+export function peekCapturedPasswordReset(email: string): CapturedPasswordReset | undefined {
+  return capturedResets.get(email.trim().toLowerCase());
+}
+
+/**
+ * Obtém (ou cria) a instância Better Auth ligada ao Mongo atual.
+ * Requer mongoose conectado. Sem social providers.
+ * @returns Instância Better Auth
+ * @throws {Error} Quando MongoDB não está conectado ou secret ausente
+ */
+export function getBetterAuth(): SyntraBetterAuth {
+  if (!authInstance) {
+    authInstance = createBetterAuthInstance();
+  }
   return authInstance;
 }
