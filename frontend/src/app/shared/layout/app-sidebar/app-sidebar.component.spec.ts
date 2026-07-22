@@ -41,4 +41,24 @@ describe('AppSidebarComponent', () => {
     expect(settings.subItems?.some((item) => item.sectionHeader && item.name === 'Integração')).toBeTrue();
     expect(settings.subItems?.some((item) => item.path === '/app/settings/absences' && item.name === 'Cadastrar PTO')).toBeTrue();
   });
+
+  it('closeMobileSidebar deve fechar o drawer via SidebarService', () => {
+    const sidebarService = TestBed.inject(SidebarService);
+    sidebarService.setMobileOpen(true);
+
+    fixture.componentInstance.closeMobileSidebar();
+
+    expect(sidebarService.isMobileOpen()).toBeFalse();
+  });
+
+  it('deve usar logo.svg no tema claro e logo-dark.svg no escuro', () => {
+    const sidebarService = TestBed.inject(SidebarService);
+    sidebarService.setMobileOpen(true);
+    fixture.detectChanges();
+
+    const imgs = fixture.nativeElement.querySelectorAll('a[routerlink="/app/dashboard"] img, a[href] img');
+    const srcs = Array.from(imgs as NodeListOf<HTMLImageElement>).map((img) => img.getAttribute('src'));
+    expect(srcs.some((src) => src === '/images/logo/logo.svg')).toBeTrue();
+    expect(srcs.some((src) => src === '/images/logo/logo-dark.svg')).toBeTrue();
+  });
 });

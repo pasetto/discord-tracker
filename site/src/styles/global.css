@@ -255,3 +255,37 @@ p:last-child {
     animation: none !important;
   }
 }
+
+/* Gate anime.js: conteúdo permanece visível sem JS; opacity 0 só com .has-motion */
+.landing-root.has-motion [data-motion='hero-brand'],
+.landing-root.has-motion [data-motion='hero-headline'],
+.landing-root.has-motion [data-motion='hero-sub'],
+.landing-root.has-motion [data-motion='hero-ctas'],
+.landing-root.has-motion [data-motion='hero-trust'],
+.landing-root.has-motion [data-testid='landing-hero-mock'],
+.landing-root.has-motion [data-motion='mock-chrome'],
+.landing-root.has-motion [data-testid='landing-hero-mock-members'] li,
+.landing-root.has-motion [data-motion='reveal-heading'],
+.landing-root.has-motion [data-motion='reveal-lead'],
+.landing-root.has-motion [data-motion='reveal-child'],
+.landing-root.has-motion [data-motion='reveal-shell'] {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-root.has-motion [data-motion='hero-brand'],
+  .landing-root.has-motion [data-motion='hero-headline'],
+  .landing-root.has-motion [data-motion='hero-sub'],
+  .landing-root.has-motion [data-motion='hero-ctas'],
+  .landing-root.has-motion [data-motion='hero-trust'],
+  .landing-root.has-motion [data-testid='landing-hero-mock'],
+  .landing-root.has-motion [data-motion='mock-chrome'],
+  .landing-root.has-motion [data-testid='landing-hero-mock-members'] li,
+  .landing-root.has-motion [data-motion='reveal-heading'],
+  .landing-root.has-motion [data-motion='reveal-lead'],
+  .landing-root.has-motion [data-motion='reveal-child'],
+  .landing-root.has-motion [data-motion='reveal-shell'] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
