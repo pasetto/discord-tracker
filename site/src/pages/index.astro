@@ -1,9 +1,10 @@
 ---
 /**
- * Landing marketing Syntra (Astro) — port do conteúdo Angular `/landing` + anime.js (SYN-111).
+ * Landing marketing Syntra (Astro) — redesign B2B estrutura Sentry (SYN-119 / brief SYN-118).
  * CTA primário = Criar conta → app /signup.
  */
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { PRODUCT_SECTIONS } from '../content/product-sections';
 import { FALLBACK_PRICING_PLANS } from '../scripts/pricing/public-pricing';
 
 const appUrl = (import.meta.env.PUBLIC_APP_URL || 'http://localhost:4200').replace(/\/$/, '');
@@ -104,16 +105,13 @@ const faqs = [
     <header class="nav">
       <div class="wrap nav__inner">
         <a class="nav__brand" href={homeUrl} aria-label="Syntra — início">
-          <img
-            class="nav__logo"
-            src={logoSrc}
-            alt=""
-            width="120"
-            height="32"
-          />
+          <img class="nav__logo" src={logoSrc} alt="" width="120" height="32" />
           <span class="sr-only">Syntra</span>
         </a>
         <nav class="nav__actions" aria-label="Ações da landing">
+          <a class="nav__anchor" href="#produto">Produto</a>
+          <a class="nav__anchor" href="#como-funciona">Como funciona</a>
+          <a class="nav__anchor" href="#pricing">Planos</a>
           <a class="link-quiet nav__login" href={loginUrl}>Entrar</a>
           <a class="btn btn--primary" href={signupUrl} data-cta="nav">Criar conta</a>
         </nav>
@@ -121,100 +119,102 @@ const faqs = [
     </header>
 
     <main id="conteudo">
-      <section class="hero wrap" data-testid="landing-hero" aria-labelledby="hero-title">
-        <div class="hero__copy">
-          <img
-            class="hero__logo"
-            src={logoSrc}
-            alt="Syntra"
-            width="140"
-            height="40"
-            data-testid="landing-hero-logo"
-            data-motion="hero-brand"
-          />
-          <h1 id="hero-title" data-motion="hero-headline">
-            Quem sumiu no Discord do seu time — antes do atraso virar crise.
-          </h1>
-          <p class="hero__sub" data-motion="hero-sub">
-            Radar de colaboração para gestores remotos. Você vê quem está no jogo e quem sumiu, com
-            calendário e PTO no contexto. Sem ler mensagens. Sem gravar áudio.
-          </p>
-          <div class="hero__cta" data-motion="hero-ctas">
-            <a class="btn btn--primary" href={signupUrl} data-cta="hero">Criar conta</a>
-            <a class="link-quiet" href="#como-funciona">Ver como funciona</a>
-          </div>
-          <p class="hero__micro" data-motion="hero-trust">
-            Sem cartão no teste. Setup em minutos. Só metadados.
-          </p>
-        </div>
-
-        <aside
-          class="hero-mock"
-          data-testid="landing-hero-mock"
-          data-mode="with"
-          aria-label="Ilustração Sem Syntra versus Com Syntra"
-        >
-          <div class="hero-mock__chrome" data-motion="mock-chrome">
-            <h2 class="hero-mock__title">Time agora</h2>
-            <div
-              class="hero-mock__toggle"
-              role="radiogroup"
-              aria-label="Comparar Sem Syntra e Com Syntra"
-              data-testid="landing-hero-toggle"
-            >
-              <button
-                type="button"
-                role="radio"
-                aria-checked="false"
-                data-testid="landing-hero-toggle-without"
-              >
-                Sem Syntra
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked="true"
-                class="is-active"
-                data-testid="landing-hero-toggle-with"
-              >
-                Com Syntra
-              </button>
-            </div>
-          </div>
-
-          <div class="hero-mock__body" data-motion="mock-body" data-mode="with">
-            <p class="hero-mock__headline" data-testid="landing-hero-mock-headline">
-              Três pessoas sumiram da colaboração hoje.
+      <section class="hero" data-testid="landing-hero" aria-labelledby="hero-title">
+        <div class="hero__atmosphere" aria-hidden="true"></div>
+        <div class="wrap hero__inner">
+          <div class="hero__copy">
+            <img
+              class="hero__logo"
+              src={logoSrc}
+              alt="Syntra"
+              width="140"
+              height="40"
+              data-testid="landing-hero-logo"
+              data-motion="hero-brand"
+            />
+            <h1 id="hero-title" data-motion="hero-headline">
+              Quem sumiu no Discord do seu time — antes do atraso virar crise.
+            </h1>
+            <p class="hero__sub" data-motion="hero-sub">
+              Radar de colaboração para gestores remotos. Você vê quem está no jogo e quem sumiu, com
+              calendário e PTO no contexto. Sem ler mensagens. Sem gravar áudio.
             </p>
-            <p class="hero-mock__support" data-testid="landing-hero-mock-support" hidden></p>
-            <ul class="hero-mock__members" data-testid="landing-hero-mock-members">
-              {
-                heroMembers.map((member) => (
-                  <li class="hero-mock__member">
-                    <div class="hero-mock__person">
-                      <span
-                        class={`hero-mock__avatar hero-mock__avatar--${member.tone}`}
-                        aria-hidden="true"
-                      >
-                        {member.initials}
-                      </span>
-                      <span class="hero-mock__name">{member.name}</span>
-                    </div>
-                    <span
-                      class={`hero-mock__chip hero-mock__chip--${member.status}`}
-                      data-status={member.status}
-                    >
-                      {member.label}
-                    </span>
-                  </li>
-                ))
-              }
-            </ul>
+            <div class="hero__cta" data-motion="hero-ctas">
+              <a class="btn btn--primary" href={signupUrl} data-cta="hero">Criar conta</a>
+              <a class="link-quiet" href="#como-funciona">Ver como funciona</a>
+            </div>
+            <p class="hero__micro" data-motion="hero-trust">
+              Sem cartão no teste. Setup em minutos. Só metadados.
+            </p>
           </div>
 
-          <p class="hero-mock__footnote">Ilustração. Não é dado do seu servidor.</p>
-          <p class="hero-mock__footnote">Só metadados. Conteúdo de mensagem fica fora.</p>
-        </aside>
+          <aside
+            class="hero-mock"
+            data-testid="landing-hero-mock"
+            data-mode="with"
+            aria-label="Ilustração Sem Syntra versus Com Syntra"
+          >
+            <div class="hero-mock__chrome" data-motion="mock-chrome">
+              <h2 class="hero-mock__title">Time agora</h2>
+              <div
+                class="hero-mock__toggle"
+                role="radiogroup"
+                aria-label="Comparar Sem Syntra e Com Syntra"
+                data-testid="landing-hero-toggle"
+              >
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked="false"
+                  data-testid="landing-hero-toggle-without"
+                >
+                  Sem Syntra
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked="true"
+                  class="is-active"
+                  data-testid="landing-hero-toggle-with"
+                >
+                  Com Syntra
+                </button>
+              </div>
+            </div>
+
+            <div class="hero-mock__body" data-motion="mock-body" data-mode="with">
+              <p class="hero-mock__headline" data-testid="landing-hero-mock-headline">
+                Três pessoas sumiram da colaboração hoje.
+              </p>
+              <p class="hero-mock__support" data-testid="landing-hero-mock-support" hidden></p>
+              <ul class="hero-mock__members" data-testid="landing-hero-mock-members">
+                {
+                  heroMembers.map((member) => (
+                    <li class="hero-mock__member">
+                      <div class="hero-mock__person">
+                        <span
+                          class={`hero-mock__avatar hero-mock__avatar--${member.tone}`}
+                          aria-hidden="true"
+                        >
+                          {member.initials}
+                        </span>
+                        <span class="hero-mock__name">{member.name}</span>
+                      </div>
+                      <span
+                        class={`hero-mock__chip hero-mock__chip--${member.status}`}
+                        data-status={member.status}
+                      >
+                        {member.label}
+                      </span>
+                    </li>
+                  ))
+                }
+              </ul>
+            </div>
+
+            <p class="hero-mock__footnote">Ilustração. Não é dado do seu servidor. Só metadados.</p>
+          </aside>
+        </div>
       </section>
 
       <section
@@ -231,16 +231,105 @@ const faqs = [
             alguém já pediu demissão em silêncio. Você descobre tarde porque o Discord não tem
             radar de colaboração: presença diluída, canais misturados, PTO longe da cabeça.
           </p>
-          <ul class="tension-list">
+          <dl class="tension-list">
             {
               tensions.map((item) => (
-                <li data-motion="reveal-child" data-hover="card">
-                  <strong>{item.title}</strong>
-                  <span>{item.body}</span>
-                </li>
+                <div class="tension-list__item" data-motion="reveal-child">
+                  <dt>{item.title}</dt>
+                  <dd>{item.body}</dd>
+                </div>
               ))
             }
-          </ul>
+          </dl>
+        </div>
+      </section>
+
+      <section
+        class="section product"
+        id="produto"
+        data-testid="landing-product"
+        aria-labelledby="product-title"
+      >
+        <div class="wrap">
+          <h2 id="product-title" data-motion="reveal-heading">Produto para quem gerencia o Discord</h2>
+          <p class="section__lead" data-motion="reveal-lead">
+            Cinco leituras distintas — inatividade, metas, calendário, sinais e gamificação — sem
+            misturar com timesheet ou leitura de mensagens.
+          </p>
+          <div class="product__stack">
+            {
+              PRODUCT_SECTIONS.map((item, index) => (
+                <article
+                  class:list={['product-block', index % 2 === 1 && 'product-block--alt']}
+                  id={item.id}
+                  data-motion="reveal-child"
+                >
+                  <div class="product-block__copy">
+                    <h3>{item.title}</h3>
+                    <p>{item.lead}</p>
+                    <ul>
+                      {item.bullets.map((b) => (
+                        <li>{b}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div class="product-block__visual" aria-hidden="true">
+                    {item.visual === 'missing-strip' ? (
+                      <ul class="viz-strip">
+                        <li>
+                          <span>Bruno</span>
+                          <span class="hero-mock__chip hero-mock__chip--missing" data-status="missing">
+                            Sumiu
+                          </span>
+                        </li>
+                        <li>
+                          <span>Diego</span>
+                          <span class="hero-mock__chip hero-mock__chip--missing" data-status="missing">
+                            Sumiu
+                          </span>
+                        </li>
+                        <li>
+                          <span>Elena</span>
+                          <span class="hero-mock__chip hero-mock__chip--missing" data-status="missing">
+                            Sumiu
+                          </span>
+                        </li>
+                      </ul>
+                    ) : null}
+                    {item.visual === 'goal-bar' ? (
+                      <div class="viz-goal">
+                        <div class="viz-goal__label">
+                          <span>Ana · colaboração</span>
+                          <span>72%</span>
+                        </div>
+                        <div class="viz-goal__track">
+                          <span class="viz-goal__fill" style="width: 72%"></span>
+                        </div>
+                      </div>
+                    ) : null}
+                    {item.visual === 'pto-chip' ? (
+                      <div class="viz-pto">
+                        <span class="hero-mock__chip hero-mock__chip--pto">Em PTO</span>
+                        <span class="viz-pto__note">fora do falso “sumiu”</span>
+                      </div>
+                    ) : null}
+                    {item.visual === 'metadata' ? (
+                      <div class="viz-meta">
+                        <p class="viz-meta__eq">metadado ≠ mensagem</p>
+                        <p class="viz-meta__note">atividade no canal · conteúdo fora</p>
+                      </div>
+                    ) : null}
+                    {item.visual === 'team-plus' ? (
+                      <div class="viz-team">
+                        <p class="viz-team__badge">plano Team+</p>
+                        <p class="viz-team__note">ranking e conquistas quando o plano e as settings permitem</p>
+                      </div>
+                    ) : null}
+                  </div>
+                </article>
+              ))
+            }
+          </div>
         </div>
       </section>
 
@@ -278,7 +367,7 @@ const faqs = [
           <ol class="steps">
             {
               steps.map((step) => (
-                <li data-motion="reveal-child" data-hover="card">
+                <li data-motion="reveal-child">
                   <span class="steps__n" aria-hidden="true">
                     {step.n}
                   </span>
@@ -342,7 +431,6 @@ const faqs = [
                 <article
                   class:list={['pricing__card', plan.featured && 'pricing__card--featured']}
                   data-motion="reveal-child"
-                  data-hover="card"
                   data-plan-slug={plan.slug}
                 >
                   {plan.featured ? <p class="pricing__badge">Mais popular</p> : null}
@@ -465,12 +553,8 @@ const faqs = [
     --motion-duration-fast: 180ms;
     --motion-duration-enter: 280ms;
     --motion-ease-out: cubic-bezier(0.25, 1, 0.5, 1);
-    --motion-hover-lift: 2px;
     min-height: 100svh;
-    background:
-      radial-gradient(ellipse 80% 50% at 10% -10%, oklch(0.72 0.06 195 / 0.18), transparent 55%),
-      radial-gradient(ellipse 60% 40% at 100% 0%, oklch(0.55 0.04 250 / 0.12), transparent 50%),
-      var(--paper);
+    background: var(--paper);
   }
 
   .landing-root.has-motion [data-motion='hero-brand'],
@@ -486,16 +570,6 @@ const faqs = [
   .landing-root.has-motion [data-motion='reveal-child'],
   .landing-root.has-motion [data-motion='reveal-shell'] {
     opacity: 0;
-  }
-
-  .landing-root [data-hover='card'] {
-    transition:
-      transform var(--motion-duration-fast) var(--motion-ease-out),
-      border-color var(--motion-duration-fast) var(--motion-ease-out);
-  }
-
-  .landing-root [data-hover='card']:hover {
-    transform: translateY(calc(var(--motion-hover-lift) * -1));
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -519,10 +593,6 @@ const faqs = [
     .landing-root.has-motion [data-motion='reveal-shell'] {
       opacity: 1 !important;
       transform: none !important;
-    }
-
-    .landing-root [data-hover='card']:hover {
-      transform: none;
     }
   }
 
@@ -585,7 +655,26 @@ const faqs = [
   .nav__actions {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.75rem 1rem;
+  }
+
+  .nav__anchor {
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .nav__anchor:hover {
+    color: var(--ink);
+  }
+
+  @media (max-width: 720px) {
+    .nav__anchor {
+      display: none;
+    }
   }
 
   .nav__login {
@@ -600,22 +689,41 @@ const faqs = [
   }
 
   .hero {
+    position: relative;
+    isolation: isolate;
+    padding-block: var(--space-xl) var(--space-lg);
+    overflow: clip;
+  }
+
+  .hero__atmosphere {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(ellipse 80% 55% at 8% -5%, oklch(0.72 0.06 195 / 0.22), transparent 55%),
+      radial-gradient(ellipse 55% 45% at 100% 5%, oklch(0.55 0.04 250 / 0.16), transparent 50%),
+      linear-gradient(180deg, var(--paper) 0%, var(--paper-2) 100%);
+  }
+
+  .hero__inner {
     display: grid;
     gap: var(--space-lg);
-    padding-block: var(--space-xl) var(--space-lg);
     align-items: center;
   }
 
   @media (min-width: 960px) {
     .hero {
-      grid-template-columns: 1.05fr 0.95fr;
-      gap: var(--space-xl);
       padding-block: var(--space-2xl) var(--space-xl);
+    }
+
+    .hero__inner {
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: var(--space-xl);
     }
   }
 
   .hero__logo {
-    height: 2.5rem;
+    height: 2.75rem;
     width: auto;
     margin-bottom: var(--space-md);
   }
@@ -639,6 +747,11 @@ const faqs = [
     gap: 0.85rem 1.25rem;
   }
 
+  .hero__cta .btn,
+  .hero-mock__toggle button {
+    min-height: 2.75rem;
+  }
+
   .hero__micro {
     margin: var(--space-sm) 0 0;
     color: var(--muted);
@@ -647,10 +760,18 @@ const faqs = [
 
   .hero-mock {
     border: 1px solid var(--line);
-    border-radius: 1rem;
+    border-radius: 0.5rem;
     background: oklch(1 0 0);
     padding: 1rem 1.1rem 1.15rem;
-    box-shadow: 0 18px 40px oklch(0.3 0.04 250 / 0.08);
+    box-shadow: none;
+    width: 100%;
+  }
+
+  @media (min-width: 960px) {
+    .hero-mock {
+      min-height: 22rem;
+      border-radius: 0.5rem 0 0 0.5rem;
+    }
   }
 
   .hero-mock__chrome {
@@ -678,11 +799,10 @@ const faqs = [
   }
 
   .hero-mock__toggle button {
-    min-height: 2.25rem;
     border: 0;
     background: transparent;
     border-radius: 0.4rem;
-    padding: 0.35rem 0.75rem;
+    padding: 0.45rem 0.85rem;
     font: inherit;
     font-size: 0.75rem;
     font-weight: 700;
@@ -804,7 +924,6 @@ const faqs = [
   }
 
   .tension-list {
-    list-style: none;
     margin: var(--space-lg) 0 0;
     padding: 0;
     display: grid;
@@ -814,27 +933,160 @@ const faqs = [
   @media (min-width: 720px) {
     .tension-list {
       grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-lg);
     }
   }
 
-  .tension-list li {
+  .tension-list__item {
     display: grid;
     gap: 0.35rem;
-    padding: 1rem;
-    border: 1px solid var(--line);
-    border-radius: 0.75rem;
-    background: oklch(1 0 0 / 0.7);
+    padding: 0;
+    border: 0;
+    background: transparent;
   }
 
-  .tension-list strong {
+  .tension-list dt {
     font-family: var(--font-display);
     font-size: 1.05rem;
+    font-weight: 650;
     letter-spacing: -0.02em;
   }
 
-  .tension-list span {
+  .tension-list dd {
+    margin: 0;
     color: var(--ink-soft);
     font-size: 0.95rem;
+  }
+
+  .product {
+    background: var(--paper-2);
+  }
+
+  .product__stack {
+    margin-top: var(--space-lg);
+    display: grid;
+    gap: var(--space-xl);
+  }
+
+  .product-block {
+    display: grid;
+    gap: var(--space-md);
+    align-items: center;
+  }
+
+  @media (min-width: 860px) {
+    .product-block {
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: var(--space-lg);
+    }
+
+    .product-block--alt {
+      direction: rtl;
+    }
+
+    .product-block--alt > * {
+      direction: ltr;
+    }
+  }
+
+  .product-block__copy h3 {
+    margin-bottom: 0.35rem;
+  }
+
+  .product-block__copy p {
+    color: var(--ink-soft);
+    margin-bottom: 0.75rem;
+  }
+
+  .product-block__copy ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--ink-soft);
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .product-block__visual {
+    min-height: 5.5rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .viz-strip {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .viz-strip li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    padding-block: 0.25rem;
+    border-bottom: 1px solid var(--line);
+    font-weight: 600;
+    font-size: 0.92rem;
+  }
+
+  .viz-goal {
+    width: 100%;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .viz-goal__label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .viz-goal__track {
+    height: 0.55rem;
+    background: oklch(0.9 0.01 250);
+    border-radius: 0.25rem;
+    overflow: hidden;
+  }
+
+  .viz-goal__fill {
+    display: block;
+    height: 100%;
+    background: var(--signal-deep);
+  }
+
+  .viz-pto,
+  .viz-meta,
+  .viz-team {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .viz-pto__note,
+  .viz-meta__note,
+  .viz-team__note {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+
+  .viz-meta__eq {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+
+  .viz-team__badge {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--signal-deep);
   }
 
   .anti {
@@ -884,15 +1136,21 @@ const faqs = [
     gap: var(--space-md);
   }
 
+  @media (min-width: 860px) {
+    .steps {
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-lg);
+    }
+  }
+
   .steps li {
     display: grid;
     grid-template-columns: auto 1fr;
     gap: 1rem;
     align-items: start;
-    padding: 1rem;
-    border: 1px solid var(--line);
-    border-radius: 0.75rem;
-    background: oklch(1 0 0 / 0.65);
+    padding: 0;
+    border: 0;
+    background: transparent;
   }
 
   .steps__n {
@@ -936,9 +1194,9 @@ const faqs = [
   }
 
   .privacy__bullets li {
-    padding: 0.85rem 1rem;
+    padding: 0.85rem 0 0.85rem 1rem;
     border-left: 3px solid var(--signal);
-    background: oklch(1 0 0 / 0.7);
+    background: transparent;
   }
 
   .pricing__header {

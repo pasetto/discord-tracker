@@ -6,8 +6,11 @@ import { LANDING_MOTION } from './motion-tokens';
 import {
   type AnimeMotionApi,
   applyMotionReadyClass,
+  clearMotionGate,
   exitDuration,
+  HERO_ENTRANCE_FAILSAFE_MS,
   isRevealPlayed,
+  loadAnimeMotionApi,
   markRevealPlayed,
   playHeroEntrance,
   playModeToggleTransition,
@@ -105,11 +108,22 @@ describe('site landing motion (SYN-111)', () => {
 
   it('lista seções de scroll reveal da landing', () => {
     expect(SCROLL_REVEAL_SECTION_SELECTORS).toContain('[data-testid="landing-problem"]');
+    expect(SCROLL_REVEAL_SECTION_SELECTORS).toContain('[data-testid="landing-product"]');
     expect(SCROLL_REVEAL_SECTION_SELECTORS).toContain('[data-testid="landing-how"]');
     expect(SCROLL_REVEAL_SECTION_SELECTORS).toContain('[data-testid="landing-privacy"]');
     expect(SCROLL_REVEAL_SECTION_SELECTORS).toContain('#pricing');
     expect(SCROLL_REVEAL_SECTION_SELECTORS).toContain('[data-testid="landing-faq"]');
     expect(SCROLL_REVEAL_SECTION_SELECTORS).toContain('[data-testid="landing-final-cta"]');
+  });
+
+  it('clearMotionGate remove has-motion para não deixar opacity:0 preso', () => {
+    const root = document.createElement('main');
+    root.classList.add('landing-root', 'has-motion');
+    root.innerHTML = `<h1 data-motion="hero-headline" style="opacity: 0">Quem sumiu</h1>`;
+    clearMotionGate(root);
+    expect(root.classList.contains('has-motion')).toBe(false);
+    const headline = root.querySelector<HTMLElement>('[data-motion="hero-headline"]');
+    expect(headline?.style.opacity).toBe('1');
   });
 
   it('playHeroEntrance não cria timeline sob reduced-motion', () => {
@@ -144,6 +158,89 @@ describe('site landing motion (SYN-111)', () => {
     expect(anime.animate).toHaveBeenCalled();
   });
 
+  it('playHeroEntrance termina chrome+members antes do fail-safe (SYN-121)', async () => {
+    const root = document.createElement('main');
+    root.classList.add('landing-root', 'has-motion');
+    root.innerHTML = `
+      <section data-testid="landing-hero">
+        <img data-motion="hero-brand" data-testid="landing-hero-logo" />
+        <h1 data-motion="hero-headline">Quem sumiu</h1>
+        <p data-motion="hero-sub">Radar</p>
+        <div data-motion="hero-ctas"><a href="/signup">Criar conta</a></div>
+        <p data-motion="hero-trust">Sem cartão</p>
+        <div data-testid="landing-hero-mock">
+          <div data-motion="mock-chrome">Time agora</div>
+          <ul data-testid="landing-hero-mock-members">
+            <li>A</li><li>B</li><li>C</li><li>D</li><li>E</li>
+          </ul>
+        </div>
+      </section>
+    `;
+    document.body.appendChild(root);
+
+    const anime = await loadAnimeMotionApi();
+    const realCreate = anime.createTimeline;
+    let timelineDuration = 0;
+    anime.createTimeline = ((params?: unknown) => {
+      const tl = realCreate({
+        ...(typeof params === 'object' && params ? params : {}),
+        autoplay: false,
+      });
+      const realAdd = tl.add.bind(tl);
+      tl.add = (...args: unknown[]) => {
+        const result = realAdd(...args);
+        timelineDuration = (tl as { duration: number }).duration;
+        return result;
+      };
+      return tl;
+    }) as AnimeMotionApi['createTimeline'];
+
+    const handle = playHeroEntrance({ root, reducedMotion: false, anime });
+    expect(handle).not.toBeNull();
+    expect(timelineDuration).toBeGreaterThan(0);
+    // Sequential += chain used to land ~2400ms > fail-safe, leaving chrome/members at opacity 0.
+    expect(timelineDuration).toBeLessThan(HERO_ENTRANCE_FAILSAFE_MS);
+  });
+
+  it('playHeroEntrance sucesso não remove has-motion no fail-safe (SYN-121)', () => {
+    vi.useFakeTimers();
+    const anime = createAnimeMock();
+    const root = document.createElement('main');
+    root.classList.add('landing-root', 'has-motion');
+    root.innerHTML = `
+      <section data-testid="landing-hero">
+        <h1 data-motion="hero-headline">Quem sumiu</h1>
+        <div data-testid="landing-hero-mock">
+          <div data-motion="mock-chrome">chrome</div>
+          <ul data-testid="landing-hero-mock-members"><li>A</li></ul>
+        </div>
+      </section>
+    `;
+    document.body.appendChild(root);
+
+    let onComplete: (() => void) | undefined;
+    anime.createTimeline = vi.fn((params?: { onComplete?: () => void }) => {
+      onComplete = params?.onComplete;
+      return {
+        add: vi.fn(function (this: unknown) {
+          return this;
+        }),
+        call: vi.fn(function (this: unknown) {
+          return this;
+        }),
+        pause: vi.fn(),
+        cancel: vi.fn(),
+      };
+    });
+
+    playHeroEntrance({ root, reducedMotion: false, anime });
+    expect(typeof onComplete).toBe('function');
+    onComplete?.();
+    vi.advanceTimersByTime(HERO_ENTRANCE_FAILSAFE_MS + 100);
+    expect(root.classList.contains('has-motion')).toBe(true);
+    vi.useRealTimers();
+  });
+
   it('playModeToggleTransition sob reduced-motion só faz swap', () => {
     const anime = createAnimeMock();
     let swapped = false;
@@ -159,6 +256,32 @@ describe('site landing motion (SYN-111)', () => {
     expect(handle).toBeNull();
     expect(swapped).toBe(true);
     expect(anime.createTimeline).not.toHaveBeenCalled();
+  });
+
+  it('playModeToggleTransition cancel impede swap tardio', () => {
+    const anime = createAnimeMock();
+    const root = document.createElement('div');
+    root.innerHTML = `
+      <p data-testid="landing-hero-mock-headline">Antes</p>
+      <ul data-testid="landing-hero-mock-members"><li>A</li></ul>
+    `;
+    let swaps = 0;
+    const handle = playModeToggleTransition({
+      root,
+      reducedMotion: false,
+      anime,
+      pulseMissing: false,
+      swapContent: () => {
+        swaps += 1;
+      },
+    });
+    expect(handle).not.toBeNull();
+    handle?.cancel();
+    const callSpy = anime.createTimeline.mock.results[0]?.value.call as ReturnType<typeof vi.fn>;
+    const swapCb = callSpy.mock.calls[0]?.[0] as (() => void) | undefined;
+    expect(typeof swapCb).toBe('function');
+    swapCb?.();
+    expect(swaps).toBe(0);
   });
 
   it('playSectionReveal marca played e anima filhos', () => {
