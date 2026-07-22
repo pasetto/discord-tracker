@@ -27,6 +27,7 @@ Abra [http://localhost:4321](http://localhost:4321).
 | `npm run build` | Build estático em `dist/` |
 | `npm run preview` | Serve o build |
 | `npm run check` | Typecheck Astro |
+| `npm run test` | Vitest (motion + pricing helpers) |
 
 Na raiz do monorepo:
 
@@ -54,16 +55,22 @@ Checklist operacional: ver [`SOFT_LAUNCH.md`](./SOFT_LAUNCH.md).
 
 ## Seções
 
-1. Nav + Hero (brand-first)
+1. Nav + Hero brand-first com mock Sem/Com Syntra (anime.js)
 2. Problema
 3. Anti-posicionamento
 4. Como funciona
 5. Privacidade como produto
-6. O que você vê (shipped)
-7. Para quem é / não é
-8. FAQ
-9. CTA final
-10. Footer (stubs legais + teaser Planos em BRL)
+6. Planos em BRL (API pública + fallback)
+7. FAQ
+8. CTA final
+9. Footer (stubs legais + teaser Planos em BRL)
+
+## Motion (SYN-111)
+
+- Pacote `animejs` no workspace `site`, carregado **só no client** (`src/scripts/motion/boot.ts`)
+- Tokens SYN-106 em `src/scripts/motion/motion-tokens.ts`
+- `prefers-reduced-motion: reduce` → sem timelines; conteúdo visível
+- Testes: `npm run test --workspace=site`
 
 ## Soft-launch stubs
 

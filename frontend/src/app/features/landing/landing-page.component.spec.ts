@@ -8,6 +8,19 @@ describe('LandingPageComponent', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(async () => {
+    spyOn(window, 'matchMedia').and.callFake((query: string) => {
+      return {
+        matches: query.includes('prefers-reduced-motion'),
+        media: query,
+        onchange: null,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        dispatchEvent: () => false,
+      } as MediaQueryList;
+    });
+
     await TestBed.configureTestingModule({
       imports: [LandingPageComponent],
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
@@ -82,5 +95,25 @@ describe('LandingPageComponent', () => {
     expect(text).toMatch(/screenshot|keylogger/i);
     expect(text).toMatch(/spyware|jira/i);
     expect(text).toMatch(/sem conteúdo|conteúdo de mensagem/i);
+  });
+
+  it('expõe landing-root e CTA do hero clicável sob reduced-motion', () => {
+    const fixture = TestBed.createComponent(LandingPageComponent);
+    fixture.detectChanges();
+    flushPricing();
+
+    const root = fixture.nativeElement.querySelector('.landing-root') as HTMLElement | null;
+    expect(root).toBeTruthy();
+    expect(root?.classList.contains('has-motion')).toBe(false);
+
+    const cta = fixture.nativeElement.querySelector(
+      '[data-motion="hero-ctas"] a[routerlink="/signup"], [data-motion="hero-ctas"] a[href]',
+    ) as HTMLAnchorElement | null;
+    const signup = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('[data-motion="hero-ctas"] a'),
+    ) as HTMLAnchorElement[];
+    expect(signup.length).toBeGreaterThan(0);
+    expect(signup[0].textContent?.toLowerCase()).toContain('criar conta');
+    void cta;
   });
 });

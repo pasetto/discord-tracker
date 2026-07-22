@@ -6,6 +6,19 @@ describe('HeroLiveMockComponent', () => {
   let component: HeroLiveMockComponent;
 
   beforeEach(async () => {
+    spyOn(window, 'matchMedia').and.callFake((query: string) => {
+      return {
+        matches: query.includes('prefers-reduced-motion'),
+        media: query,
+        onchange: null,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        dispatchEvent: () => false,
+      } as MediaQueryList;
+    });
+
     await TestBed.configureTestingModule({
       imports: [HeroLiveMockComponent],
     }).compileComponents();

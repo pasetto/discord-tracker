@@ -1,5 +1,17 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  OnDestroy,
+  inject,
+} from '@angular/core';
+import {
+  AnimeMotionApi,
+  loadAnimeMotionApi,
+  playModeToggleTransition,
+} from '../motion/landing-motion';
+import { prefersReducedMotion } from '../motion/prefers-reduced-motion';
 
 /** Modo do toggle Sem Syntra / Com Syntra no mock do hero. */
 export type HeroMockMode = 'without' | 'with';
@@ -25,6 +37,7 @@ export interface HeroMockMember {
 
 /**
  * Mock interativo P0: “Time agora / quem sumiu” com toggle Sem/Com Syntra.
+ * Transições anime.js lazy; swap instantâneo sob reduced-motion.
  */
 @Component({
   selector: 'app-hero-live-mock',
@@ -45,7 +58,15 @@ export interface HeroMockMember {
     `,
   ],
 })
-export class HeroLiveMockComponent {
+export class HeroLiveMockComponent implements OnDestroy {
+  private readonly host = inject(ElementRef<HTMLElement>);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private animeApi: AnimeMotionApi | null = null;
+  private animeLoad: Promise<AnimeMotionApi | null> | null = null;
+  private cancelToggle: (() => void) | null = null;
+  private destroyed = false;
+  private toggleSeq = 0;
+
   /** Modo ativo do painel (default: Com Syntra). */
   mode: HeroMockMode = 'with';
 
@@ -88,13 +109,30 @@ export class HeroLiveMockComponent {
     },
   ];
 
+  /** Cleanup de timelines pendentes. */
+  ngOnDestroy(): void {
+    this.destroyed = true;
+    this.cancelToggle?.();
+  }
+
   /**
-   * Alterna o modo do mock (Sem Syntra / Com Syntra).
+   * Alterna o modo do mock (Sem Syntra / Com Syntra) com timeline quando permitido.
    * @param next - Modo desejado
    * @returns void
    */
   setMode(next: HeroMockMode): void {
-    this.mode = next;
+    if (next === this.mode) {
+      return;
+    }
+
+    const reduced = prefersReducedMotion();
+    if (reduced) {
+      this.mode = next;
+      return;
+    }
+
+    const seq = ++this.toggleSeq;
+    void this.runToggleWithMotion(next, seq);
   }
 
   /**
@@ -160,5 +198,48 @@ export class HeroLiveMockComponent {
       default:
         return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300';
     }
+  }
+
+  private async ensureAnime(): Promise<AnimeMotionApi | null> {
+    if (this.animeApi) {
+      return this.animeApi;
+    }
+    if (!this.animeLoad) {
+      this.animeLoad = loadAnimeMotionApi()
+        .then((api) => {
+          this.animeApi = api;
+          return api;
+        })
+        .catch(() => null);
+    }
+    return this.animeLoad;
+  }
+
+  private async runToggleWithMotion(next: HeroMockMode, seq: number): Promise<void> {
+    const anime = await this.ensureAnime();
+    if (this.destroyed || seq !== this.toggleSeq) {
+      return;
+    }
+    if (!anime) {
+      this.mode = next;
+      return;
+    }
+
+    this.cancelToggle?.();
+    const root = this.host.nativeElement;
+    const handle = playModeToggleTransition({
+      root,
+      reducedMotion: false,
+      anime,
+      pulseMissing: next === 'with',
+      swapContent: () => {
+        if (this.destroyed || seq !== this.toggleSeq) {
+          return;
+        }
+        this.mode = next;
+        this.cdr.detectChanges();
+      },
+    });
+    this.cancelToggle = handle?.cancel ?? null;
   }
 }
