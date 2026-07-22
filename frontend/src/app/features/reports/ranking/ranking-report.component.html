@@ -76,7 +76,45 @@
           Nenhum dado de colaboração no período. O ranking aparece quando há horas registradas para membros rastreados.
         </p>
       } @else {
-        <div class="overflow-x-auto">
+        <div class="space-y-3 md:hidden" data-testid="ranking-mobile-cards">
+          @for (entry of report!.entries; track entry.discordId) {
+            <article
+              class="rounded-xl border p-4 text-sm"
+              [class.border-brand-400]="entry.isViewer"
+              [class.border-gray-200]="!entry.isViewer"
+              [class.dark:border-brand-600]="entry.isViewer"
+              [class.dark:border-gray-700]="!entry.isViewer"
+              [class.bg-brand-50]="entry.isViewer"
+              [class.dark:bg-brand-500/10]="entry.isViewer"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="font-semibold text-gray-800 dark:text-white/90">
+                    {{ entry.position }}. {{ entry.displayName }}
+                    @if (entry.isViewer) {
+                      <span class="ml-1 text-xs font-medium text-brand-600">(você)</span>
+                    }
+                  </p>
+                </div>
+                <span class="shrink-0 font-medium text-brand-700 dark:text-brand-300">{{ entry.metricLabel }}</span>
+              </div>
+              @if (report!.showExactHours && report!.metric !== 'collaboration_score') {
+                <dl class="mt-3 grid grid-cols-2 gap-2 text-gray-600 dark:text-gray-300">
+                  <div>
+                    <dt class="text-xs uppercase tracking-wide text-gray-500">Voz</dt>
+                    <dd>{{ entry.voiceHours | number: '1.1-1' }} h</dd>
+                  </div>
+                  <div>
+                    <dt class="text-xs uppercase tracking-wide text-gray-500">Online</dt>
+                    <dd>{{ entry.onlineHours | number: '1.1-1' }} h</dd>
+                  </div>
+                </dl>
+              }
+            </article>
+          }
+        </div>
+
+        <div class="hidden overflow-x-auto md:block" data-testid="ranking-desktop-table">
           <table class="min-w-full text-left text-sm">
             <thead class="border-b border-gray-200 text-gray-500 dark:border-gray-700">
               <tr>
@@ -84,8 +122,8 @@
                 <th class="px-3 py-2">Colaborador</th>
                 <th class="px-3 py-2">{{ metricLabel }}</th>
                 @if (report!.showExactHours && report!.metric !== 'collaboration_score') {
-                  <th class="px-3 py-2 hidden sm:table-cell">Voz</th>
-                  <th class="px-3 py-2 hidden md:table-cell">Online</th>
+                  <th class="px-3 py-2">Voz</th>
+                  <th class="px-3 py-2">Online</th>
                 }
               </tr>
             </thead>
@@ -105,8 +143,8 @@
                   </td>
                   <td class="px-3 py-3 font-medium text-brand-700 dark:text-brand-300">{{ entry.metricLabel }}</td>
                   @if (report!.showExactHours && report!.metric !== 'collaboration_score') {
-                    <td class="px-3 py-3 hidden text-gray-600 sm:table-cell dark:text-gray-400">{{ entry.voiceHours | number: '1.1-1' }} h</td>
-                    <td class="px-3 py-3 hidden text-gray-600 md:table-cell dark:text-gray-400">{{ entry.onlineHours | number: '1.1-1' }} h</td>
+                    <td class="px-3 py-3 text-gray-600 dark:text-gray-400">{{ entry.voiceHours | number: '1.1-1' }} h</td>
+                    <td class="px-3 py-3 text-gray-600 dark:text-gray-400">{{ entry.onlineHours | number: '1.1-1' }} h</td>
                   }
                 </tr>
               }

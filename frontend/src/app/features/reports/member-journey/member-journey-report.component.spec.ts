@@ -267,4 +267,30 @@ describe('MemberJourneyReportComponent', () => {
 
     expect(fixture.componentInstance.includeIgnoredChannels).toBeTrue();
   });
+
+  it('em modo presença, padrão semanal usa cards mobile e tabela desktop', () => {
+    httpMock
+      .expectOne((req) => req.url.includes('/reports/member-journey') && req.params.get('signal') === 'voice')
+      .flush({ report: VOICE_JOURNEY_REPORT });
+    fixture.detectChanges();
+
+    fixture.componentInstance.onSignalChange('presence');
+    httpMock
+      .expectOne((req) => req.url.includes('/reports/member-journey') && req.params.get('signal') === 'presence')
+      .flush({ report: JOURNEY_REPORT });
+    fixture.detectChanges();
+
+    const mobile = fixture.nativeElement.querySelector(
+      '[data-testid="journey-patterns-mobile-cards"]',
+    ) as HTMLElement;
+    const desktop = fixture.nativeElement.querySelector(
+      '[data-testid="journey-patterns-desktop-table"]',
+    ) as HTMLElement;
+    expect(mobile).toBeTruthy();
+    expect(desktop).toBeTruthy();
+    expect(mobile.className).toContain('md:hidden');
+    expect(desktop.className).toContain('md:block');
+    expect(mobile.textContent).toContain('Segunda');
+    expect(desktop.querySelector('table')).toBeTruthy();
+  });
 });

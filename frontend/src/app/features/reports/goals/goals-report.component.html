@@ -50,7 +50,7 @@
       </a>
     </div>
 
-    <div *ngIf="report.entries.length > 0" class="space-y-6">
+    <div *ngIf="report.entries.length > 0" class="space-y-6" data-testid="goals-stacked-cards">
       <section *ngFor="let group of entriesByCategory" class="space-y-3">
         <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
           {{ group.categoryName }}
